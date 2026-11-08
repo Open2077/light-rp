@@ -1,311 +1,311 @@
-# Bureau staff RP et reports
+# RP staff desk and reports
 
-## Accès en jeu
+## In-game access
 
-- `/admin` (et `/lightrp.admin`) ouvre le menu admin **LIGHT/RP**, au même
-  emplacement que le menu joueur. C'est le seul menu admin du serveur : il
-  réunit l'ancien menu compact de la plateforme et le bureau staff (voir
-  « Menu admin unifié » plus bas).
-- `/report` et `/reports` ouvrent les dossiers privés du joueur.
-- `/report message` ouvre un nouveau brouillon prérempli. Le joueur complète
-  la catégorie et le sujet avant d'envoyer.
-- **F1 → Reports & support** donne accès au même suivi. L'entrée staff apparaît
-  selon les droits du compte.
-- **↑ / ↓** sélectionnent une ligne, **Entrée** ouvre le sous-menu ou l'action.
-  **← / →** changent les filtres et cases à cocher.
-- **Retour arrière / Échap** remontent d'un niveau, puis ferment à la racine.
-  La ligne sélectionnée est conservée au retour.
-- Les déplacements et la caméra restent disponibles dans les listes. Le clavier
-  et le curseur sont capturés uniquement pendant la saisie d'un formulaire.
-  **Échap** quitte ce formulaire et revient au menu.
-- Les conversations et fiches apparaissent dans un panneau voisin. **Page Up /
-  Page Down** font défiler ses détails. La ligne **Conversation** permet de
-  masquer ce panneau pendant le traitement d'un dossier.
-- `/adminfull` conserve la console technique officielle, avec son ACL habituelle.
+- `/admin` (and `/lightrp.admin`) opens the **LIGHT/RP** admin menu, in the same
+  spot as the player menu. It is the server's only admin menu: it
+  combines the platform's old compact menu and the staff desk (see
+  "Unified admin menu" below).
+- `/report` and `/reports` open the player's private cases.
+- `/report message` opens a new, prefilled draft. The player fills in
+  the category and subject before sending.
+- **F1 → Reports & support** gives access to the same tracking. The staff entry shows up
+  depending on the account's rights.
+- **↑ / ↓** select a row, **Enter** opens the submenu or the action.
+  **← / →** change filters and checkboxes.
+- **Backspace / Esc** go up one level, then close at the root.
+  The selected row is kept when you come back.
+- Movement and the camera stay available in lists. The keyboard
+  and cursor are captured only while you type in a form.
+  **Esc** leaves that form and returns to the menu.
+- Conversations and records appear in a side panel. **Page Up /
+  Page Down** scroll its details. The **Conversation** row lets you
+  hide this panel while you handle a case.
+- `/adminfull` keeps the official technical console, with its usual ACL.
 
-`op77_lightrp` enregistre lui-même `/admin` (droit `command.admin`, le même que
-la plateforme). Le serveur cherche une commande dans les ressources lancées par
-ordre ordinal de nom, et `op77_lightrp` passe avant `open77_admin` : c'est donc
-ce menu qui répond. Le menu compact de la plateforme ne s'ouvre plus par-dessus.
-Aucune modification de `open77_admin` n'est nécessaire, et une mise à jour de la
-distribution ne casse rien. Sans LightRP, le `/admin` officiel reste disponible.
+`op77_lightrp` registers `/admin` itself (right `command.admin`, the same as
+the platform). The server looks up a command across running resources in
+ordinal name order, and `op77_lightrp` comes before `open77_admin`: so
+this menu is the one that answers. The platform's compact menu no longer opens on top.
+No change to `open77_admin` is needed, and a
+distribution update breaks nothing. Without LightRP, the official `/admin` remains available.
 
-## Menu admin unifié
+## Unified admin menu
 
-Les outils de la plateforme et ceux de LightRP sont lancés depuis le menu sous
-forme des commandes restreintes qu'ils sont déjà (`open77:command:execute`). L'ACL
-de l'hôte décide donc de chacune, comme si elle était tapée. La page n'accorde
-rien : la vue d'ensemble envoie la liste des commandes autorisées pour
-l'opérateur (`server/modules/admin.lua`, `COMMANDS`, une seule chaîne) et masque
-le reste. La réponse de chaque commande s'affiche sous le menu, en vert si elle a
-réussi, en rouge si elle a été refusée.
+Platform tools and LightRP tools are launched from the menu as
+the restricted commands they already are (`open77:command:execute`). So the host
+ACL decides on each one, as if it were typed. The page grants
+nothing: the overview sends the list of commands allowed for
+the operator (`server/modules/admin.lua`, `COMMANDS`, a single string) and hides
+the rest. Each command's reply shows under the menu, in green if it
+succeeded, in red if it was refused.
 
-| Section | Contenu |
+| Section | Content |
 | --- | --- |
-| Reports | file des dossiers (inchangé) |
-| Players | fiche RP, puis aller à / ramener / spectate / soigner / ranimer / envoyer vers un lieu ; groupes **Moderation** (avertissement, kick, ban audités, god mode, kill), **Character & money** (nom, job, affiliation, argent audités, faim et soif, street cred, compte), **Give** (arme + munitions de son type, munitions, ses armes et munitions, retirer une arme qu'il n'a pas en main, objet, véhicule au garage, véhicule à côté), **Missions & activities** (gig, mission en cours, contrats, salle TCG) |
-| Personal tools | mode fantôme, noclip, fly, vitesse, god mode, soin, réanimation, faim et soif, compte, console plateforme (`/adminfull`) |
-| Teleport | sur la carte (double-clic), coordonnées, lieux de `LightRpConfig.locations`, ramener tout le monde |
-| Vehicles | catalogue LightRP (`lightrp.car`), n'importe quel record du jeu, réparer et refaire le plein (`lightrp.repair`), plein seul, fourrière, locations, consommation, nettoyage, tout supprimer |
-| Items & weapons | **Weapons** par classe (avec des munitions de son type, l'arme arrive dans la roue des armes), **Ammunition** par type ou toutes, ses propres armes et munitions, puis chaque autre objet par catégorie |
-| World | **Time** (préréglages, heure exacte, figer, reprendre), **Weather** (chaque météo, suivante, aléatoire), **Announcements & voice** (annonce, broadcast vocal serveur / 150 m / off) |
-| Missions & events | éditeur de missions ; **Staff events** (cyberpsychos, attaques de gang, world bosses où l'on veut, soirées, spots : [staff-events.md](staff-events.md)) ; **World bosses** (planning, lancer, lancer celui choisi, programmer, finir en victoire, annuler), **Fixer gigs**, **Contracts & activities** (contrats du jour, activités, turf, Dogtown, salles TCG) |
-| Places & content | tables posées, Maneki-neko, housing, safe zones, panneau des jobs, PNJ guide, hall of fame |
-| Server | statut LightRP et plateforme, bots d'ambiance, ramener tout le monde, tout supprimer, annuler l'action de masse, console plateforme |
-| Staff history | journal des interventions auditées |
+| Reports | case queue (unchanged) |
+| Players | RP record, then go to / bring / spectate / heal / revive / send to a place; groups **Moderation** (audited warning, kick and ban, god mode, kill), **Character & money** (audited name, job, affiliation and money, hunger and thirst, street cred, account), **Give** (weapon + ammo of its type, ammo, their weapons and ammo, remove a weapon they are not holding, item, vehicle to the garage, vehicle next to them), **Missions & activities** (gig, current mission, contracts, TCG room) |
+| Personal tools | ghost mode, noclip, fly, speed, god mode, heal, revive, hunger and thirst, account, platform console (`/adminfull`) |
+| Teleport | on the map (double-click), coordinates, places from `LightRpConfig.locations`, bring everyone |
+| Vehicles | LightRP catalog (`lightrp.car`), any game record, repair and refuel (`lightrp.repair`), refuel only, impound, rentals, fuel consumption, cleanup, delete all |
+| Items & weapons | **Weapons** by class (with ammo of its type; the weapon arrives in the weapon wheel), **Ammunition** by type or all, your own weapons and ammo, then every other item by category |
+| World | **Time** (presets, exact time, freeze, resume), **Weather** (each weather, next, random), **Announcements & voice** (announcement, server voice broadcast / 150 m / off) |
+| Missions & events | mission editor; **Staff events** (cyberpsychos, gang attacks, world bosses wherever you want, event nights, spots: [staff-events.md](staff-events.md)); **World bosses** (schedule, launch, launch the selected one, schedule one, end as a win, cancel), **Fixer gigs**, **Contracts & activities** (daily contracts, activities, turf, Dogtown, TCG rooms) |
+| Places & content | placed tables, Maneki-neko, housing, safe zones, job board, guide NPC, hall of fame |
+| Server | LightRP and platform status, ambient bots, bring everyone, delete all, undo the mass action, platform console |
+| Staff history | log of audited interventions |
 
-**Tout part tout de suite** (choix du propriétaire, 2026-11-05 : « faut que ça
-soit rapide ») : aucune étape de confirmation, aucune raison à écrire. Les actions
-sans champ (aller à, ramener, soigner, kick, avertir, kill, aller à une table, la
-supprimer, un Maneki, finir ou annuler un événement, lancer et démarrer une
-soirée…) s'exécutent dès **Entrée** ; les autres n'affichent que leurs champs utiles
-(montant, durée de ban, nom…) puis **Apply / Run**. L'historique staff enregistre
-toujours chaque intervention, avec une ligne par défaut à la place de la raison. Les listes (véhicules,
-objets, lieux, météos) viennent de `adminCatalog`, sous forme de lignes `a|b|c`
-pour rester sous la limite de 1024 valeurs d'un événement réseau. Le clic droit
-sur un véhicule ou une porte (`open77_contextmenu`) ouvre toujours les actions
-ciblées de la plateforme.
+**Everything runs right away** (owner's choice, 2026-11-05: "it has to
+be fast"): no confirmation step, no reason to type. Actions
+with no field (go to, bring, heal, kick, warn, kill, go to a table, delete
+it, a Maneki, end or cancel an event, launch and start an event
+night…) run as soon as you press **Enter**; the others only show their useful fields
+(amount, ban length, name…) then **Apply / Run**. Staff history still
+records every intervention, with a default line in place of the reason. The lists (vehicles,
+items, places, weathers) come from `adminCatalog`, as `a|b|c` rows
+to stay under the 1024-value limit of a network event. Right-clicking
+a vehicle or a door (`open77_contextmenu`) still opens the platform's
+targeted actions.
 
-Test : `tests/admin_menu_test.lua` vérifie l'enregistrement de `/admin`, la
-projection ACL, la taille du catalogue et `/lightrp.repair`. En dev, le menu
-s'ouvre avec `ui` + `?admin=1`.
+Test: `tests/admin_menu_test.lua` checks the `/admin` registration, the
+ACL projection, the catalog size and `/lightrp.repair`. In dev, the menu
+opens with `ui` + `?admin=1`.
 
-## Parcours joueur / admin
+## Player / admin flow
 
-1. Le joueur crée un report : catégorie, sujet, description et éventuellement
-   un autre joueur connecté. Le serveur enregistre le compte, le personnage,
-   la position et l'instance. Les liens de preuves peuvent être collés dans le
-   texte ; il n'y a pas d'envoi de pièces jointes.
-2. Les admins autorisés reçoivent une notification. **Take this case** affecte
-   le dossier à l'admin et passe son statut à **In progress**. Le joueur voit
-   qui s'en occupe et si cet admin est connecté.
-3. Les deux côtés répondent dans la conversation. **Ask player for information**
-   attend une réponse ; la réponse du joueur remet le dossier en cours.
-4. **Internal staff note** ajoute une note privée, uniquement envoyée aux
-   comptes disposant du droit de consultation des reports.
-5. L'admin assigné ou un superviseur explique la résolution puis utilise
-   **Resolve case**. Le joueur peut aussi fermer son propre dossier avec une raison.
-6. Les dossiers terminés restent consultables avec **Finished / All cases**.
-   Le propriétaire peut demander une réouverture motivée pendant sept jours.
-   Une réouverture remet le dossier dans la file sans admin assigné.
+1. The player creates a report: category, subject, description and optionally
+   another online player. The server records the account, the character,
+   the position and the instance. Evidence links can be pasted into the
+   text; there is no attachment upload.
+2. Authorized admins get a notification. **Take this case** assigns
+   the case to the admin and sets its status to **In progress**. The player sees
+   who is handling it and whether that admin is online.
+3. Both sides reply in the conversation. **Ask player for information**
+   waits for an answer; the player's reply puts the case back in progress.
+4. **Internal staff note** adds a private note, sent only to
+   accounts that have the right to view reports.
+5. The assigned admin or a supervisor explains the resolution, then uses
+   **Resolve case**. The player can also close their own case with a reason.
+6. Finished cases stay viewable with **Finished / All cases**.
+   The owner can ask for a reopening, with a reason, for seven days.
+   A reopening puts the case back in the queue with no assigned admin.
 
-Les réponses, affectations, statuts et notes persistent après déconnexion et
-redémarrage. Le propriétaire est le **compte Open77**, indépendamment du slot
-de personnage. Les noms du personnage et du joueur signalé sont ceux du moment
-du signalement. Un transfert vers un autre admin connecté demande un droit
-supplémentaire. Quitter le serveur ne désaffecte pas automatiquement un dossier.
+Replies, assignments, statuses and notes persist across disconnects and
+restarts. The owner is the **Open77 account**, regardless of the character
+slot. The names of the character and of the reported player are the ones at the time
+of the report. Transferring to another online admin requires an extra
+right. Leaving the server does not automatically unassign a case.
 
-| Statut | Signification |
+| Status | Meaning |
 |---|---|
-| `open` | Attend la prise en charge du staff |
-| `in_progress` | Dossier pris en charge / réponse du joueur reçue |
-| `waiting_player` | Le staff attend une précision du joueur |
-| `resolved` | Résolution expliquée par le staff |
-| `closed` | Dossier fermé avec une raison |
+| `open` | Waiting for staff to take it |
+| `in_progress` | Case taken / player reply received |
+| `waiting_player` | Staff is waiting for more details from the player |
+| `resolved` | Resolution explained by staff |
+| `closed` | Case closed with a reason |
 
-La file propose recherche par numéro, sujet ou nom, filtre de statut, dossiers
-assignés à soi, priorité normale/urgente et indicateur de nouveautés. Les lectures
-joueur et staff sont indépendantes. Les changements sont poussés aux personnes
-concernées ; un rafraîchissement toutes les douze secondes complète ce suivi.
+The queue offers search by number, subject or name, a status filter, cases
+assigned to you, normal/urgent priority and an unread indicator. Player and staff
+read states are independent. Changes are pushed to the people
+involved; a refresh every twelve seconds backs this up.
 
-## Fiches RP et interventions
+## RP records and interventions
 
-**Citizens** affiche le personnage, le nom du compte, le métier, l'affiliation
-et l'état de vie. La fiche ajoute identité RP, histoire, argent liquide,
-banque, position et historique autorisé. La sélection conserve aussi le compte
-et le slot : si le numéro joueur est réutilisé ou le personnage changé,
-l'intervention est refusée et il faut rafraîchir.
+**Citizens** shows the character, account name, job, affiliation
+and life state. The record adds RP identity, backstory, cash,
+bank, position and permitted history. The selection also keeps the account
+and slot: if the player number is reused or the character changed,
+the intervention is refused and you need to refresh.
 
-Selon les permissions : rejoindre un joueur, le ramener, le renvoyer à la
-position précédant le dernier déplacement staff, soigner/réanimer, renommer,
-changer métier/grade ou affiliation, créditer/débiter cash ou banque, avertir,
-exclure, bannir temporairement/définitivement, publier une annonce.
+Depending on permissions: go to a player, bring them, send them back to the
+position before the last staff move, heal/revive, rename,
+change job/grade or affiliation, credit/debit cash or bank, warn,
+kick, ban temporarily/permanently, post an announcement.
 
-Chaque intervention demande une raison et une confirmation indiquant la cible
-et les valeurs choisies. Les changements RP attendent la fin de création du
-personnage. Les déplacements entre instances sont refusés. La position de
-retour est limitée à la session en cours et disparaît à la reconnexion.
+Each intervention asks for a reason and a confirmation that shows the target
+and the chosen values. RP changes wait until character creation
+is finished. Moves between instances are refused. The return
+position is limited to the current session and is lost on reconnect.
 
-L'intention est sauvegardée **avant** l'action dans `lightrp_staff_audit`, puis
-son résultat (`success`, `failed`, `pending`). Un état `pending` signifie qu'il
-faut contrôler la situation avant de recommencer. Réessayer la même requête ne
-recrédite pas l'argent. L'historique conserve l'auteur, la cible, le personnage,
-la raison, les paramètres et le résultat. Les avertissements sont conservés
-dans cet historique ; ils ne déclenchent pas de sanction automatique.
+The intent is saved **before** the action in `lightrp_staff_audit`, then
+its result (`success`, `failed`, `pending`). A `pending` state means you
+must check the situation before trying again. Retrying the same request does not
+credit the money again. The history keeps the author, the target, the character,
+the reason, the parameters and the result. Warnings are kept
+in this history; they do not trigger any automatic sanction.
 
-## Tables posées
+## Placed tables
 
-**Placed tables** (droit `command.lightrp.tables`) liste toutes les tables posées
-(jeux de plateau et tables de casino) : identifiant, type, personnage
-propriétaire et identifiant d'inventaire, connecté ou non, position, instance,
-date de pose, révision, joueurs assis, phase et mises ouvertes (ou *Resolving*
-pendant un tirage). Pages de 15, tri récentes / proches, recherche par
-identifiant, type ou propriétaire.
+**Placed tables** (right `command.lightrp.tables`) lists every placed table
+(board games and casino tables): ID, type, owner
+character and inventory ID, online or not, position, instance,
+placement date, revision, seated players, phase and open bets (or *Resolving*
+during a draw). Pages of 15, sort by recent / nearby, search by
+ID, type or owner.
 
-- **Go to table** : téléportation à côté de la table, face à elle, via
-  `LightRP.staff.moveTo`. Depuis une instance privée vers une table de la ville,
-  arrivée en instance 0 ; une table dans une autre instance privée est refusée.
-- **Remove table** (droit `command.lightrp.tabledelete`) : mêmes règles que le
-  ramassage par le propriétaire. Les mises ouvertes sont remboursées, refus tant
-  qu'une roue ou des rouleaux tournent, le croupier du blackjack disparaît, les
-  joueurs assis sont levés avec une notification. *Give the item back* rend
-  l'objet à l'inventaire du personnage propriétaire dans la même transaction ;
-  hors ligne (ou inventaire plein), il est livré au prochain chargement de ce
-  personnage.
+- **Go to table**: teleport next to the table, facing it, via
+  `LightRP.staff.moveTo`. From a private instance to a city table,
+  you arrive in instance 0; a table in another private instance is refused.
+- **Remove table** (right `command.lightrp.tabledelete`): same rules as
+  pickup by the owner. Open bets are refunded; it is refused while
+  a wheel or reels are spinning; the blackjack dealer disappears; seated
+  players are stood up with a notification. *Give the item back* returns
+  the item to the owner character's inventory in the same transaction;
+  if they are offline (or the inventory is full), it is delivered the next time that
+  character loads.
 
-Raison et confirmation obligatoires, audit dans `lightrp_staff_audit` avant et
-après l'action (`tableTeleport`, `tableDelete`), visible dans **Staff history**.
-Commandes équivalentes : `/lightrp.tables [page | near]`,
-`/lightrp.tables tp <id>`, `/lightrp.tables delete <id> [return]` (la console
-serveur peut lister et supprimer). Détails : `docs/board-games.md`.
+Reason and confirmation required, audit in `lightrp_staff_audit` before and
+after the action (`tableTeleport`, `tableDelete`), visible in **Staff history**.
+Equivalent commands: `/lightrp.tables [page | near]`,
+`/lightrp.tables tp <id>`, `/lightrp.tables delete <id> [return]` (the server
+console can list and delete). Details: `docs/board-games.md`.
 
-## Events (modes anim)
+## Events (staff event modes)
 
-**Events** (droit `command.lightrp.events`) lance des world bosses, des cyberpsychos et
-des attaques de gang là où le staff veut (sa position, un joueur, un spot enregistré, ou
-la place d'origine d'un world boss), à trois niveaux, pour le fun (rien n'est payé ni
-compté) ou payés comme un world boss (droit `command.worldboss.start`). On y trouve aussi
-les événements en cours (aller voir, finir en victoire, annuler), les soirées enchaînées
-(Psycho Night, Boss Rush, Gang War, Siege), les spots enregistrés et l'interrupteur des
-world bosses aléatoires. Chaque action est auditée (`eventLaunch`, `eventStop`…).
-Commande équivalente : `/lightrp.event`. Détails : `docs/staff-events.md`.
+**Events** (right `command.lightrp.events`) launches world bosses, cyberpsychos and
+gang attacks wherever staff want (their position, a player, a saved spot, or
+a world boss's home location), at three levels, either for fun (nothing is paid or
+counted) or paid like a world boss (right `command.worldboss.start`). It also lists
+running events (go and watch, end as a win, cancel), chained event nights
+(Psycho Night, Boss Rush, Gang War, Siege), saved spots and the random world boss
+toggle. Every action is audited (`eventLaunch`, `eventStop`…).
+Equivalent command: `/lightrp.event`. Details: `docs/staff-events.md`.
 
-**Mode fantôme** (`/lightrp.ghost [on|off]`, `server/modules/staff_ghost.lua`) : noclip, le corps
-caché aux autres joueurs (`Open77.players.setVisible`, relu toutes les 2 s car la plateforme le lève
-à la mort, au respawn et au changement d'instance), pas de nametag ni de point sur la carte. La
-liste des fantômes part à chaque client (`op77_lightrp:staff:ghosts`), qui la retire de la carte
-(op77_map3d) et des nametags (op77_playermarks, avec les joueurs en PvP). Le noclip est la commande
-`/admin.self.noclip` de la plateforme, lancée par le client du fantôme : l'ACL décide toujours.
-Droit : `command.lightrp.ghost` (le staff a `command.lightrp.*`).
+**Ghost mode** (`/lightrp.ghost [on|off]`, `server/modules/staff_ghost.lua`): noclip, body
+hidden from other players (`Open77.players.setVisible`, reapplied every 2 s because the platform lifts it
+on death, respawn and instance change), no nametag and no dot on the map. The
+ghost list goes to every client (`op77_lightrp:staff:ghosts`), which removes them from the map
+(op77_map3d) and from nametags (op77_playermarks, along with players in PvP). The noclip is the platform's
+`/admin.self.noclip` command, run by the ghost's client: the ACL still decides.
+Right: `command.lightrp.ghost` (staff have `command.lightrp.*`).
 
-Les outils personnels **Noclip**, **God mode** et **Advanced console** réutilisent
-les commandes natives et leurs permissions. Leur journalisation reste celle
-du package officiel ; `lightrp_staff_audit` couvre les interventions du bureau RP.
-Les anciennes commandes staff restent disponibles.
+The **Noclip**, **God mode** and **Advanced console** personal tools reuse
+the native commands and their permissions. Their logging stays that
+of the official package; `lightrp_staff_audit` covers RP desk interventions.
+The old staff commands remain available.
 
-## Permissions serveur
+## Server permissions
 
-Les droits proviennent exclusivement de l'ACL de l'hôte. Le navigateur ne
-fournit ni rôle ni identité faisant autorité. Toutes les lectures et mutations
-sont contrôlées côté serveur, y compris après les lectures SQL asynchrones.
+Rights come only from the host ACL. The browser supplies
+no authoritative role or identity. Every read and mutation
+is checked on the server, including after asynchronous SQL reads.
 
-| Permission | Accès |
+| Permission | Access |
 |---|---|
-| `command.admin` | Bureau, liste des citoyens et fiches RP |
-| `command.lightrp.reports` | File staff, conversations et notes privées, prise en charge |
-| `command.lightrp.reportassign` | Transfert et gestion des dossiers d'autres admins |
-| `command.lightrp.audit` | Historique des interventions staff |
-| `command.lightrp.goto` | Rejoindre un joueur |
-| `command.lightrp.bring` | Ramener / renvoyer un joueur |
-| `command.lightrp.heal` | Soigner / réanimer |
-| `command.lightrp.setname` | Renommer le personnage |
-| `command.lightrp.setjob` / `setgang` | Métier / affiliation et grade |
-| `command.lightrp.givemoney` / `takemoney` | Crédit / débit (crédit : motif obligatoire, 10 000 €$ au plus par don) |
-| `lightrp.money.unlimited` | Crédit au-delà du plafond par don (`/lightrp.givemoney` et bureau) |
-| `command.lightrp.warn` | Avertissement |
-| `command.admin.moderate.kick` / `ban` | Exclusion / bannissement |
-| `command.lightrp.announce` | Annonce serveur |
-| `command.lightrp.tables` | Tables posées : liste et téléportation |
-| `command.lightrp.tabledelete` | Tables posées : suppression |
-| `command.lightrp.events` | Events : lancer, arrêter, spots, soirées, sans paie |
-| `command.worldboss.start` | Events payés, world bosses aléatoires |
-| `command.admin.self.noclip` / `god` | Outils personnels |
-| `command.adminfull` | Console technique |
+| `command.admin` | Desk, citizen list and RP records |
+| `command.lightrp.reports` | Staff queue, conversations and private notes, taking cases |
+| `command.lightrp.reportassign` | Transferring and managing other admins' cases |
+| `command.lightrp.audit` | Staff intervention history |
+| `command.lightrp.goto` | Go to a player |
+| `command.lightrp.bring` | Bring / send back a player |
+| `command.lightrp.heal` | Heal / revive |
+| `command.lightrp.setname` | Rename the character |
+| `command.lightrp.setjob` / `setgang` | Job / affiliation and grade |
+| `command.lightrp.givemoney` / `takemoney` | Credit / debit (credit: reason required, at most 10,000 €$ per grant) |
+| `lightrp.money.unlimited` | Credit above the per-grant cap (`/lightrp.givemoney` and desk) |
+| `command.lightrp.warn` | Warning |
+| `command.admin.moderate.kick` / `ban` | Kick / ban |
+| `command.lightrp.announce` | Server announcement |
+| `command.lightrp.tables` | Placed tables: list and teleport |
+| `command.lightrp.tabledelete` | Placed tables: delete |
+| `command.lightrp.events` | Events: launch, stop, spots, event nights, unpaid |
+| `command.worldboss.start` | Paid events, random world bosses |
+| `command.admin.self.noclip` / `god` | Personal tools |
+| `command.adminfull` | Technical console |
 
-Les suffixes abrégés dans ce tableau gardent le préfixe de la première permission.
+Short suffixes in this table keep the prefix of the first permission.
 
-Dons d'argent du staff (décision du propriétaire du 2026-11-04,
-`docs/economy-balance.md` §16, réglages `staffGrants` de `server/config/economy.lua`) :
-`/lightrp.givemoney <id|me> <cash|bank> <montant> <motif>` refuse un don sans motif
-d'au moins 4 caractères (il répond l'usage) ; le motif devient la note de la ligne
-`staff` du registre (`lightrp_transactions`, 160 octets au plus). Un don dépasse
-10 000 €$ seulement si le donneur détient **`lightrp.money.unlimited`** ; la console
-du serveur n'est pas plafonnée. Le *Crédit* du bureau suit la même règle (son motif
-d'audit de 4 à 500 caractères est coupé à 160 octets pour la note). Cette permission
-n'est volontairement **pas** sous `command.lightrp.*` : les rôles moderator/operator
-qui détiennent ce joker ne la reçoivent pas ; seul `*` (le propriétaire) ou une ligne
-explicite dans `acl.jsonc` l'accorde, par exemple pour un rôle « owner » :
-`"lightrp.money.unlimited"`, puis `acl.reload`. Le débit (`takemoney`) n'est pas
-plafonné.
-Pour un rôle support minimal, accorder `command.admin` et
-`command.lightrp.reports`. Ajouter `command.lightrp.reportassign` uniquement
-aux superviseurs. La permission générique `command.lightrp.*` inclut ces nouveaux
-droits ; les rôles moderator/operator existants en bénéficient déjà. Le rôle
-helper actuel n'est pas élargi automatiquement : ajouter explicitement le droit
-reports dans `acl.jsonc` si souhaité, puis exécuter `acl.reload` côté serveur. Le rôle helper du `acl.jsonc` d'exemple reçoit
-`command.lightrp.tables` (liste et téléportation, sans suppression).
+Staff money grants (owner's decision of 2026-11-04,
+`docs/economy-balance.md` §16, `staffGrants` settings in `server/config/economy.lua`):
+`/lightrp.givemoney <id|me> <cash|bank> <amount> <reason>` refuses a grant without a reason
+of at least 4 characters (it replies with the usage); the reason becomes the note on the
+`staff` line of the ledger (`lightrp_transactions`, 160 bytes at most). A grant can exceed
+10,000 €$ only if the giver holds **`lightrp.money.unlimited`**; the server
+console is not capped. The desk's *Credit* follows the same rule (its audit reason
+of 4 to 500 characters is cut to 160 bytes for the note). This permission
+is deliberately **not** under `command.lightrp.*`: moderator/operator roles
+that hold that wildcard do not get it; only `*` (the owner) or an explicit line
+in `acl.jsonc` grants it, for example for an "owner" role:
+`"lightrp.money.unlimited"`, then `acl.reload`. Debit (`takemoney`) is not
+capped.
+For a minimal support role, grant `command.admin` and
+`command.lightrp.reports`. Add `command.lightrp.reportassign` only
+for supervisors. The generic `command.lightrp.*` permission includes these new
+rights; existing moderator/operator roles already have them. The current helper
+role is not extended automatically: add the reports right explicitly
+in `acl.jsonc` if you want it, then run `acl.reload` on the server. The helper role in the example `acl.jsonc` gets
+`command.lightrp.tables` (list and teleport, no delete).
 
-Le manifeste du gamemode utilise `players.disconnect` et `players.access` pour
-les sanctions. Le bannissement passe par la liste d'accès persistante du serveur,
-sur l'identité du compte, et déconnecte ses sessions. Warden / la console
-officielle restent disponibles pour la gestion des dé-bannissements.
+The gamemode manifest uses `players.disconnect` and `players.access` for
+sanctions. Bans go through the server's persistent access list,
+on the account identity, and disconnect its sessions. Warden / the official
+console remain available for managing unbans.
 
-## Stockage et limites
+## Storage and limits
 
-Configuration serveur : `server/config/support.lua`.
+Server configuration: `server/config/support.lua`.
 
-- Trois dossiers actifs par compte, créations et réouvertures comprises.
-- Une minute entre deux créations réussies.
-- Réouverture pendant sept jours après résolution / fermeture.
-- Sujet de 4 à 120 caractères, description de 10 à 2 000 caractères.
-- Messages limités à 2 000 caractères ; raisons d'intervention à 500.
-- Listes de 25 dossiers, historique chargé par blocs de 50 messages.
+- Three active cases per account, creations and reopenings included.
+- One minute between two successful creations.
+- Reopening allowed for seven days after resolution / closing.
+- Subject from 4 to 120 characters, description from 10 to 2,000 characters.
+- Messages limited to 2,000 characters; intervention reasons to 500.
+- Lists of 25 cases, history loaded in blocks of 50 messages.
 
-Les créations/réouvertures d'un même compte sont sérialisées, y compris depuis
-deux sessions. Une révision unique par ticket protège les changements concurrents
-de statut et d'affectation ; en cas de conflit, rafraîchir avant de renvoyer.
-Les requêtes d'écriture ont une clé de déduplication. Le brouillon reste affiché
-en cas d'échec ; fermer volontairement le panneau le quitte.
+Creations/reopenings from the same account are serialized, even from
+two sessions. A single revision per ticket protects concurrent status
+and assignment changes; on a conflict, refresh before sending again.
+Write requests carry a deduplication key. The draft stays on screen
+on failure; closing the panel on purpose discards it.
 
-Tables : `lightrp_support_tickets`, `lightrp_support_messages`,
-`lightrp_support_reads`, `lightrp_staff_audit`. Les anciennes lignes de
-`lightrp_reports` sont importées au démarrage, avec leur indicateur de traitement,
-sans suppression de la table d'origine. L'import peut être répété sans doublons.
-Une base indisponible empêche les écritures et interventions auditées, sans
-afficher une réussite fictive. Sauvegarder ces tables avec le reste de la base RP.
+Tables: `lightrp_support_tickets`, `lightrp_support_messages`,
+`lightrp_support_reads`, `lightrp_staff_audit`. Old rows from
+`lightrp_reports` are imported at startup, with their handled flag,
+without deleting the original table. The import can be repeated without duplicates.
+An unavailable database blocks writes and audited interventions, without
+showing a fake success. Back up these tables with the rest of the RP database.
 
 ## Validation
 
-- `python tools/test-tables-admin.py` : ramassage réservé au personnage
-  propriétaire, liste, téléportation, suppression (remboursements, croupier,
-  joueurs levés, retour d'objet différé), permissions et commandes.
-- `python tools/test-support.py` depuis la racine : vrais modules Lua et
-  transactions MySQL dans une base temporaire dédiée, supprimée en fin de test.
-  Nécessite `pymysql`, `lupa` (Lua 5.4) et un accès local permettant de créer cette
-  base. Les paramètres sont lus dans `server.env` sans être affichés.
-- `tests/creator_bridge_test.lua` : priorité clavier, fermeture, masquage vocal,
-  relais support et compatibilité avec l'éditeur de personnage.
-- `ui/tests/support.browser.cjs` : menus RageUI, pile de navigation, sélection
-  conservée, alternance navigation/saisie, création, réponses, erreur avec brouillon
-  conservé, réouverture, notes, fiche RP, confirmation, historique et quatre
-  dimensions d'écran. `UI_URL` pointe vers la page construite et
-  `PLAYWRIGHT_MODULE` peut désigner une installation de Playwright.
-- `npm run build` depuis `ui` : vérification TypeScript et production de la WebUI.
+- `python tools/test-tables-admin.py`: pickup restricted to the owner
+  character, list, teleport, delete (refunds, dealer,
+  players stood up, deferred item return), permissions and commands.
+- `python tools/test-support.py` from the root: real Lua modules and
+  MySQL transactions in a dedicated temporary database, dropped at the end of the test.
+  Requires `pymysql`, `lupa` (Lua 5.4) and local access that can create this
+  database. Settings are read from `server.env` without being printed.
+- `tests/creator_bridge_test.lua`: keyboard priority, closing, voice hiding,
+  support relay and compatibility with the character editor.
+- `ui/tests/support.browser.cjs`: RageUI menus, navigation stack, kept
+  selection, switching between navigation and typing, creation, replies, error with the draft
+  kept, reopening, notes, RP record, confirmation, history and four
+  screen sizes. `UI_URL` points to the built page and
+  `PLAYWRIGHT_MODULE` can point to a Playwright install.
+- `npm run build` from `ui`: TypeScript check and WebUI production build.
 
-En jeu, vérifier avec un joueur et un admin : `/report`, prise en charge dans
-`/admin`, réponse publique, note privée absente côté joueur, résolution,
-reconnexion et consultation du dossier terminé.
+In game, check with one player and one admin: `/report`, taking the case in
+`/admin`, public reply, private note not visible to the player, resolution,
+reconnect and viewing the finished case.
 
-### Armes données par le staff
+### Staff-given weapons
 
-`server/modules/armament_admin.lua` gère les armes données par le staff.
+`server/modules/armament_admin.lua` handles weapons given by staff.
 
-**Commandes**
+**Commands**
 
-| Commande | Effet |
+| Command | Effect |
 | --- | --- |
-| `/lightrp.giveweapon <id\|me> <arme> [munitions]` | donne une arme et, en option, des munitions de son type ; `<arme>` accepte `weapon_lexington`, `lexington`, le record ou le nom affiché |
-| `/lightrp.giveammo <id\|me> <pistol\|rifle\|shotgun\|sniper\|all> <munitions>` | donne des munitions en vrac |
-| `/lightrp.takeweapon <id\|me> <arme>` | retire un exemplaire qu'il n'a pas en main |
-| `/lightrp.weapons <id\|me>` | affiche ce que liste sa roue et ses munitions par type |
+| `/lightrp.giveweapon <id\|me> <weapon> [ammo]` | gives a weapon and, optionally, ammo of its type; `<weapon>` accepts `weapon_lexington`, `lexington`, the record or the display name |
+| `/lightrp.giveammo <id\|me> <pistol\|rifle\|shotgun\|sniper\|all> <ammo>` | gives loose ammo |
+| `/lightrp.takeweapon <id\|me> <weapon>` | removes a copy they are not holding |
+| `/lightrp.weapons <id\|me>` | shows what their wheel lists and their ammo by type |
 
-Les droits viennent de `command.lightrp.*`. Un don est limité à 2000 munitions.
+Rights come from `command.lightrp.*`. A grant is capped at 2000 rounds.
 
-**Pourquoi l'arme apparaît dans la roue :** une arme donnée est un vrai objet sérialisé. Son numéro de série est créé dans la transaction d'inventaire (`armament_store`), dans la même écriture que ses munitions. Ensuite :
+**Why the weapon shows up in the wheel:** a given weapon is a real serialized item. Its serial number is created in the inventory transaction (`armament_store`), in the same write as its ammo. Then:
 
-- la roue des armes du joueur est rafraîchie aussitôt ;
-- une arme en main charge les nouvelles munitions immédiatement.
+- the player's weapon wheel refreshes right away;
+- a weapon in hand loads the new ammo immediately.
 
-**À éviter :** les armes natives de la plateforme (`admin.weap.give`, console `/adminfull`) ne sont pas des objets LightRP. La projection les reprend, et elles n'apparaissent pas dans la roue.
+**Avoid:** the platform's native weapons (`admin.weap.give`, `/adminfull` console) are not LightRP items. The projection takes them back, and they do not show up in the wheel.
 
-Test : `tests/armament_admin_test.lua`, qui utilise l'inventaire et le registre de numéros de série réels.
+Test: `tests/armament_admin_test.lua`, which uses the real inventory and serial number registry.

@@ -1,345 +1,345 @@
-# Progression PvE : réputation, difficultés et cyberware
+# PvE progression: reputation, difficulties and cyberware
 
-Proposition du 2026-11-03, d'après la consigne du propriétaire :
+Proposal of 2026-11-03, based on the owner's brief:
 
-> « Ajouter du nouveau cyberware à la hauteur des niveaux de difficulté du contenu PvE ; le PvP
-> ne fait qu'augmenter tes victoires, etc. »
+> "Add new cyberware that matches the difficulty levels of PvE content; PvP
+> only raises your wins, etc."
 
-Le PvE (missions, raid Chimera, gigs de fixers, activités PvE) est **le seul chemin de
-progression** : il rapporte de la réputation, les paliers de réputation ouvrent les difficultés
-supérieures **et** les rangs de cyberware supérieurs chez le ripperdoc, et le nouveau cyberware
-de pointe correspond à la difficulté la plus dure. Le PvP (modes PvP de l'arène, courses de rue,
-poursuite NCPD 1v1 / Most Wanted, Turf War PvP) ne donne **ni réputation ni puissance** :
-victoires, statistiques, classements, rangs.
+PvE (missions, the Chimera raid, fixer gigs, PvE activities) is **the only progression
+path**: it earns reputation, reputation tiers unlock the higher difficulties
+**and** the higher cyberware ranks at the ripperdoc, and the new top-end cyberware
+matches the hardest difficulty. PvP (arena PvP modes, street races,
+NCPD 1v1 / Most Wanted chases, Turf War PvP) gives **neither reputation nor power**:
+wins, stats, leaderboards, ranks.
 
-**Validé par le propriétaire le 2026-11-03 et fusionné dans `lightrp/pve-merge`** (avec les
-crews de `lightrp/activities`), avec un changement : les équipiers sous le palier ne sont plus
-jamais refusés (§8, décision 5). Tous les chiffres sont dans la configuration
-(`server/config/missions.lua`, `server/config/activities.lua`, `server/config/cyberware.lua`) et
-se règlent sans toucher au code.
+**Approved by the owner on 2026-11-03 and merged into `lightrp/pve-merge`** (with the
+crews from `lightrp/activities`), with one change: crew members below the tier are never
+refused anymore (§8, decision 5). All the numbers live in the configuration
+(`server/config/missions.lua`, `server/config/activities.lua`, `server/config/cyberware.lua`) and
+can be tuned without touching the code.
 
-## 1. Les paliers de réputation (« Street Cred »)
+## 1. Reputation tiers ("Street Cred")
 
-La réputation reste par personnage (`lightrp_mission_rep`). Les trois premiers seuils ne
-changent pas (`0, 500, 1500`) : un personnage existant garde son palier. Deux paliers sont
-ajoutés.
+Reputation stays per character (`lightrp_mission_rep`). The first three thresholds do not
+change (`0, 500, 1500`): an existing character keeps their tier. Two tiers are
+added.
 
-| Palier | Nom | Seuil | Écart | Ce qu'il ouvre |
+| Tier | Name | Threshold | Gap | What it unlocks |
 |---|---|---:|---:|---|
-| I | Street | 0 | — | Difficulté **Standard** partout ; cyberware rangs I–II |
-| II | Merc | 500 | 500 | Difficulté **Hard** ; cyberware rang III |
-| III | Operator | 1 500 | 1 000 | Difficulté **Critical** ; cyberware rang IV |
-| IV | Edgerunner | 4 000 | 2 500 | Cyberware rang V (légendaires actuels + nouveaux) |
-| V | Legend | 10 000 | 6 000 | Cyberware rang **V+** (nouveau haut de gamme) |
+| I | Street | 0 | — | **Standard** difficulty everywhere; cyberware ranks I–II |
+| II | Merc | 500 | 500 | **Hard** difficulty; cyberware rank III |
+| III | Operator | 1,500 | 1,000 | **Critical** difficulty; cyberware rank IV |
+| IV | Edgerunner | 4,000 | 2,500 | Cyberware rank V (current legendaries + new ones) |
+| V | Legend | 10,000 | 6,000 | Cyberware rank **V+** (new top end) |
 
-### D'où vient la réputation
+### Where reputation comes from
 
-| Source | Standard | Hard | Critical | Plafond |
+| Source | Standard | Hard | Critical | Cap |
 |---|---:|---:|---:|---|
-| Mission (Sector 04, missions de l'éditeur) | 100 | 220 | 450 | 25 % sur le même point pendant 60 min après une réputation pleine |
-| Raid Chimera | 100 | 220 | 450 | idem |
-| Gig de fixer | 100 | 220 | 450 | idem |
-| Activité PvE (par résultat, poids 1,0) | 30 | 60 | 100 | 500 / compte / jour |
-| Activité PvP, course, poursuite, Turf War PvP | 0 | 0 | 0 | — |
+| Mission (Sector 04, editor missions) | 100 | 220 | 450 | 25% at the same point for 60 min after a full-reputation payout |
+| Chimera raid | 100 | 220 | 450 | same |
+| Fixer gig | 100 | 220 | 450 | same |
+| PvE activity (per result, weight 1.0) | 30 | 60 | 100 | 500 / account / day |
+| PvP activity, race, chase, Turf War PvP | 0 | 0 | 0 | — |
 
-Les montants des missions sont ceux d'aujourd'hui (`reputationGain`). Une mission ratée ne
-rapporte rien. Une activité PvE pèse selon sa durée (§4).
+Mission amounts are today's values (`reputationGain`). A failed mission earns
+nothing. A PvE activity is weighted by its length (§4).
 
-Depuis l'audit de la prod du 2026-11-04 (`docs/economy-balance.md` §15), une mission ou un
-gig **de l'éditeur** rapporte sa réputation au prorata de sa taille, comme ses eddies :
-ennemis à battre ÷ 12 / 18 / 24 (Standard / Hard / Critical), au plus 1. Un contrat de
-3 ennemis donne 25 / 61 / 113 au lieu de 100 / 220 / 450 ; Sector 04, le raid Chimera
-et les contrats complets ne changent pas.
+Since the production audit of 2026-11-04 (`docs/economy-balance.md` §15), an **editor**
+mission or gig pays its reputation in proportion to its size, like its eddies:
+enemies to defeat ÷ 12 / 18 / 24 (Standard / Hard / Critical), capped at 1. A
+3-enemy contract gives 25 / 61 / 113 instead of 100 / 220 / 450; Sector 04, the Chimera raid
+and full contracts are unchanged.
 
-Depuis la décision du propriétaire du 2026-11-04 (`docs/economy-balance.md` §16), la
-réputation des missions, gigs, Sector 04 et raid Chimera suit la même règle de répétition
-que l'argent, par personnage et par point de mission : après une réussite qui a rapporté
-la réputation pleine, le même point ne rapporte que **25 %** de sa réputation pendant
-**60 min** (`missions.reputationRepeatShare` / `reputationCooldownMinutes` dans
-`server/config/economy.lua`). La notice de fin le dit (« +25 reputation (25% of 100: this
-job gave you its full reputation less than 60 min ago, full reputation again in 42 min) »),
-comme l'annonce au lancement. Changer de point de mission rend la réputation pleine ; le
-plafond journalier de l'argent ne touche pas la réputation.
+Since the owner's decision of 2026-11-04 (`docs/economy-balance.md` §16),
+reputation from missions, gigs, Sector 04 and the Chimera raid follows the same repeat rule
+as money, per character and per mission point: after a success that paid
+full reputation, the same point only pays **25%** of its reputation for
+**60 min** (`missions.reputationRepeatShare` / `reputationCooldownMinutes` in
+`server/config/economy.lua`). The end notice says so ("+25 reputation (25% of 100: this
+job gave you its full reputation less than 60 min ago, full reputation again in 42 min)"),
+as does the announcement at launch. Switching to another mission point restores full reputation; the
+daily money cap does not affect reputation.
 
-### Temps pour atteindre chaque palier
+### Time to reach each tier
 
-Hypothèse « joueur régulier qui fait du PvE » : file d'attente, trajets et échecs compris
-(réussite estimée 85 % en Standard, 70 % en Hard, 55 % en Critical), il gagne environ
-**180 réputation/h** en Standard, **280/h** en Hard et **350–400/h** en Critical, missions et
-activités PvE mêlées. Base d'environ 1 h 30 de PvE par jour de jeu.
+Assumption, a "regular player who does PvE": counting queues, travel and failures
+(estimated success 85% in Standard, 70% in Hard, 55% in Critical), they earn about
+**180 reputation/h** in Standard, **280/h** in Hard and **350–400/h** in Critical, mixing missions and
+PvE activities. Baseline of about 1 h 30 of PvE per day played.
 
-| Palier | Heures de PvE cumulées | Calendrier (≈ 1 h 30/jour) | Joueur assidu (≈ 3 h/jour) |
+| Tier | Cumulative PvE hours | Calendar (≈ 1 h 30/day) | Dedicated player (≈ 3 h/day) |
 |---|---:|---|---|
-| II Merc | ≈ 3 h | 2e soir | 1er soir |
-| III Operator | ≈ 6–7 h | fin de la 1re semaine | 3e jour |
-| IV Edgerunner | ≈ 13–14 h | ≈ 2 semaines | ≈ 1 semaine |
-| V Legend | ≈ 30 h | ≈ 3–4 semaines | ≈ 1,5–2 semaines |
+| II Merc | ≈ 3 h | 2nd evening | 1st evening |
+| III Operator | ≈ 6–7 h | end of the 1st week | 3rd day |
+| IV Edgerunner | ≈ 13–14 h | ≈ 2 weeks | ≈ 1 week |
+| V Legend | ≈ 30 h | ≈ 3–4 weeks | ≈ 1.5–2 weeks |
 
-Le palier V est l'objectif de fond des premières semaines après l'ouverture. Abaisser son seuil
-à 8 000 le ramène à ≈ 25 h (question au propriétaire, §8).
+Tier V is the long-term goal for the first weeks after launch. Lowering its threshold
+to 8,000 brings it down to ≈ 25 h (question for the owner, §8).
 
-## 2. Ce que chaque palier ouvre
+## 2. What each tier unlocks
 
 | | I Street | II Merc | III Operator | IV Edgerunner | V Legend |
 |---|:-:|:-:|:-:|:-:|:-:|
-| Missions et raid : Standard | ● | ● | ● | ● | ● |
-| Missions et raid : Hard | | ● | ● | ● | ● |
-| Missions et raid : Critical | | | ● | ● | ● |
-| Gigs de fixers proposés jusqu'à | Standard | Hard | Critical | Critical | Critical |
-| Activités PvE : difficulté max | Standard | Hard | Critical | Critical | Critical |
-| Cyberware : rang max | II | III | IV | V | V+ |
+| Missions and raid: Standard | ● | ● | ● | ● | ● |
+| Missions and raid: Hard | | ● | ● | ● | ● |
+| Missions and raid: Critical | | | ● | ● | ● |
+| Fixer gigs offered up to | Standard | Hard | Critical | Critical | Critical |
+| PvE activities: max difficulty | Standard | Hard | Critical | Critical | Critical |
+| Cyberware: max rank | II | III | IV | V | V+ |
 
-**Missions et raid.** Une difficulté s'ouvre quand le palier est atteint **et** que la difficulté
-précédente a été réussie au même point (l'échelle actuelle « Standard avant Hard » est gardée :
-on apprend la mission avant de la durcir). Les deux conditions se règlent séparément
-(`reputation.requireTier`, `reputation.requireClear`). Le palier requis vient de l'id de la
-difficulté (`standard` → I, `hard` → II, `critical` → III) : les missions de l'éditeur, qui n'ont
-pas de palier, suivent la même règle. Ces deux conditions bornent le choix du **chef** du crew
-(et d'un joueur solo) ; un **membre** du crew sous la difficulté choisie n'est jamais refusé : il
-est inscrit et lancé avec le crew, joue la difficulté pleine, touche la paie entière, et gagne la
-réputation de la plus haute difficulté que lui a ouverte (palier **et** clears ;
-`Missions.rewardBasis`). Il le lit une fois, en notice « STREET CRED », à l'inscription.
+**Missions and raid.** A difficulty unlocks when the tier is reached **and** the previous
+difficulty has been cleared at the same point (the current "Standard before Hard" ladder is kept:
+you learn the mission before making it harder). The two conditions are tuned separately
+(`reputation.requireTier`, `reputation.requireClear`). The required tier comes from the
+difficulty id (`standard` → I, `hard` → II, `critical` → III): editor missions, which have
+no tier, follow the same rule. These two conditions limit the choice of the crew **leader**
+(and of a solo player); a crew **member** below the chosen difficulty is never refused: they
+are signed up and launched with the crew, play the full difficulty, get the full pay, and earn the
+reputation of the highest difficulty they have unlocked (tier **and** clears;
+`Missions.rewardBasis`). They see this once, in a "STREET CRED" notice, at sign-up.
 
-**Gigs de fixers.** Le fixer ne propose au propriétaire du gig que des difficultés de son palier.
-Un équipier invité par partage peut être d'un palier inférieur (le propriétaire se porte garant),
-mais il ne gagne que la réputation de la difficulté la plus haute que son palier autorise : un
-Street porté dans un gig Critical gagne 100, pas 450. Cela empêche le « boost » sans interdire de
-jouer entre amis.
+**Fixer gigs.** The fixer only offers the gig owner difficulties within their tier.
+A crew member invited through sharing can be a lower tier (the owner vouches for them),
+but they only earn the reputation of the highest difficulty their tier allows: a
+Street carried through a Critical gig earns 100, not 450. This prevents "boosting" without banning
+play between friends.
 
-**Activités PvE.** Le noyau refuse à un joueur solo ou à un chef de crew une difficulté au-dessus
-de son palier. Un membre de crew reçoit la difficulté du chef, même au-dessus de son palier :
-il la joue en entier et son résultat compte à la difficulté la plus haute de son palier (dit une
-fois en notice). Le mode bots du staff n'enregistre toujours aucun résultat, PvE compris.
+**PvE activities.** The core refuses a solo player or a crew leader any difficulty above
+their tier. A crew member gets the leader's difficulty, even above their own tier:
+they play all of it, and their result counts at the highest difficulty their tier allows (told
+once in a notice). The staff bot mode still records no results, PvE included.
 
-## 3. Le cyberware après le changement
+## 3. Cyberware after the change
 
-Règle : un implant exige le palier de réputation de son rang. Rangs I–II → palier I (ouvert à
-tous, y compris aux joueurs purement RP), III → II, IV → III, V → IV, V+ → V. Le serveur refuse
-l'installation (message « Street cred too low ») ; la clinique affiche l'implant verrouillé avec
-le palier demandé. La **dépose** reste toujours possible. Un implant **déjà posé** au-dessus du
-palier reste actif (rien n'est retiré à personne). La commande staff `/lightrp.cyberware <id> give`
-ignore le palier.
+Rule: an implant requires the reputation tier of its rank. Ranks I–II → tier I (open to
+everyone, including pure RP players), III → II, IV → III, V → IV, V+ → V. The server refuses
+the install (message "Street cred too low"); the clinic shows the implant locked with
+the required tier. **Removal** is always possible. An implant **already installed** above the
+tier stays active (nothing is taken away from anyone). The staff command `/lightrp.cyberware <id> give`
+ignores the tier.
 
-Le nouveau haut de gamme est volontairement fait d'effets que la plateforme applique déjà sur la
-dist 177 : statistiques passives (vie max, armure, endurance, régénérations) et nouveaux préréglages
-de Dash et d'Overdrive (une nouvelle définition par préréglage, aucune définition existante n'est
-modifiée). Pas de nouvelles jambes ni de nouveaux bras : leurs définitions durables sont
-immuables, en ajouter un grade imposerait un changement de version sur des implants déjà payés.
+The new top end is deliberately made of effects the platform already applies on
+dist 177: passive stats (max health, armor, stamina, regeneration) and new Dash and Overdrive
+presets (one new definition per preset; no existing definition is
+changed). No new legs or arms: their durable definitions are
+immutable, and adding a grade would force a version change on implants already paid for.
 
-| Implant | Système | Rang | Palier | Prix (€$) | Effet |
+| Implant | System | Rank | Tier | Price (€$) | Effect |
 |---|---|:-:|:-:|---:|---|
-| Iron Lungs | Circulatoire | II | I | 6 000 | +40 endurance max |
-| Subdermal Armor | Tégumentaire | II | I | 6 500 | +30 armure |
-| Titanium Bones | Squelette | II | I | 7 500 | +25 vie max |
-| Reinforced Tendons | Jambes | II | I | 9 500 | Double saut (15 endurance) |
-| Adrenaline Booster | Circulatoire | III | II | 8 500 | +8 endurance/s |
-| Biomonitor | Circulatoire | III | II | 9 000 | +1,5 vie/s |
-| Fortified Ankles | Jambes | III | II | 11 000 | Aucun dégât de chute |
-| Neofiber Actuators | Nerveux | III | II | 13 000 | Dash, 1 charge |
-| Gorilla Arms | Bras | III | II | 15 000 | Poings hydrauliques, non létaux |
-| Subdermal Armor Mk.2 | Tégumentaire | IV | III | 16 000 | +60 armure |
-| Kinetic Impact Frame | Squelette | IV | III | 18 000 | Ground Slam |
-| Reinforced Tendons Mk.2 | Jambes | IV | III | 24 000 | Double saut (8 endurance, 0,5 s) |
-| Epimorphic Skeleton | Squelette | IV | III | 24 000 | +60 vie max |
-| Sandevistan Mk.1 | Système | IV | III | 26 000 | Overdrive 10 s |
-| Mantis Blades | Bras | IV | III | 28 000 | Lames d'avant-bras |
-| Neofiber Actuators Mk.2 | Nerveux | IV | III | 30 000 | Dash, 3 charges |
-| Gorilla Arms Mk.2 | Bras | IV | III | 36 000 | Poings industriels, charge létale |
-| **Iron Lungs Mk.2** *(nouveau)* | Circulatoire | V | IV | 34 000 | +80 endurance max |
-| **Adrenaline Booster Mk.2** *(nouveau)* | Circulatoire | V | IV | 36 000 | +15 endurance/s |
-| **Bioplastic Blood Vessels** *(nouveau)* | Circulatoire | V | IV | 42 000 | +3 vie/s |
-| Electric Mantis Blades | Bras | V | IV | 62 000 | Lames, tranchant électrique |
-| Sandevistan Mk.3 | Système | V | IV | 64 000 | Overdrive lourd, 2 charges |
-| **Neofiber Actuators Mk.3** *(nouveau)* | Nerveux | V+ | V | 85 000 | Dash, 3 charges, 5 endurance, 0,3 s, recharge 1 s |
-| **Aegis Dermal Plating** *(nouveau)* | Tégumentaire | V+ | V | 90 000 | +100 armure |
-| **Rara Avis** *(nouveau)* | Squelette | V+ | V | 95 000 | +100 vie max |
-| **Zetatech Apogee** *(nouveau)* | Système | V+ | V | 120 000 | Overdrive lourd 11 s, 2 charges, recharge 22 s, 30 endurance |
+| Iron Lungs | Circulatory | II | I | 6,000 | +40 max stamina |
+| Subdermal Armor | Integumentary | II | I | 6,500 | +30 armor |
+| Titanium Bones | Skeleton | II | I | 7,500 | +25 max health |
+| Reinforced Tendons | Legs | II | I | 9,500 | Double jump (15 stamina) |
+| Adrenaline Booster | Circulatory | III | II | 8,500 | +8 stamina/s |
+| Biomonitor | Circulatory | III | II | 9,000 | +1.5 health/s |
+| Fortified Ankles | Legs | III | II | 11,000 | No fall damage |
+| Neofiber Actuators | Nervous | III | II | 13,000 | Dash, 1 charge |
+| Gorilla Arms | Arms | III | II | 15,000 | Hydraulic fists, non-lethal |
+| Subdermal Armor Mk.2 | Integumentary | IV | III | 16,000 | +60 armor |
+| Kinetic Impact Frame | Skeleton | IV | III | 18,000 | Ground Slam |
+| Reinforced Tendons Mk.2 | Legs | IV | III | 24,000 | Double jump (8 stamina, 0.5 s) |
+| Epimorphic Skeleton | Skeleton | IV | III | 24,000 | +60 max health |
+| Sandevistan Mk.1 | Operating System | IV | III | 26,000 | Overdrive 10 s |
+| Mantis Blades | Arms | IV | III | 28,000 | Forearm blades |
+| Neofiber Actuators Mk.2 | Nervous | IV | III | 30,000 | Dash, 3 charges |
+| Gorilla Arms Mk.2 | Arms | IV | III | 36,000 | Industrial fists, lethal charge |
+| **Iron Lungs Mk.2** *(new)* | Circulatory | V | IV | 34,000 | +80 max stamina |
+| **Adrenaline Booster Mk.2** *(new)* | Circulatory | V | IV | 36,000 | +15 stamina/s |
+| **Bioplastic Blood Vessels** *(new)* | Circulatory | V | IV | 42,000 | +3 health/s |
+| Electric Mantis Blades | Arms | V | IV | 62,000 | Blades, electric edge |
+| Sandevistan Mk.3 | Operating System | V | IV | 64,000 | Heavy Overdrive, 2 charges |
+| **Neofiber Actuators Mk.3** *(new)* | Nervous | V+ | V | 85,000 | Dash, 3 charges, 5 stamina, 0.3 s, 1 s recharge |
+| **Aegis Dermal Plating** *(new)* | Integumentary | V+ | V | 90,000 | +100 armor |
+| **Rara Avis** *(new)* | Skeleton | V+ | V | 95,000 | +100 max health |
+| **Zetatech Apogee** *(new)* | Operating System | V+ | V | 120,000 | Heavy Overdrive 11 s, 2 charges, 22 s recharge, 30 stamina |
 
-Fourchettes de prix : rang II 6–10 k, III 8–15 k, IV 16–36 k, V 34–64 k, **V+ 85–120 k**. Les
-familles restent un seul emplacement natif : un modèle supérieur remplace l'inférieur, rien ne
-s'additionne (Rara Avis remplace Epimorphic Skeleton, Aegis remplace la Subdermal Armor…).
+Price ranges: rank II 6–10 k, III 8–15 k, IV 16–36 k, V 34–64 k, **V+ 85–120 k**.
+Families are still a single native slot: a higher model replaces the lower one, nothing
+stacks (Rara Avis replaces Epimorphic Skeleton, Aegis replaces the Subdermal Armor…).
 
-Ordre de grandeur, palier V tout équipé : 200 vie + 100 armure, soit environ trois fois la
-résistance d'un corps nu. C'est voulu pour le Critical (dégâts ennemis × 1,6, barrage Chimera à
-55) ; c'est aussi la raison de la question PvP du §8.
+Ballpark, fully equipped at tier V: 200 health + 100 armor, about three times the
+toughness of a bare body. This is intended for Critical (enemy damage × 1.6, Chimera barrage at
+55); it is also why §8 asks the PvP question.
 
-Les prix du haut de gamme dépendent des gains que l'agent économie fixe pour les missions et les
-gigs : ils sont à revoir avec lui avant validation.
+Top-end prices depend on the earnings the economy agent sets for missions and
+gigs: they need to be reviewed with it before approval.
 
-## 4. Les difficultés des activités PvE
+## 4. PvE activity difficulties
 
-Mêmes trois difficultés que les missions, mêmes multiplicateurs que l'éditeur de missions
-(`shared/mission_defs.lua`), pour que « Hard » veuille dire la même chose partout.
+Same three difficulties as missions, same multipliers as the mission editor
+(`shared/mission_defs.lua`), so that "Hard" means the same thing everywhere.
 
 | | Standard | Hard | Critical |
 |---|:-:|:-:|:-:|
-| Palier minimum | I | II | III |
-| Réputation de base (victoire, poids 1,0) | 30 | 60 | 100 |
-| Nombre d'ennemis | × 1 | × 1,5 | × 2 |
-| Vie des ennemis | × 1 | × 1,5 | × 2,25 |
-| Dégâts des ennemis | × 1 | × 1,25 | × 1,6 |
-| IA | `standard` | `veteran` | `veteran`, agressive, pas de réapparition joueur si le mode le permet |
+| Minimum tier | I | II | III |
+| Base reputation (win, weight 1.0) | 30 | 60 | 100 |
+| Enemy count | × 1 | × 1.5 | × 2 |
+| Enemy health | × 1 | × 1.5 | × 2.25 |
+| Enemy damage | × 1 | × 1.25 | × 1.6 |
+| AI | `standard` | `veteran` | `veteran`, aggressive, no player respawn if the mode allows it |
 
-Le noyau transmet au fournisseur `options.difficulty` (`standard` | `hard` | `critical`) et
-`options.scaling = { enemies, health, damage, ai }` tirés de `server/config/activities.lua`
-(`pve.difficulties`) : le propriétaire règle tout au même endroit, le fournisseur traduit dans son
-moteur.
+The core passes the provider `options.difficulty` (`standard` | `hard` | `critical`) and
+`options.scaling = { enemies, health, damage, ai }`, taken from `server/config/activities.lua`
+(`pve.difficulties`): the owner tunes everything in one place, and the provider translates it into its own
+engine.
 
-**Réputation par résultat** = réputation de base de la difficulté × poids de l'activité, arrondie.
-Si le fournisseur n'envoie pas de `reputation`, une victoire (`won = true`) rapporte le montant
-plein et une défaite rien ; s'il en envoie une (crédit partiel, une 2e place), le noyau la borne au
-montant plein. Plafond quotidien commun aux activités PvE : **500 par compte** (tous ses
-personnages), par jour UTC.
+**Reputation per result** = the difficulty's base reputation × the activity weight, rounded.
+If the provider sends no `reputation`, a win (`won = true`) pays the full
+amount and a loss nothing; if it sends one (partial credit, a 2nd place), the core caps it at the
+full amount. Daily cap shared by all PvE activities: **500 per account** (all its
+characters), per UTC day.
 
-| Activité | Poids | Standard | Hard | Critical | Pourquoi ce poids |
+| Activity | Weight | Standard | Hard | Critical | Why this weight |
 |---|:-:|---:|---:|---:|---|
-| `arena.pve` Combat Zone · PvE | 1,0 | 30 | 60 | 100 | manche d'environ 10 min |
-| `race.pve` Street Race vs AI | 0,5 | 15 | 30 | 50 | course de 2 à 5 min |
-| `turf.pve` Gang Sweep | 1,2 | 36 | 72 | 120 | nettoyage d'environ 15 min |
-| `chase.pve` NCPD Escape | 0,6 | 18 | 36 | 60 | fuite de 3 à 6 min |
+| `arena.pve` Combat Zone · PvE | 1.0 | 30 | 60 | 100 | round of about 10 min |
+| `race.pve` Street Race vs AI | 0.5 | 15 | 30 | 50 | race of 2 to 5 min |
+| `turf.pve` Gang Sweep | 1.2 | 36 | 72 | 120 | sweep of about 15 min |
+| `chase.pve` NCPD Escape | 0.6 | 18 | 36 | 60 | escape of 3 to 6 min |
 
-## 5. Le côté PvP
+## 5. The PvP side
 
-- **Aucune réputation**, quel que soit le montant que le fournisseur propose : le noyau met la
-  réputation à 0 pour toute activité qui n'est pas PvE. La notice de fin le dit sans « +rep ».
-- Conservé tel quel : parties, victoires, kills, morts, meilleur score / temps / place
-  (`lightrp_activity_stats`), classements du panneau (top 5, au temps pour les courses), et les
-  classements propres aux fournisseurs (cote de l'arène classée, poursuite classée, influence
-  hebdomadaire des gangs de Turf War).
-- Rappel : l'activité `arena.pve` s'enregistre aujourd'hui avec `kind = "pvp"`. Le genre ne suffit
-  donc pas à reconnaître le PvE, d'où le drapeau explicite `pve = true` (§6).
-- Retour arrière possible : `reputation.pvpGrants = true` rend l'ancien comportement (réputation
-  PvP bornée à 50 par résultat).
-- **Option, non implémentée : titres cosmétiques.** Un titre par activité selon les victoires
-  (10 « Contender », 50 « Veteran », 200 « Champion »), affiché dans le panneau et le classement.
-  Aucun effet de jeu. À décider (§8).
+- **No reputation**, whatever amount the provider offers: the core sets
+  reputation to 0 for any activity that is not PvE. The end notice shows it without "+rep".
+- Kept as is: matches, wins, kills, deaths, best score / time / place
+  (`lightrp_activity_stats`), panel leaderboards (top 5, by time for races), and the
+  providers' own rankings (ranked arena rating, ranked chase, weekly
+  Turf War gang influence).
+- Reminder: the `arena.pve` activity currently registers with `kind = "pvp"`. So the kind is not
+  enough to recognize PvE, hence the explicit `pve = true` flag (§6).
+- Rollback possible: `reputation.pvpGrants = true` restores the old behavior (PvP reputation
+  capped at 50 per result).
+- **Option, not implemented: cosmetic titles.** One title per activity based on wins
+  (10 "Contender", 50 "Veteran", 200 "Champion"), shown in the panel and the leaderboard.
+  No gameplay effect. To be decided (§8).
 
-## 6. Le contrat pour les fournisseurs (ajouts rétrocompatibles)
+## 6. The provider contract (backward-compatible additions)
 
-- `activityRegister(def)` accepte `def.pve = true` (les résultats rapportent de la réputation) et
-  `def.difficulties = { "standard", "hard", "critical" }` (les difficultés que le fournisseur sait
-  vraiment jouer ; un id inconnu est ignoré). Sans `pve`, la liste `pve.activities` de la config
-  peut marquer une activité comme PvE (c'est le cas de `arena.pve`, `race.pve`, `turf.pve` et
-  `chase.pve` en attendant que chaque fournisseur pose le drapeau). `pve = false` l'emporte sur la
-  liste. Une activité PvE sans `difficulties` n'a qu'une difficulté implicite, Standard.
-- Le panneau propose la difficulté (cadenas et palier requis sur celles qui sont fermées) ; le
-  noyau refuse la demande au-dessus du palier et transmet `options.difficulty` et
+- `activityRegister(def)` accepts `def.pve = true` (results earn reputation) and
+  `def.difficulties = { "standard", "hard", "critical" }` (the difficulties the provider can
+  actually play; an unknown id is ignored). Without `pve`, the config's `pve.activities` list
+  can mark an activity as PvE (that is the case for `arena.pve`, `race.pve`, `turf.pve` and
+  `chase.pve` until each provider sets the flag). `pve = false` wins over the
+  list. A PvE activity without `difficulties` has only one implicit difficulty, Standard.
+- The panel offers the difficulty (padlock and required tier on the locked ones); the
+  core refuses a request above the tier and passes `options.difficulty` and
   `options.scaling`.
-- `activityCheck(id, activityId, { difficulty })` : vérifie aussi le palier — celui du joueur, ou
-  pour un membre de crew celui de son chef : un membre sous la difficulté passe dès que son chef
-  peut la choisir.
-- `activityEnter(id, activityId, { difficulty })` : refuse au-dessus du palier d'un joueur solo ou
-  d'un chef, et retient la difficulté sur l'entrée ; sans ce troisième argument, l'entrée reprend
-  celle de la demande du panneau (celle du chef pour un membre mis en file avec lui), sinon la
-  première proposée. Un membre de crew sous le palier de la difficulté du chef **entre** à cette
-  difficulté (le fournisseur l'inscrit dans l'instance du chef, rien à changer) ; seule sa
-  réputation est abaissée (`e.carried`, notice « STREET CRED » une fois).
-- Crochet de module `onActivityChanged(id, activityId, { pve, kind, difficulty })` à l'entrée,
-  `onActivityChanged(id, nil, { left, reason })` à la libération (utilisé par le cyberware).
-- Commande joueur : `/activity join <id> <difficulté>` (par ex. `arena.pve hard`).
-- Résultat : `result.difficulty` facultatif (utilisé seulement si l'entrée n'en a pas). La
-  réputation suit le §4.
-- Rien ne change pour un fournisseur PvP : ses résultats sont enregistrés comme avant, à 0 de
-  réputation.
+- `activityCheck(id, activityId, { difficulty })`: also checks the tier — the player's, or
+  for a crew member, their leader's: a member below the difficulty gets through as soon as their leader
+  can pick it.
+- `activityEnter(id, activityId, { difficulty })`: refuses above the tier of a solo player or
+  a leader, and stores the difficulty on the entry; without this third argument, the entry takes
+  the one from the panel request (the leader's, for a member queued with them), otherwise the
+  first one offered. A crew member below the tier of the leader's difficulty **enters** at that
+  difficulty (the provider signs them into the leader's instance, nothing to change); only their
+  reputation is lowered (`e.carried`, "STREET CRED" notice once).
+- Module hook `onActivityChanged(id, activityId, { pve, kind, difficulty })` on entry,
+  `onActivityChanged(id, nil, { left, reason })` on release (used by cyberware).
+- Player command: `/activity join <id> <difficulty>` (e.g. `arena.pve hard`).
+- Result: optional `result.difficulty` (only used if the entry has none). The
+  reputation follows §4.
+- Nothing changes for a PvP provider: its results are recorded as before, at 0
+  reputation.
 
-### Ce que chaque fournisseur PvE doit changer (suivi)
+### What each PvE provider must change (tracking)
 
-| Fournisseur | À faire |
+| Provider | To do |
 |---|---|
-| `op77_arena` (`arena.pve`) | `pve = true`, `difficulties = { "standard", "hard", "critical" }` ; lire `options.difficulty` / `options.scaling` à la demande et les garder sur l'instance (une instance par difficulté, ou refuser de mélanger) ; bots : `botsFirst`/`botsPerPlayer` × `scaling.enemies` (plafond `botsMax`), profil `relaxed`→`standard` / `veteran` / `veteran`, vie et dégâts des bots × `scaling` si le moteur le permet ; résultat : `difficulty`, `won` et **ne plus envoyer `reputation`** (ou une part ≤ au montant plein) ; garder `minRoundMs` ; corriger `kind = "pvp"` n'est pas nécessaire. |
-| `op77_race` (`race.pve`) | `pve = true`, `difficulties` ; Hard : pilotes IA plus rapides (≈ +5 % de vitesse cible, rattrapage réduit), Critical : grille pleine, +10 %, pas d'aide au rattrapage ; réputation : victoire = montant plein (omettre), podium = moitié en crédit partiel, sinon 0 ; garder `minimumMetres` / `minimumSeconds`. |
-| `op77_turf` (`turf.pve`, à venir) | `pve = true`, `difficulties` ; vagues : nombre d'ennemis × `scaling.enemies`, vie / dégâts × `scaling`, Critical : ennemis blindés et chrono serré ; résultat avec `difficulty` et `won`. Turf War PvP inchangé (0 réputation, influence de gang conservée). |
-| `op77_chase` (`chase.pve`, à venir) | `pve = true`, `difficulties` ; niveau de recherche et nombre de poursuivants NCPD × `scaling.enemies`, MaxTac en Critical ; résultat : `won` = évadé. 1v1 et Most Wanted inchangés (0 réputation). |
+| `op77_arena` (`arena.pve`) | `pve = true`, `difficulties = { "standard", "hard", "critical" }`; read `options.difficulty` / `options.scaling` on request and keep them on the instance (one instance per difficulty, or refuse to mix); bots: `botsFirst`/`botsPerPlayer` × `scaling.enemies` (cap `botsMax`), profile `relaxed`→`standard` / `veteran` / `veteran`, bot health and damage × `scaling` if the engine allows it; result: `difficulty`, `won` and **stop sending `reputation`** (or a share ≤ the full amount); keep `minRoundMs`; fixing `kind = "pvp"` is not needed. |
+| `op77_race` (`race.pve`) | `pve = true`, `difficulties`; Hard: faster AI drivers (≈ +5% target speed, reduced catch-up), Critical: full grid, +10%, no catch-up help; reputation: win = full amount (omit it), podium = half as partial credit, otherwise 0; keep `minimumMetres` / `minimumSeconds`. |
+| `op77_turf` (`turf.pve`, upcoming) | `pve = true`, `difficulties`; waves: enemy count × `scaling.enemies`, health / damage × `scaling`, Critical: armored enemies and a tight timer; result with `difficulty` and `won`. Turf War PvP unchanged (0 reputation, gang influence kept). |
+| `op77_chase` (`chase.pve`, upcoming) | `pve = true`, `difficulties`; wanted level and number of NCPD pursuers × `scaling.enemies`, MaxTac in Critical; result: `won` = escaped. 1v1 and Most Wanted unchanged (0 reputation). |
 
-Tous : lire `options.squad` comme aujourd'hui, et appeler `activityCheck(membre, id, { difficulty })`
-avant de faire entrer un équipier qui n'est pas passé par le panneau.
+All of them: read `options.squad` as today, and call `activityCheck(member, id, { difficulty })`
+before letting in a crew member who did not go through the panel.
 
-## 7. Implémentation (branche `lightrp/pve-progression`, fusionnée dans `lightrp/pve-merge`)
+## 7. Implementation (branch `lightrp/pve-progression`, merged into `lightrp/pve-merge`)
 
-- `server/config/missions.lua` : cinq seuils, noms des paliers, palier par difficulté,
+- `server/config/missions.lua`: five thresholds, tier names, tier per difficulty,
   `requireTier` / `requireClear`.
-- `server/modules/missions.lua` : `Missions.tierInfo`, `Missions.requiredTier`,
-  `Missions.tierAllows`, `Missions.reputationFor` ; le tableau de mission montre et applique le
-  palier requis ; la réputation d'un gig suit le palier de chaque équipier.
-- `server/modules/fixers.lua` : le fixer ne tire que des difficultés du palier du propriétaire.
-- `server/config/activities.lua` + `server/modules/activities.lua` : `pve`, `difficulties`, porte
-  de difficulté, réputation PvE par difficulté et par poids, PvP à 0, palier dans l'état du panneau,
-  crochet `onActivityChanged` pour les modules.
-- `server/config/cyberware.lua` + `server/modules/cyberware.lua` : sept implants, palier par rang,
-  refus serveur, catalogue verrouillé envoyé à la clinique, interrupteur `activeInPvp`.
-- Clinique (`ripperdoc-ui`) : implants verrouillés avec le palier demandé, réputation du patient
-  dans l'en-tête. **Le bundle `op77_ripperdoc/web` n'est pas reconstruit dans la branche** : à
-  reconstruire au moment de fusionner (`npm run build` dans `ripperdoc-ui`).
-- Panneau Activités et tableau de mission (`ui/`) : choix de difficulté verrouillé, palier requis,
-  palier du joueur.
-- Après la décision du 2026-11-03 (`lightrp/pve-merge`) : `Missions.rewardBasis` /
-  `Missions.reputationFor(id, d, point, ladder)` (la récompense de la plus haute difficulté
-  ouverte), `Missions.tellCarried` (la notice), le drapeau `carried` des membres d'un tableau
-  (pas de porte à l'inscription ni au lancement) ; `difficultyFor` dans `activities.lua` (la porte
-  du chef pour un membre), la difficulté du chef sur la file des membres ; la notice de fin nomme
-  la difficulté jouée et celle qui a payé ; le tableau de mission expose `reputation`, `earns`,
-  `earnsAs` par difficulté (un membre peut ouvrir le tableau d'une difficulté qui lui est fermée).
+- `server/modules/missions.lua`: `Missions.tierInfo`, `Missions.requiredTier`,
+  `Missions.tierAllows`, `Missions.reputationFor`; the mission board shows and enforces the
+  required tier; a gig's reputation follows each crew member's tier.
+- `server/modules/fixers.lua`: the fixer only rolls difficulties within the owner's tier.
+- `server/config/activities.lua` + `server/modules/activities.lua`: `pve`, `difficulties`, difficulty
+  gate, PvE reputation by difficulty and by weight, PvP at 0, tier in the panel state,
+  `onActivityChanged` hook for modules.
+- `server/config/cyberware.lua` + `server/modules/cyberware.lua`: seven implants, tier per rank,
+  server refusal, locked catalog sent to the clinic, `activeInPvp` switch.
+- Clinic (`ripperdoc-ui`): locked implants with the required tier, the patient's reputation
+  in the header. **The `op77_ripperdoc/web` bundle is not rebuilt in the branch**: rebuild
+  it at merge time (`npm run build` in `ripperdoc-ui`).
+- Activities panel and mission board (`ui/`): locked difficulty choice, required tier,
+  player's tier.
+- After the 2026-11-03 decision (`lightrp/pve-merge`): `Missions.rewardBasis` /
+  `Missions.reputationFor(id, d, point, ladder)` (the reward of the highest unlocked
+  difficulty), `Missions.tellCarried` (the notice), the `carried` flag on board members
+  (no gate at sign-up or launch); `difficultyFor` in `activities.lua` (the leader's gate
+  for a member), the leader's difficulty on the members' queue; the end notice names
+  the difficulty played and the one that paid; the mission board exposes `reputation`, `earns`,
+  `earnsAs` per difficulty (a member can open the board for a difficulty that is locked to them).
 
-## 8. Décisions du propriétaire (2026-11-03)
+## 8. Owner decisions (2026-11-03)
 
-En bref : paliers, noms, prix du haut de gamme, poids PvE et 500/jour validés tels que proposés ;
-l'échelle « réussir la précédente » est gardée ; le cyberware reste actif en PvP classé ; les
-implants déjà posés au-dessus du palier restent posés et actifs ; **un équipier sous le palier
-n'est jamais refusé** (il joue, pour la récompense de ce qu'il a ouvert) ; titres cosmétiques PvP
-voulus plus tard, pas construits maintenant. Les questions telles qu'elles étaient posées :
+In short: tiers, names, top-end prices, PvE weights and 500/day approved as proposed;
+the "clear the previous one" ladder is kept; cyberware stays active in ranked PvP; implants
+already installed above the tier stay installed and active; **a crew member below the tier
+is never refused** (they play, for the reward of what they have unlocked); PvP cosmetic titles
+wanted later, not built now. The questions as they were asked:
 
-1. **Cyberware en PvP classé.** Aujourd'hui les implants restent actifs dans toutes les activités
-   (sauf les lames Mantis, refusées quand l'activité range les armes RP). Faut-il les couper en PvP
-   par équité ? Interrupteur `LightRpCyberwareConfig.activeInPvp`, **par défaut `true`
-   (comportement actuel)**. À `false`, entrer dans une activité non PvE suspend Dash, Overdrive,
-   Ground Slam et les bonus passifs, rendus à la sortie. Limite : les jambes et bras durables
-   (double saut, Gorilla Arms) restent actifs, la plateforme les tient en enregistrement durable.
-   → **Décidé : actifs** (`activeInPvp = true`, le défaut).
-2. **Seuils** `0 / 500 / 1 500 / 4 000 / 10 000` et noms des paliers. → **Validés.**
-3. **Prix du haut de gamme** (85–120 k) à caler sur les gains de missions de l'agent économie.
-   → **Validés tels que proposés.**
-4. **Échelle des missions** : garder « réussir la difficulté précédente » en plus du palier ?
-   → **Gardée.**
-5. **Équipiers sous le palier** : refusés aux tableaux de mission (chaque membre doit avoir le
-   palier), acceptés dans un gig partagé avec la réputation de leur palier. Convient-il ?
-   → **Changé : jamais refusés.** Quand le chef choisit une difficulté (tableau de mission, raid
-   Chimera, gig, activité PvE par `activityCheck` / `activityEnter` avec `{ difficulty }` ou par
-   la file du crew), un membre dont le palier (ou le clear précédent) ne l'ouvre pas entre quand
-   même et la joue pleine ; seule sa réputation tombe à celle de la plus haute difficulté qu'il a
-   ouverte (la règle des gigs, partout). La porte du chef reste (il ne choisit que ce qu'il a
-   ouvert) ; un joueur solo reste soumis à la porte. Le membre le lit une fois : « Critical is
-   above your street cred: you play it, you earn the Standard reward. »
-6. **Implants déjà posés** au-dessus du palier : conservés (proposé) ou déposés et remboursés ?
-   → **Conservés et actifs.**
-7. **Titres cosmétiques PvP** : oui / non. → **Voulus plus tard, pas construits maintenant.**
-8. **Réputation des activités PvE** : 30 / 60 / 100 par résultat, poids par activité, 500 par
-   jour. → **Validés.**
+1. **Cyberware in ranked PvP.** Today implants stay active in every activity
+   (except Mantis blades, refused when the activity holsters RP weapons). Should they be turned off in PvP
+   for fairness? Switch `LightRpCyberwareConfig.activeInPvp`, **default `true`
+   (current behavior)**. At `false`, entering a non-PvE activity suspends Dash, Overdrive,
+   Ground Slam and passive bonuses, which come back on exit. Limit: durable legs and arms
+   (double jump, Gorilla Arms) stay active, since the platform holds them in a durable registration.
+   → **Decided: active** (`activeInPvp = true`, the default).
+2. **Thresholds** `0 / 500 / 1 500 / 4 000 / 10 000` and tier names. → **Approved.**
+3. **Top-end prices** (85–120 k), to be aligned with the economy agent's mission earnings.
+   → **Approved as proposed.**
+4. **Mission ladder**: keep "clear the previous difficulty" on top of the tier?
+   → **Kept.**
+5. **Crew members below the tier**: refused on mission boards (every member must have the
+   tier), accepted in a shared gig with their own tier's reputation. Is that OK?
+   → **Changed: never refused.** When the leader picks a difficulty (mission board, Chimera
+   raid, gig, PvE activity through `activityCheck` / `activityEnter` with `{ difficulty }` or through
+   the crew queue), a member whose tier (or previous clear) does not unlock it still gets in
+   and plays it in full; only their reputation drops to that of the highest difficulty they have
+   unlocked (the gig rule, everywhere). The leader's gate stays (they only pick what they have
+   unlocked); a solo player is still subject to the gate. The member sees it once: "Critical is
+   above your street cred: you play it, you earn the Standard reward."
+6. **Implants already installed** above the tier: kept (proposed) or removed and refunded?
+   → **Kept and active.**
+7. **PvP cosmetic titles**: yes / no. → **Wanted later, not built now.**
+8. **PvE activity reputation**: 30 / 60 / 100 per result, weight per activity, 500 per
+   day. → **Approved.**
 
-## 9. Vérifier en jeu
+## 9. Checking in game
 
-1. `/missions.rep <id> 0`, ouvrir le tableau Sector 04 : Hard et Critical verrouillés, « REP TIER
-   II » / « REP TIER III ». `/missions.rep <id> 500` puis `/missions.unlock <id> sector04_blackout
-   standard` : Hard s'ouvre. `/missions.rep <id>` seul affiche le palier.
-2. S'asseoir sur une chaise de ripperdoc à 0 réputation : les rangs III et plus sont marqués « REP
-   II » à « REP V », l'installation est refusée côté serveur ; à 10 000 tout s'ouvre.
-3. Panneau Activités : `Combat Zone · PvE` propose Standard / Hard / Critical, les difficultés au-
-   dessus du palier sont fermées ; une demande forcée (`/activity join arena.pve hard`) à 0
-   réputation est refusée (« Hard needs reputation tier II (Merc) »). Tant que `op77_arena` ne lit
-   pas `options.difficulty`, la manche se joue à sa difficulté actuelle ; il envoie encore
-   `reputation` 18 (victoire) ou 3 (défaite), que le noyau borne au plafond de la difficulté : la
-   notice de fin dit « Standard · won · +18 reputation » aujourd'hui, « +30 » quand le fournisseur
-   cessera d'envoyer un montant pour une victoire.
-4. Une manche `arena.ffa` : la notice de fin n'affiche plus de réputation, le classement compte la
-   victoire.
-5. `LightRpCyberwareConfig.activeInPvp = false`, `ensure op77_lightrp`, entrer en `arena.duel` avec
-   un Sandevistan : `/lightrp.cyberware <id> status` montre `overdrive=none` pendant le duel, la
-   concession revient au retour.
-6. Le bundle de la clinique doit d'abord être reconstruit (`npm run build` dans `ripperdoc-ui`,
-   qui écrit `resources/standalone/op77_ripperdoc/web`) pour voir les verrous ; sans cela le
-   serveur refuse quand même la pose, la page affiche seulement l'erreur.
-7. Crew sous le palier : un chef à 5 000 avec Standard et Hard réussis (`/missions.unlock`), un
-   membre à 0 dans son crew, `/missions.size sector04_blackout critical 2 8`. Le tableau du
-   membre montre Critical verrouillé « WITH THE CREW +100 REP » ; le chef inscrit Critical, la
-   réponse dit « reduced reward: <membre> (Standard) », le membre lit la notice STREET CRED ;
-   `/missions.complete <chef>` : paie Critical aux deux, +450 au chef, « +100 reputation
-   (Standard reward) » au membre. Le même membre seul est refusé à Critical.
+1. `/missions.rep <id> 0`, open the Sector 04 board: Hard and Critical locked, "REP TIER
+   II" / "REP TIER III". `/missions.rep <id> 500` then `/missions.unlock <id> sector04_blackout
+   standard`: Hard unlocks. `/missions.rep <id>` alone shows the tier.
+2. Sit on a ripperdoc chair at 0 reputation: ranks III and up are marked "REP
+   II" to "REP V", and the install is refused server-side; at 10,000 everything unlocks.
+3. Activities panel: `Combat Zone · PvE` offers Standard / Hard / Critical, and difficulties
+   above the tier are locked; a forced request (`/activity join arena.pve hard`) at 0
+   reputation is refused ("Hard needs reputation tier II (Merc)"). As long as `op77_arena` does not read
+   `options.difficulty`, the round plays at its current difficulty; it still sends
+   `reputation` 18 (win) or 3 (loss), which the core caps at the difficulty's ceiling: the
+   end notice says "Standard · won · +18 reputation" today, and "+30" once the provider
+   stops sending an amount for a win.
+4. An `arena.ffa` round: the end notice no longer shows reputation, and the leaderboard counts the
+   win.
+5. `LightRpCyberwareConfig.activeInPvp = false`, `ensure op77_lightrp`, enter `arena.duel` with
+   a Sandevistan: `/lightrp.cyberware <id> status` shows `overdrive=none` during the duel, and the
+   grant comes back on return.
+6. The clinic bundle must be rebuilt first (`npm run build` in `ripperdoc-ui`,
+   which writes `resources/standalone/op77_ripperdoc/web`) to see the locks; without it the
+   server still refuses the install, and the page only shows the error.
+7. Crew below the tier: a leader at 5,000 with Standard and Hard cleared (`/missions.unlock`), a
+   member at 0 in their crew, `/missions.size sector04_blackout critical 2 8`. The member's
+   board shows Critical locked "WITH THE CREW +100 REP"; the leader signs up for Critical, the
+   reply says "reduced reward: <member> (Standard)", and the member reads the STREET CRED notice;
+   `/missions.complete <leader>`: pays Critical to both, +450 to the leader, "+100 reputation
+   (Standard reward)" to the member. The same member on their own is refused Critical.

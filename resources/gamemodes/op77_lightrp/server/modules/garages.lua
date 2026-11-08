@@ -272,7 +272,7 @@ local function tellImpounded(row, playerId)
         body = string.format("%s is at the impound (%s). Recover it at any public garage%s.", label(row),
             string.lower(REASONS[row.impound_reason] or "towed"), fee > 0 and (" for " .. money(fee)) or ", free of charge") })
 end
--- A wreck: what the code can really tell (docs/economy-balance.md, fourrière). The live
+-- A wreck: what the code can really tell (docs/economy-balance.md, "Impound"). The live
 -- canonical record (destroyed / exploded flags, health 0), the damage event seen while
 -- it was out (row.wrecked), or the last captured properties. A removal with none of
 -- those (deleted, cleaned up, lost to a bug) is "lost", the smaller fee.

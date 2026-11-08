@@ -1,1173 +1,1173 @@
 # op77_lightrp
 
-Le framework Light Roleplay d'**Open//77 Official Roleplay**, en un seul package : serveur,
-client et une WebUI globale React + TypeScript habillée du design system Open//77 RP
-(jaune sur noir, chanfreins, lisibilités mono, mouvement mécanique).
+The Light Roleplay framework of **Open//77 Official Roleplay**, in a single package: server,
+client and a global React + TypeScript WebUI dressed in the Open//77 RP design system
+(yellow on black, chamfers, monospace readouts, mechanical motion).
 
 ```
 op77_lightrp/
-├── open77.lua                 manifeste : scripts, dépendances, permissions, page WebUI
+├── open77.lua                 manifest: scripts, dependencies, permissions, WebUI page
 ├── shared/
-│   ├── events.lua             tous les noms d'événements (miroir de ui/src/bridge/protocol.ts)
-│   └── config.lua             spawn, lieux, chat, besoins, voix, véhicules, touches (téléchargé par les clients)
+│   ├── events.lua             every event name (mirror of ui/src/bridge/protocol.ts)
+│   └── config.lua             spawn, places, chat, needs, voice, vehicles, keys (downloaded by clients)
 ├── server/
-│   ├── core/framework.lua     LightRP : modules, actions, commandes, état de la page, notices
-│   ├── core/persistence.lua   LightRP.db : le bridge MySQL, schémas, dégradation sans base
-│   ├── modules/characters.lua personnages (nom, position, temps de jeu), /register
-│   ├── modules/needs.lua      faim / soif
-│   ├── modules/chat.lua       parole RP par distance, /me /do /try /roll /w /s /ooc /pm /who /rules /help
-│   ├── modules/vehicles.lua   un véhicule civil par joueur, /car /cars /dv
-│   ├── modules/staff.lua      ACL, /lightrp.*, /report, actions staff de la page
-│   ├── modules/ui.lua         clé `server` de l'état, diffusion périodique
-│   └── main.lua               arrivée (dernière position) et réveil à l'hôpital
+│   ├── core/framework.lua     LightRP: modules, actions, commands, page state, notices
+│   ├── core/persistence.lua   LightRP.db: the MySQL bridge, schemas, running without a database
+│   ├── modules/characters.lua characters (name, position, play time), /register
+│   ├── modules/needs.lua      hunger / thirst
+│   ├── modules/chat.lua       RP speech by distance, /me /do /try /roll /w /s /ooc /pm /who /rules /help
+│   ├── modules/vehicles.lua   one civilian vehicle per player, /car /cars /dv
+│   ├── modules/staff.lua      ACL, /lightrp.*, /report, the page's staff actions
+│   ├── modules/ui.lua         the `server` state key, periodic broadcast
+│   └── main.lua               arrival (last position) and waking up at the hospital
 ├── client/
-│   ├── core/ui.lua            la surface WebUI, le bridge, le focus, les relais réseau
-│   ├── core/hud.lua           échantillonnage vitaux / véhicule / voix / horloge → page
-│   └── main.lua               création, touche F5 (rebindable)
-└── web/                       la page construite (ne pas éditer : `npm run build` dans ../../../ui)
+│   ├── core/ui.lua            the WebUI surface, the bridge, focus, network relays
+│   ├── core/hud.lua           samples vitals / vehicle / voice / clock → page
+│   └── main.lua               creation, F5 key (rebindable)
+└── web/                       the built page (do not edit: `npm run build` in ../../../ui)
 ```
 
-## Bureau staff RP et reports
+## RP staff desk and reports
 
-`/admin` (ou `/lightrp.admin`) ouvre **le** menu admin du serveur, compact façon
-RageUI et dans la DA LIGHT/RP. Il réunit les outils de la plateforme (`open77_admin` :
-noclip, véhicules, météo, actions de masse…) et ceux de LightRP (missions, world
-bosses, gigs, objets, contenu) : reports, joueurs, outils perso, téléport,
-véhicules, objets et armes, monde, missions et événements, lieux et contenu,
-serveur, historique. Chaque entrée n'apparaît que si l'ACL l'autorise. Les
-déplacements restent libres pendant la navigation.
-`/report`, `/reports` ou **F1 → Reports & support** donnent aux
-joueurs un suivi privé et persistant, avec admin assigné, réponses, statuts,
-notifications et possibilité de réouverture. Les notes internes restent réservées
-au staff. `/adminfull` conserve la console technique officielle.
+`/admin` (or `/lightrp.admin`) opens **the** server admin menu, compact in the RageUI
+style and in the LIGHT/RP look. It brings together the platform tools (`open77_admin`:
+noclip, vehicles, weather, mass actions…) and the LightRP ones (missions, world
+bosses, gigs, items, content): reports, players, personal tools, teleport,
+vehicles, items and weapons, world, missions and events, places and content,
+server, history. Each entry only shows up if the ACL allows it. You can still
+move freely while browsing the menu.
+`/report`, `/reports` or **F1 → Reports & support** give players
+a private, persistent ticket, with an assigned admin, replies, statuses,
+notifications and the option to reopen it. Internal notes stay
+staff-only. `/adminfull` keeps the official technical console.
 
-[Parcours, permissions, stockage, limites et tests](docs/admin-support.md).
+[Flow, permissions, storage, limits and tests](docs/admin-support.md).
 
-**Éditeur de missions** (`/lightrp.missions`, ACL `command.lightrp.missions`) : créer en jeu des missions Élimination ou Survie (vagues),
-avec périmètre (avertissement puis mort hors zone), points de spawn ennemis, checkpoints déclencheurs, vagues, difficultés et test immédiat.
-Les missions enregistrées avant l'équilibrage passent au nouveau barème avec `/lightrp.missions.repay` (aperçu) puis
-`/lightrp.missions.repay apply` (staff). Voir [docs/mission-editor.md](docs/mission-editor.md).
+**Mission editor** (`/lightrp.missions`, ACL `command.lightrp.missions`): create Elimination or Survival (waves) missions in game,
+with a perimeter (warning, then death outside the zone), enemy spawn points, trigger checkpoints, waves, difficulties and instant testing.
+Missions saved before the balancing pass move to the new pay scale with `/lightrp.missions.repay` (preview) then
+`/lightrp.missions.repay apply` (staff). See [docs/mission-editor.md](docs/mission-editor.md).
 
-**Éditeur de cartes** (`/lightrp.maps`, ACL `command.lightrp.maps`) : créer en jeu les cartes des jeux d'`op77_games`, avec le mode construction
-de l'éditeur de missions : choisir un jeu, voir ses cartes, créer, dupliquer, renommer, activer ou désactiver, supprimer, ouvrir. Ce qu'une carte
-exige vient du `schema` que chaque jeu déclare à côté de ses règles ; le noyau stocke (`lightrp_game_maps`) et valide. Un brouillon incomplet
-s'enregistre mais ne s'active jamais, et un jeu n'offre que 8 cartes : la neuvième est refusée. Aucun redémarrage : les salons suivent, une partie
-en cours garde sa carte. Voir [docs/map-editor.md](docs/map-editor.md).
+**Map editor** (`/lightrp.maps`, ACL `command.lightrp.maps`): create in game the maps for the `op77_games` games, with the mission editor's
+build mode: pick a game, see its maps, create, duplicate, rename, enable or disable, delete, open. What a map
+requires comes from the `schema` each game declares next to its rules; the core stores (`lightrp_game_maps`) and validates. An incomplete draft
+can be saved but is never enabled, and a game offers only 8 maps: the ninth is refused. No restart needed: lobbies follow along, and a match
+in progress keeps its map. See [docs/map-editor.md](docs/map-editor.md).
 
-## Création de personnage et scène d'arrivée
+## Character creation and arrival scene
 
-### Placement de la scène
+### Placing the scene
 
-Commande staff : `/lightrp.scene` (ACL `command.lightrp.scene`). Elle masque
-l'assistant de création, libère les contrôles et réserve un bucket privé à midi,
-par temps ensoleillé. Aucun déplacement automatique : marcher jusqu'au lieu choisi.
+Staff command: `/lightrp.scene` (ACL `command.lightrp.scene`). It hides
+the creation wizard, frees the controls and reserves a private bucket at noon,
+in sunny weather. Nothing moves you automatically: walk to the chosen spot.
 
-- `/lightrp.scene sit` : pose assise à la position et dans la direction actuelles.
-- `/lightrp.scene walk` : se relever pour changer de lieu ; F7 change la perspective.
-- `/lightrp.scene move 0 0 0.05` : monter l'ancrage de 5 cm (axes monde X/Y/Z,
-  valeurs entre -1 et 1 m). La pose est relancée après chaque ajustement.
-- `/lightrp.scene turn 15` : ajouter 15 degrés à l'orientation.
-- `/lightrp.scene preview 3.6 -1.5 0.4 1.2 48` : aperçu caméra devant le
-  personnage (distance, décalage latéral, hauteur caméra, hauteur visée, FOV).
-  Masque le HUD et joue la musique à faible volume ; `walk` restaure la vue.
-- `/lightrp.scene save` : enregistrer l'ancrage de la pose et son orientation dans
-  le KVP `creator.placement.draft`, avec copie lisible dans le journal serveur.
-- `/lightrp.scene stop` : terminer le réglage et restaurer le bucket précédent.
+- `/lightrp.scene sit`: sitting pose at the current position and facing.
+- `/lightrp.scene walk`: stand up to change spots; F7 switches the perspective.
+- `/lightrp.scene move 0 0 0.05`: raise the anchor by 5 cm (world axes X/Y/Z,
+  values between -1 and 1 m). The pose is replayed after each adjustment.
+- `/lightrp.scene turn 15`: add 15 degrees to the heading.
+- `/lightrp.scene preview 3.6 -1.5 0.4 1.2 48`: camera preview in front of the
+  character (distance, side offset, camera height, aim height, FOV).
+  Hides the HUD and plays the music at low volume; `walk` restores the view.
+- `/lightrp.scene save`: save the pose anchor and its heading to
+  the KVP `creator.placement.draft`, with a readable copy in the server log.
+- `/lightrp.scene stop`: finish tuning and restore the previous bucket.
 
-L'enregistrement reste un brouillon : reporter les valeurs validées dans
-`characters.arrivalScene.position/heading` de `shared/config.lua`. `autoStart`
-active la scène à la fin du choix natif du corps. Le banc validé est celui du
-décor : `bench = false` évite de créer un second meuble au même endroit.
+What you save is only a draft: copy the approved values into
+`characters.arrivalScene.position/heading` in `shared/config.lua`. `autoStart`
+starts the scene at the end of the native body selection. The approved bench is the one
+already in the set: `bench = false` avoids spawning a second bench in the same spot.
 
-Le parcours propose identité, origine/histoire facultatives, révision de
-l'apparence puis confirmation. Chaque étape dispose d'un plan dans `shots`, en
-coordonnées relatives au personnage (X droite, Y devant, Z hauteur). Les plans
-s'enchaînent en douceur ; le bouton **Still camera** et la préférence système
-de mouvement réduit suppriment les mouvements. **Cloudy Day** se joue localement
-à `musicVolume = 0.12`, avec un bouton de sourdine.
+The flow offers identity, an optional origin/backstory, an appearance
+review, then confirmation. Each step has a shot in `shots`, in
+coordinates relative to the character (X right, Y forward, Z height). Shots
+blend smoothly into each other; the **Still camera** button and the system
+reduced-motion preference remove camera movement. **Cloudy Day** plays locally
+at `musicVolume = 0.12`, with a mute button.
 
-La scène possède un bucket isolé, ensoleillé à midi, libéré au départ. L'arrivée
-charge le quartier via la transaction de respawn avant d'asseoir le personnage ;
-`approachOffset` place les pieds sur le trottoir, hors du collider du banc.
-L'image reste couverte tant que la pose native n'est pas présentée. Un échec de
-chargement ou de caméra donne un bouton de nouvelle tentative. L'éditeur natif
-rend ensuite la main à la scène ; confirmer le personnage libère caméra, musique,
-HUD et immobilisation avant le spawn du joueur. Les modifications d'apparence
-restent gérées et sauvegardées par `open77_appearance`.
+The scene has its own isolated bucket, sunny at noon, released when you leave. The arrival
+loads the district through the respawn transaction before sitting the character down;
+`approachOffset` puts the feet on the sidewalk, outside the bench collider.
+The screen stays covered until the native pose is shown. A loading or
+camera failure gives a retry button. The native editor
+then hands control back to the scene; confirming the character releases the camera, music,
+HUD and freeze before the player spawns. Appearance changes
+are still handled and saved by `open77_appearance`.
 
-Le manifeste doit conserver `player.appearance.read` : la scène attend la
-fermeture réelle de l'éditeur, y compris après annulation, avant de reprendre
-la caméra et le focus. Les brouillons enregistrés reprennent à la bonne étape
-après reconnexion ; un personnage confirmé rejoint directement la ville.
+The manifest must keep `player.appearance.read`: the scene waits for the
+editor to really close, including after a cancel, before taking back
+the camera and focus. Saved drafts resume at the right step
+after reconnecting; a confirmed character goes straight into the city.
 
-## Premier jour : tutoriel dans le hall d'arrivée
+## First day: tutorial in the arrival hall
 
-Après la confirmation du personnage, **Your first day** se joue dans le hall
-d'arrivée : la ville blanche de la ressource de carte `lobby`, hors de Night
-City, dans son propre bucket de routage (620000). Le paquet `open77_lobby_cubes`
-y tient la nuit et le ciel dégagé. Un travelling remonte l'avenue, puis Mara, la
-guide, attend sur la place. Les dialogues sont textuels ; la musique reste
-locale et discrète.
+After the character is confirmed, **Your first day** plays in the arrival
+hall: the white city of the `lobby` map resource, outside Night
+City, in its own routing bucket (620000). The `open77_lobby_cubes` package
+keeps it at night with a clear sky. A tracking shot travels up the avenue, then Mara, the
+guide, waits in the square. Dialogue is text only; the music stays
+local and quiet.
 
-Le parcours apprend les vraies mécaniques, dans cet ordre. Les nouveaux chapitres
-voix et Alt sont détaillés dans le [guide d'intégration](docs/first-day-interactions-voice.md).
+The flow teaches the real mechanics, in this order. The new voice and Alt
+chapters are described in the [integration guide](docs/first-day-interactions-voice.md).
 
-1. Marcher jusqu'à Mara et lui parler : la vie en ville et les règles RP.
-2. Installer le **Neural-Link** (F2, séquence Kiroshi d'`op77_neuralink`) : obligatoire,
-   l'étape attend l'implant et range le téléphone à la fin.
-3. Configurer la voix : périphériques, push-to-talk clavier/souris ou activation,
-   puis test local. « Déjà configuré » et « Passer » restent disponibles.
-4. **S'habiller** : le nouveau venu arrive en sous-vêtements. La cabine d'essayage au
-   fond de la boutique du hall (`wardrobes.spots.lobby_fitting`) ouvre la garde-robe ;
-   l'étape attend une tenue enregistrée avec un haut et un bas
-   (`open77:presentation:committed`, `Wardrobe.dressed`), et passe d'elle-même si le
-   personnage est déjà habillé. Comme toute garde-robe d'un lieu partagé (ville ou
-   hall), la cabine est **privée** : le joueur se change dans son propre bucket
-   (`wardrobes.privateBucketBase` + son id, même heure et même météo) et revient à la
-   fermeture ; dans un logement, déjà privé, rien ne bouge.
-5. Ouvrir le menu joueur et consulter **Identity** (identité, compte bancaire).
-6. Ouvrir l'inventaire.
-7. Aller à la boutique du hall et **acheter** une boisson : un vrai panier, un
-   vrai paiement (`onShopCheckout`, émis par `server/modules/shops.lua`).
-8. Boire : l'étape attend la fin réelle de l'action, validée côté serveur.
-9. Parler au banquier (compte, espèces, virements, `/pay`) puis au mécano.
-10. Pratiquer **Alt + clic gauche** : inspecter une caisse, déverrouiller sa voiture
-   d'entraînement, ouvrir puis fermer le coffre avec le vrai menu contextuel.
-11. Parler au pompiste (carburant, jerrican).
-12. Activité d'entraînement à la foire aux métiers : **collecter** une caisse,
-   la **transformer** à l'établi, **vendre** les pièces à Juno. C'est le module
-   des activités libres (`job_work`) avec un métier `tutorial` : vrais objets,
-   vrai paiement en banque, un seul lot par appui. Chaque site ne s'ouvre que
-   pour l'étape du guide qui le demande (`Tutorial.allowsWork`) : ce n'est pas
-   un revenu. Aucun métier n'est choisi dans le hall.
-13. Retourner voir Mara : elle ouvre la porte, le personnage reçoit son studio de
-   départ à Kabuki (sa porte est sur la carte) et arrive au point
-   `spawn.afterTutorial` (`shared/config.lua`), une esplanade de Westbrook à
-   environ 115 m de cette porte, dans le bucket de la ville. Mara conclut par
-   message. Sans `spawn.afterTutorial`, il se réveille directement dans le studio.
+1. Walk to Mara and talk to her: life in the city and the RP rules.
+2. Install the **Neural-Link** (F2, the Kiroshi sequence from `op77_neuralink`): required;
+   the step waits for the implant and puts the phone away at the end.
+3. Set up voice: devices, keyboard/mouse push-to-talk or voice activation,
+   then a local test. "Already set up" and "Skip" stay available.
+4. **Get dressed**: the newcomer arrives in underwear. The fitting room at the
+   back of the hall shop (`wardrobes.spots.lobby_fitting`) opens the wardrobe;
+   the step waits for a saved outfit with a top and a bottom
+   (`open77:presentation:committed`, `Wardrobe.dressed`), and completes on its own if the
+   character is already dressed. Like any wardrobe in a shared place (city or
+   hall), the fitting room is **private**: the player changes in their own bucket
+   (`wardrobes.privateBucketBase` + their id, same time and same weather) and comes back when it
+   closes; in a home, which is already private, nothing moves.
+5. Open the player menu and check **Identity** (identity, bank account).
+6. Open the inventory.
+7. Go to the hall shop and **buy** a drink: a real cart, a
+   real payment (`onShopCheckout`, emitted by `server/modules/shops.lua`).
+8. Drink: the step waits for the action to really finish, validated on the server.
+9. Talk to the banker (account, cash, transfers, `/pay`) then to the mechanic.
+10. Practice **Alt + left click**: inspect a crate, unlock your training
+   car, open then close the trunk with the real context menu.
+11. Talk to the gas station attendant (fuel, jerrycan).
+12. Training activity at the job fair: **collect** a crate,
+   **process** it at the workbench, **sell** the parts to Juno. This is the
+   free activities module (`job_work`) with a `tutorial` job: real items,
+   real payment into the bank, one batch per press. Each site only opens
+   for the guide step that asks for it (`Tutorial.allowsWork`): it is not
+   an income. No job is chosen in the hall.
+13. Go back to Mara: she opens the door, the character gets their starter
+   studio in Kabuki (its door is on the map) and arrives at the
+   `spawn.afterTutorial` point (`shared/config.lua`), a Westbrook plaza about
+   115 m from that door, in the city bucket. Mara wraps up with a
+   message. Without `spawn.afterTutorial`, they wake up directly in the studio.
 
-**Passer le premier jour.** Dès l'arrivée, l'écran d'ouverture propose **Skip
-the tutorial**. Ensuite, la carte d'objectif affiche en permanence **Press F1 to
-skip the tutorial** : tant que le guide tourne, le menu joueur (F1) porte l'entrée
-**Skip the tutorial**, juste sous **First day guide** (qui la propose aussi), et
-`/tutorial skip` fait de même. Une confirmation précède toujours le saut. Le serveur installe
-le Neural-Link s'il manque (événement `op77_neuralink:requestInstall`, l'implant
-reste obligatoire en ville), marque le guide terminé, puis fait exactement comme
-la fin normale (étape 13) : studio de départ donné, arrivée au point
-`spawn.afterTutorial`. Sauter le vestiaire du hall peut laisser le personnage dans
-les vêtements du créateur : l'armoire du studio, à deux pas, l'habille. Un joueur
-déjà en ville reste où il est. Seule la paie d'entraînement n'est pas gagnée ;
-l'argent et le sac de départ viennent de la création du personnage.
+**Skipping the first day.** As soon as you arrive, the opening screen offers **Skip
+the tutorial**. After that, the objective card always shows **Press F1 to
+skip the tutorial**: while the guide is running, the player menu (F1) has a
+**Skip the tutorial** entry, right under **First day guide** (which offers it too), and
+`/tutorial skip` does the same. A confirmation always comes before the skip. The server installs
+the Neural-Link if it is missing (event `op77_neuralink:requestInstall`; the implant
+is still required in the city), marks the guide as finished, then does exactly what
+the normal ending does (step 13): starter studio given, arrival at the
+`spawn.afterTutorial` point. Skipping the hall changing room can leave the character in
+the creator's clothes: the wardrobe in the studio, a few steps away, dresses them. A player
+already in the city stays where they are. Only the training pay is not earned;
+the starting money and bag come from character creation.
 
-**F1 → First day guide** permet de mettre en pause, reprendre ou revisiter le
-parcours. `/tutorial` reprend au dernier objectif, `/tutorial pause` laisse
-jouer librement, `/tutorial skip` passe le premier jour et `/tutorial restart`
-rejoue tout le premier jour, scène d'ouverture comprise, pour un personnage existant. Les touches affichées suivent les raccourcis reconfigurés.
+**F1 → First day guide** lets you pause, resume or revisit the
+flow. `/tutorial` resumes at the last objective, `/tutorial pause` lets you
+play freely, `/tutorial skip` skips the first day and `/tutorial restart`
+replays the whole first day, opening scene included, for an existing character. The keys shown follow the rebound shortcuts.
 
-Présentation (`LightRpTutorialConfig.reveal`, `ui/src/features/tutorial/`) :
+Presentation (`LightRpTutorialConfig.reveal`, `ui/src/features/tutorial/`):
 
-- **Montrer le chemin** : à chaque nouvelle destination à plus de 12 m, après
-  le bandeau « Step complete », la caméra s'élève derrière le joueur, survole
-  l'itinéraire (des chevrons dorés dessinés au sol, `debugDraw`, s'allument à son passage), se pose sur
-  le lieu puis revient en fondu (~5,6 s). Le joueur est figé pendant le vol et
-  libéré dès le retour. Bandes cinéma, nom du lieu, direction, distance et plan
-  du hall à l'écran. `SPACE` passe (`lightrp.tutorial.skip`), `G` rejoue le vol
-  à tout moment (`lightrp.tutorial.way`) : deux RegisterKeyMapping. Jamais par
-  dessus un menu, un dialogue, la caméra libre ou en véhicule.
-- **Trouver l'objectif** (`client/core/tutorial_guide.lua`, `GuidePointer.tsx`) :
-  un anneau doré au sol et une colonne de lumière au-dessus de l'objectif (deux
-  marqueurs `ring` + `cylinder`, créés une fois par objectif, jamais mis à jour) ;
-  à l'écran, un repère épinglé sur l'objectif (ancre de page `tutorial.guide`) avec
-  son nom et la distance, ou, hors champ, une flèche sur un anneau autour du centre
-  de l'écran ; la même direction dans la carte d'objectif. Tout part aussitôt à la
-  conversation, au changement d'étape, à la mort, au chargement, à la pause, à la fin,
-  au changement de personnage et à l'arrêt de la ressource ; un marqueur en échec est
-  recréé (3 essais) ; le tracé du vol expire seul en 1 s s'il n'est plus redessiné.
-  Avant (2026-11-06, « les boules restent ») : une flèche et 5 sphères déplacées par
-  `markers.update` à chaque image (un update pendant le chargement relance le spawn),
-  des rayons sous le minimum de 0,1 m refusés une fois sur deux, et des trous dans la
-  liste d'ids qui laissaient des sphères dans le monde.
-- **Exemples d'interface** : une réplique peut être `{ text, demo }` ; la démo
-  joue au-dessus du dialogue (compteur du véhicule avec la jauge qui descend en
-  réserve, étapes de la pompe, clé et bips, location, carte d'identité, espèces
-  et banque, virement, menu véhicule, plan du hall, collecter/transformer/vendre).
-  Une étape peut avoir `demo` : une mini animation dans la carte d'objectif
-  (touche F1 puis Identity, inventaire, panier, boire, activités). Ce sont des
-  images des vrais écrans : elles n'envoient aucune action.
-- Les répliques s'écrivent à l'écran ; `SPACE`/`Entrée` affiche la ligne
-  entière, puis passe à la suivante.
+- **Show the way**: at each new destination more than 12 m away, after
+  the "Step complete" banner, the camera rises behind the player, flies over
+  the route (gold chevrons drawn on the ground, `debugDraw`, light up as it passes), lands on
+  the place, then fades back (~5.6 s). The player is frozen during the flight and
+  released as soon as it returns. Cinema bars, place name, direction, distance and hall
+  map on screen. `SPACE` skips (`lightrp.tutorial.skip`), `G` replays the flight
+  at any time (`lightrp.tutorial.way`): two RegisterKeyMapping. Never on
+  top of a menu, a dialogue, the free camera or while in a vehicle.
+- **Find the objective** (`client/core/tutorial_guide.lua`, `GuidePointer.tsx`):
+  a gold ring on the ground and a column of light above the objective (two
+  markers `ring` + `cylinder`, created once per objective, never updated);
+  on screen, a marker pinned to the objective (page anchor `tutorial.guide`) with
+  its name and distance, or, when it is off screen, an arrow on a ring around the center
+  of the screen; the same direction in the objective card. Everything clears at once on
+  conversation, step change, death, loading, pause, the end,
+  character change and resource stop; a failed marker is
+  recreated (3 tries); the flight path expires on its own in 1 s if it is no longer redrawn.
+  Before (2026-11-06, "the balls stay"): an arrow and 5 spheres moved by
+  `markers.update` every frame (an update during loading restarts the spawn),
+  radii below the 0.1 m minimum refused one time out of two, and gaps in the
+  id list that left spheres in the world.
+- **Interface examples**: a line can be `{ text, demo }`; the demo
+  plays above the dialogue (vehicle gauge with the needle dropping into
+  reserve, pump steps, key and beeps, rental, ID card, cash
+  and bank, transfer, vehicle menu, hall map, collect/process/sell).
+  A step can have `demo`: a mini animation in the objective card
+  (F1 key then Identity, inventory, cart, drinking, activities). These are
+  images of the real screens: they send no action.
+- Lines type out on screen; `SPACE`/`Enter` shows the whole
+  line, then moves to the next one.
 
-Qui est où : le guide décide du lieu de réveil tant qu'une étape du hall est en
-cours (`Tutorial.spawnPoint` / `deathPoint`, lus par `server/main.lua`) : à la
-connexion et après une mort, le personnage revient à la porte du hall. Mettre le
-guide en pause dans le hall ramène en ville (personne n'y reste enfermé) ;
-reprendre une étape du hall y ramène ; revisiter un guide terminé repart du hall
-sans la scène d'ouverture. Un personnage enregistré dans le hall sans étape du
-hall en cours se réveille en ville. Les citoyens déjà créés ne sont pas forcés à
-suivre le tutoriel.
+Who is where: the guide decides where you wake up while a hall step is in
+progress (`Tutorial.spawnPoint` / `deathPoint`, read by `server/main.lua`): on
+connection and after a death, the character comes back to the hall door. Pausing the
+guide in the hall takes you back to the city (nobody gets locked in there);
+resuming a hall step takes you back there; revisiting a finished guide starts again from the hall
+without the opening scene. A character saved in the hall with no hall
+step in progress wakes up in the city. Citizens created earlier are not forced to
+do the tutorial.
 
-La table `lightrp_tutorial` stocke le checkpoint par compte et personnage, avec
-une révision pour refuser les réponses périmées et les doublons. La progression
-vient des hooks `onInventoryOpened`, `onShopCheckout`, `onItemUsed` et
-`onJobWorkCompleted` ; les messages du
-navigateur ne peuvent créer ni métier, ni objets, ni argent. Parler à un contact
-exige d'être vivant, près de lui et dans le bucket du hall. La pause, un
-changement de personnage, la mort et l'arrêt de la ressource libèrent caméra,
-son et contrôles.
+The `lightrp_tutorial` table stores the checkpoint per account and character, with
+a revision to refuse stale answers and duplicates. Progress
+comes from the hooks `onInventoryOpened`, `onShopCheckout`, `onItemUsed` and
+`onJobWorkCompleted`; messages from the
+browser can create neither jobs, nor items, nor money. Talking to a contact
+requires being alive, close to them and in the hall bucket. Pausing,
+changing character, death and resource stop release the camera,
+sound and controls.
 
-Configuration : `shared/tutorial.lua` contient le hall (`lobby` : origine,
-bucket, point d'arrivée, boîte), les contacts (nom, rôle, position, orientation,
-fiches de PNJ essayées dans l'ordre), l'ordre et les textes des étapes, le plan
-d'ouverture et le volume. Les positions sont en mètres depuis le centre de la
-place, comme les pose le générateur de la carte : si le hall est déplacé, seule
-`origin` change, avec les deux entrées qui en dépendent (`lobby_market` dans
-`server/config/shops.lua`, le métier `tutorial` dans
-`server/config/job_work.lua`) et la boîte de `open77_lobby_cubes/zone.lua`. Le bucket doit
-être le même dans `shared/tutorial.lua`, ces deux entrées et
-`open77_lobby_cubes/server.lua`. `enabled = false` désactive le guide et remet le
-briefing initial. La préférence système de mouvement réduit désactive le
-travelling.
+Configuration: `shared/tutorial.lua` holds the hall (`lobby`: origin,
+bucket, arrival point, box), the contacts (name, role, position, heading,
+NPC records tried in order), the order and text of the steps, the opening
+shot and the volume. Positions are in meters from the center of the
+square, as the map generator places them: if the hall moves, only
+`origin` changes, along with the two entries that depend on it (`lobby_market` in
+`server/config/shops.lua`, the `tutorial` job in
+`server/config/job_work.lua`) and the box in `open77_lobby_cubes/zone.lua`. The bucket must
+be the same in `shared/tutorial.lua`, those two entries and
+`open77_lobby_cubes/server.lua`. `enabled = false` turns the guide off and brings back the
+initial briefing. The system reduced-motion preference turns off the
+tracking shot.
 
-Tests dédiés : `tests/tutorial_test.lua`, `tests/tutorial_client_test.lua`,
-`tests/hospital_respawn_test.lua` (réveil dans le hall, placement avec bucket)
-et `ui/tests/tutorial.browser.cjs`. Reste à vérifier en jeu : la pose des PNJ
-sur leurs dalles, les plans de caméra, le trajet complet et le passage du hall
-à la ville.
+Dedicated tests: `tests/tutorial_test.lua`, `tests/tutorial_client_test.lua`,
+`tests/hospital_respawn_test.lua` (waking up in the hall, placement with a bucket)
+and `ui/tests/tutorial.browser.cjs`. Still to check in game: the NPC poses
+on their tiles, the camera shots, the full route and the move from the hall
+to the city.
 
-## Kit d'interactions : progression et QTE
+## Interaction kit: progress and QTEs
 
-Les points de carte utilisent maintenant les SVG du package standalone
-`open77_icons` : icônes dédiées par activité, accent jaune, groupes conservés
-et objectifs de tournée spécifiques. [Catalogue LightRP et intégration](docs/map-blips.md).
+Map points now use the SVGs from the standalone package
+`open77_icons`: dedicated icons per activity, yellow accent, groups kept
+and specific route objectives. [LightRP catalog and integration](docs/map-blips.md).
 
-La même barre jaune sans panneau de fond sert à manger, boire, fumer, faire le plein
-et travailler. Toute nouvelle action temporisée passe par `LightRpActions.progress`
-ou l'export `ActionProgress`. Le kit conserve aussi l'anneau, le maintien de touche
-et les QTE via `ActionHold`, `ActionSkillCheck`, `ActionCancel`, `ActionIsActive`
-et `ActionResult`. [Contrats, exemples Lua, options et tests](docs/action-ui.md).
+The same yellow bar with no background panel is used to eat, drink, smoke, refuel
+and work. Any new timed action goes through `LightRpActions.progress`
+or the `ActionProgress` export. The kit also keeps the ring, key hold
+and QTEs through `ActionHold`, `ActionSkillCheck`, `ActionCancel`, `ActionIsActive`
+and `ActionResult`. [Contracts, Lua examples, options and tests](docs/action-ui.md).
 
-Aperçu navigateur : `http://127.0.0.1:5177/?registered=1&actions=1` (Vite).
-En jeu, staff : `/lightrp.uitest progress|circle|hold|timing|sequence|cancel`.
-Les démonstrations n'attribuent aucune récompense ; les futurs jobs doivent valider leurs actions côté serveur.
+Browser preview: `http://127.0.0.1:5177/?registered=1&actions=1` (Vite).
+In game, staff: `/lightrp.uitest progress|circle|hold|timing|sequence|cancel`.
+The demos give no reward; future jobs must validate their actions on the server.
 
-## Job Center et activités libres
+## Job Center and free activities
 
-Trois métiers publics : **Sanitation**, **Scrapper**, **Courier** (livreur, qui a remplacé AC Cleaner). Le bureau utilise trois
-panneaux inclinés illustrés qui s'agrandissent au survol ou au clavier.
-**Sanitation/Scrapper** : récolte → transformation → vente, sans prise de service
-ni métier obligatoire. E démarre la boucle au point ; Échap l'arrête. Les objets
-ont un poids et passent par le vrai inventaire et les coffres. Le bureau propose
-les GPS des trois étapes et une embauche facultative. `/work sanitation|scrapper
+Three public jobs: **Sanitation**, **Scrapper**, **Courier** (delivery, which replaced AC Cleaner). The office uses three
+illustrated tilted panels that grow on hover or keyboard focus.
+**Sanitation/Scrapper**: harvest → process → sell, with no clock-in
+and no required job. E starts the loop at the point; Esc stops it. Items
+have a weight and go through the real inventory and storage. The office offers
+GPS to the three steps and optional hiring. `/work sanitation|scrapper
 [collect|process|sell]`, `/work stop`.
 
-Les points, recettes, durées et prix des activités libres sont dans
-`server/config/job_work.lua`. Le **Courier** fonctionne par ordres de travail
-(`/job start|status|gps|cancel`, ou « Start a run » au bureau) : à chaque prise de
-course, le serveur tire 2 à 3 commandes, un point de récupération par commande puis
-un point de livraison par commande ; chaque commande passe réellement dans le sac
-(`delivery_order`, 1 kg) et la paie, versée en banque à la dernière livraison, suit la
-longueur du trajet. Points (de test pour l'instant), nombre de commandes, durées et
-barème : `server/config/delivery.lua`. AC Cleaner n'est plus proposé au bureau ; ses
-détenteurs gardent leur route (`server/config/job_runs.lua`). Revenu visé : 3 000 à
-5 000 €$/h au grade 0 ; chaque grade du métier ajoute 10 % à la vente et aux courses
-(`server/config/economy.lua` → `jobs.gradeBonus`), la paie de grade (toutes les 30 min,
-`shared/jobs.lua`) reste un petit bonus. **La paie ne va qu'aux joueurs actifs**
-(`server/modules/work_activity.lua`, `economy.lua` → `paychecks`) : dans les 30 dernières
-minutes, une tâche du métier (lot de job_work, ordre de travail accepté ou payé), un
-patient stabilisé au kit, un virement reçu d'au moins 50 €$, ou 75 m parcourus en ville
-(positions relevées par le serveur toutes les 20 s, téléportations et retours d'activité
-exclus). Un joueur inactif ne touche rien et en est averti une fois. Barème complet :
+The points, recipes, durations and prices of the free activities are in
+`server/config/job_work.lua`. **Courier** runs on work orders
+(`/job start|status|gps|cancel`, or "Start a run" at the office): each time you take a
+run, the server draws 2 to 3 orders, one pickup point per order, then
+one drop-off point per order; each order really goes into the bag
+(`delivery_order`, 1 kg) and the pay, paid into the bank at the last delivery, follows the
+length of the route. Points (test ones for now), number of orders, durations and
+pay scale: `server/config/delivery.lua`. AC Cleaner is no longer offered at the office; players who
+already have it keep their route (`server/config/job_runs.lua`). Target income: 3,000 to
+5,000 €$/h at grade 0; each job grade adds 10% to sales and runs
+(`server/config/economy.lua` → `jobs.gradeBonus`), and the grade pay (every 30 min,
+`shared/jobs.lua`) stays a small bonus. **Pay only goes to active players**
+(`server/modules/work_activity.lua`, `economy.lua` → `paychecks`): in the last 30
+minutes, a job task (a job_work batch, a work order accepted or paid), a
+patient stabilized with the kit, a transfer received of at least 50 €$, or 75 m traveled in the city
+(positions sampled by the server every 20 s, teleports and returns from activities
+excluded). An inactive player gets nothing and is warned once. Full pay scale:
 [docs/economy-balance.md](docs/economy-balance.md).
 
-Après une embauche, à la fermeture du bureau, un **guide du métier** s'ouvre : une
-fenêtre guidée, page par page, avec des visuels animés (pages `guide` de
-`shared/jobs.lua`). Il se rouvre depuis **F1 → My job**, qui permet aussi de lancer une
-course n'importe où (Courier), de remettre le GPS sur l'étape suivante, d'abandonner la
-course, ou de poser le GPS des trois étapes des activités libres.
-[Configuration, sécurité, fonctionnement et tests](docs/jobs.md) · [Prompts des artworks](docs/job-art-prompts.md).
+After hiring, when the office closes, a **job guide** opens: a
+guided window, page by page, with animated visuals (the `guide` pages in
+`shared/jobs.lua`). It reopens from **F1 → My job**, which also lets you start a
+run anywhere (Courier), point the GPS at the next step, abandon the
+run, or set the GPS to the three steps of the free activities.
+[Configuration, security, how it works and tests](docs/jobs.md) · [Artwork prompts](docs/job-art-prompts.md).
 
-## Location de véhicules
+## Vehicle rental
 
-Catalogue photo avec recherche, catégories et tri, récapitulatif avant paiement,
-choix cash/banque et retour confirmé. Banque locale de **18 visuels** des véhicules
-du catalogue. [Configuration, sources des images et tests](docs/vehicle-rental.md).
-Aperçu : `http://127.0.0.1:5177/?registered=1&dialog=rental`.
+Photo catalog with search, categories and sorting, a summary before payment,
+cash/bank choice and confirmed return. Local bank of **18 images** of the catalog
+vehicles. [Configuration, image sources and tests](docs/vehicle-rental.md).
+Preview: `http://127.0.0.1:5177/?registered=1&dialog=rental`.
 
-## Boutiques NPC
+## NPC shops
 
-Catalogue illustré jaune/noir, recherche et catégories, panier multi-objets,
-achat/revente, quantités, cash/banque et capacité du sac. Premier vendeur de nourriture
-au City Center : `(-667.559082, -378.390808, 9.193733)`, yaw `-125.597023`, interaction **E**.
+Illustrated yellow/black catalog, search and categories, multi-item cart,
+buying/selling back, quantities, cash/bank and bag capacity. First food vendor
+in City Center: `(-667.559082, -378.390808, 9.193733)`, yaw `-125.597023`, interaction **E**.
 
-Les NPC partagent un **template** (`street_food`) défini dans `server/config/shops.lua` :
-changer le template met à jour toutes les boutiques liées. Achats/ventes atomiques
-(argent, inventaire et reçu en une transaction), anti-double paiement et validations
-côté serveur ; base de données requise. [Configuration et API](docs/shops.md).
-Aperçu navigateur : `http://127.0.0.1:5177/?registered=1&dialog=shop`.
+The NPCs share a **template** (`street_food`) defined in `server/config/shops.lua`:
+changing the template updates every linked shop. Atomic purchases/sales
+(money, inventory and receipt in a single transaction), double-payment protection and validation
+on the server; a database is required. [Configuration and API](docs/shops.md).
+Browser preview: `http://127.0.0.1:5177/?registered=1&dialog=shop`.
 
-## Architecture du framework
+## Framework architecture
 
-### Portée vocale
+### Voice range
 
-**F11** alterne chuchotement / normal / cri. Le package `open-voice` affiche un
-cercle 3D jaune pendant **3 secondes**, au rayon confirmé par le serveur
-(**3 / 20 / 40 m**). Il suit le joueur et disparaît automatiquement, sans nouvelle
-WebUI. [Configuration et validation](docs/voice-range.md).
+**F11** cycles whisper / normal / shout. The `open-voice` package shows a
+yellow 3D circle for **3 seconds**, at the radius confirmed by the server
+(**3 / 20 / 40 m**). It follows the player and disappears on its own, with no new
+WebUI. [Configuration and validation](docs/voice-range.md).
 
-Catalogue RP : **30 objets dont 18 consommables illustrés** (9 aliments, 6 boissons,
-3 soins), avec effets, poids et piles configurables dans `shared/items.lua`.
-[Catalogue et ajout d'items](docs/item-catalogue.md) · Aperçu :
+RP catalog: **30 items, including 18 illustrated consumables** (9 foods, 6 drinks,
+3 healing items), with effects, weight and stacks configurable in `shared/items.lua`.
+[Catalog and adding items](docs/item-catalogue.md) · Preview:
 `http://127.0.0.1:5177/?registered=1&items=1`.
 
-**Une page, un état.** Le serveur publie l'état du joueur par clés (`server`, `character`,
-`needs`, `vehicles`, `staff`, `locations`, `online`), chaque module fournissant la sienne via
-`LightRP.stateProvider(clé, fn)`. `LightRP.state(playerId, clés)` pousse la clé au client, qui
-la relaie à la page (`lightrp:ui:state`) ; la page fusionne le patch dans son store (zustand).
+**One page, one state.** The server publishes the player's state by keys (`server`, `character`,
+`needs`, `vehicles`, `staff`, `locations`, `online`), each module providing its own through
+`LightRP.stateProvider(key, fn)`. `LightRP.state(playerId, keys)` pushes the key to the client, which
+relays it to the page (`lightrp:ui:state`); the page merges the patch into its store (zustand).
 
-**Actions validées côté serveur.** La page émet `lightrp:ui:action { type, ... }`, le client
-le transmet tel quel (`op77_lightrp:action`), le serveur dispatch vers `LightRP.action(type, fn)`.
-La réponse revient par `LightRP.result(playerId, ok, texte)` et s'affiche en toast. Les actions
-staff vérifient la même permission ACL que la commande équivalente.
+**Actions validated on the server.** The page emits `lightrp:ui:action { type, ... }`, the client
+forwards it as is (`op77_lightrp:action`), and the server dispatches it to `LightRP.action(type, fn)`.
+The answer comes back through `LightRP.result(playerId, ok, text)` and shows as a toast. Staff
+actions check the same ACL permission as the matching command.
 
-**Le client ne décide rien.** Il crée la surface, échantillonne le HUD dix fois par seconde,
-prend le focus quand le menu ou le dialogue d'identité est ouvert, et relaie.
+**The client decides nothing.** It creates the surface, samples the HUD ten times per second,
+takes focus when the menu or the identity dialog is open, and relays.
 
-### Écrire un module
+### Writing a module
 
 ```lua
 -- server/modules/bank.lua
 local Bank = LightRP.module("bank", {})
 LightRP.db.schema([[CREATE TABLE IF NOT EXISTS lightrp_bank (...)]])
 LightRP.stateProvider("bank", function(playerId) return { balance = Bank.balance(playerId) } end)
-LightRP.action("bank.withdraw", function(playerId, payload) ... LightRP.result(playerId, true, "Retrait effectué.") end)
-LightRP.command("bank", { usage = "/bank" }, function(source) LightRP.openMenu(source, "bank") return true, "Banque ouverte." end)
-function Bank.onConnected(playerId) ... end   -- aussi onDisconnected, onReady, onGameplayReady, onLifeState, onDatabaseReady, onUiReady
+LightRP.action("bank.withdraw", function(playerId, payload) ... LightRP.result(playerId, true, "Withdrawal done.") end)
+LightRP.command("bank", { usage = "/bank" }, function(source) LightRP.openMenu(source, "bank") return true, "Bank opened." end)
+function Bank.onConnected(playerId) ... end   -- also onDisconnected, onReady, onGameplayReady, onLifeState, onDatabaseReady, onUiReady
 ```
 
-Ajoutez la ligne `server_script` dans `open77.lua`, la clé dans `UiState` (`protocol.ts`) et
-l'onglet dans `features/menu/Menu.tsx`.
+Add the `server_script` line in `open77.lua`, the key in `UiState` (`protocol.ts`) and
+the tab in `features/menu/Menu.tsx`.
 
-## Création de personnage et identité persistante
+## Character creation and persistent identity
 
-Un compte (identité Master, `GetPlayerIdentifier`) possède jusqu'à `characters.maxSlots` personnages,
-chacun sous une `character_key` (`default`, `slot2`, `slot3`). La même clé sert à `open77_appearance`
-(corps et visage, table `open77_characters` + `open77_player_appearances`) et à `open77_wardrobe`
-(tenues, `open77_character_presentation`) : le framework ne stocke jamais l'apparence lui-même, il
-lit ces tables et écoute les événements hôte `open77:appearance:characterCreated` et
-`open77:appearance:saved` pour tenir `body_family`, `appearance_rev`, `appearance_at`.
+An account (Master identity, `GetPlayerIdentifier`) owns up to `characters.maxSlots` characters,
+each under a `character_key` (`default`, `slot2`, `slot3`). The same key is used by `open77_appearance`
+(body and face, table `open77_characters` + `open77_player_appearances`) and by `open77_wardrobe`
+(outfits, `open77_character_presentation`): the framework never stores the appearance itself; it
+reads those tables and listens to the host events `open77:appearance:characterCreated` and
+`open77:appearance:saved` to keep `body_family`, `appearance_rev`, `appearance_at` up to date.
 
-Tables : `lightrp_accounts` (compte → slot actif) et `lightrp_characters` (état civil, statut
-`draft`/`active`/`archived`, position, besoins, temps de jeu). Une ancienne table v1 (un
-personnage par compte) est renommée `lightrp_characters_v1` au premier démarrage.
+Tables: `lightrp_accounts` (account → active slot) and `lightrp_characters` (identity details, status
+`draft`/`active`/`archived`, position, needs, playtime). An old v1 table (one
+character per account) is renamed `lightrp_characters_v1` on first start.
 
-**Le workflow**, piloté par `character.step` que le serveur calcule (`identity` → `appearance` →
-`confirm` → `done`) :
+**The workflow**, driven by `character.step`, which the server computes (`identity` → `appearance` →
+`confirm` → `done`):
 
-1. Première connexion : `open77_appearance` tient la porte de préparation et ouvre l'éditeur natif
-   avant le monde ; le corps est validé et sauvegardé par lui (`characterCreated`).
-2. Dans le monde, le wizard « Nouveau personnage » (dialogue avec focus) demande l'état civil :
-   prénom, nom, date de naissance (calendrier 2077, âge minimum configurable), origine, histoire
+1. First connection: `open77_appearance` holds the preparation gate and opens the native editor
+   before the world; the body is validated and saved by it (`characterCreated`).
+2. In the world, the "New character" wizard (a dialog with focus) asks for identity details:
+   first name, last name, date of birth (2077 calendar, configurable minimum age), origin, backstory
    → action `character.identity`.
-3. Étape « Corps et visage » : boutons *Corps féminin* / *Corps masculin* / *Coiffeur*. Le client
-   ferme la page et demande le miroir au package apparence (`open77:appearance:requestOpen`). La
-   sauvegarde revient par `saved` et le serveur pousse la révision.
-4. Étape « Confirmation » : résumé, *Garde-robe* (`/wardrobe` via le bus de commandes) et *Entrer
-   dans Night City* → `character.finish` : statut `active`, slot actif, placement au point d'arrivée
+3. "Body and face" step: buttons *Female body* / *Male body* / *Hairdresser*. The client
+   closes the page and asks the appearance package for the mirror (`open77:appearance:requestOpen`). The
+   save comes back through `saved` and the server pushes the revision.
+4. "Confirmation" step: summary, *Wardrobe* (`/wardrobe` through the command bus) and *Enter
+   Night City* → `character.finish`: status `active`, active slot, placement at the arrival point
    (`onCharacterActivated`).
 
-Ensuite l'onglet **Personnage** du menu : modifier l'état civil, rouvrir miroir / coiffeur /
-garde-robe, gérer les emplacements (*Jouer* → `character.select` déclenche
-`open77:appearance:setCharacter` et replace le joueur à la dernière position de ce personnage ;
-*Nouveau* → `character.new` ouvre un brouillon ; *×* → `character.archive`). Les hooks de module
-`onCharacterActivated(playerId, character)` et `onCharacterSwitched(playerId, character)` sont
-disponibles pour les autres modules.
+After that, the **Character** tab of the menu: edit identity details, reopen mirror / hairdresser /
+wardrobe, manage slots (*Play* → `character.select` triggers
+`open77:appearance:setCharacter` and puts the player back at that character's last position;
+*New* → `character.new` opens a draft; *×* → `character.archive`). The module hooks
+`onCharacterActivated(playerId, character)` and `onCharacterSwitched(playerId, character)` are
+available to other modules.
 
-Sans base de données, l'étape apparence est ignorée (`appearanceTracked = false`) et tout vit le
-temps de la session.
+Without a database, the appearance step is skipped (`appearanceTracked = false`) and everything only lasts
+for the session.
 
-### Briefing de premier spawn
+### First spawn briefing
 
-Quand le personnage devient actif pour la première fois (`character.finish`), le serveur pousse `character.welcomePending = true` (colonne `lightrp_accounts.welcome_seen_at` NULL, une fois par compte). La page affiche `features/welcome/WelcomeModal` : image de Night City (`web/img/night-city.jpg`), texte anglais qui explique le Light Roleplay, et un bouton OK verrouillé pendant `welcome.readSeconds` (config, 15 s). Le clic envoie l'action `welcome.ack`, qui date la colonne et ne remontre plus la modale. L'onglet Aide (bouton « Welcome briefing ») la rejoue sans délai.
+When the character becomes active for the first time (`character.finish`), the server pushes `character.welcomePending = true` (column `lightrp_accounts.welcome_seen_at` NULL, once per account). The page shows `features/welcome/WelcomeModal`: an image of Night City (`web/img/night-city.jpg`), English text that explains Light Roleplay, and an OK button locked for `welcome.readSeconds` (config, 15 s). The click sends the `welcome.ack` action, which timestamps the column, and the modal never shows again. The Help tab ("Welcome briefing" button) replays it with no delay.
 
-Tous les textes joueur (page, notices, réponses de commandes, libellés de la config) sont en anglais.
+All player-facing text (page, notices, command replies, config labels) is in English.
 
-## Argent et banque (`server/modules/economy.lua`)
+## Money and bank (`server/modules/economy.lua`)
 
-Le liquide est l'item **`cash` / Eurodollars** : 1 unité = €$1, **0 kg**, transférable, divisible, stockable et échangeable comme les autres objets. Seul l'argent dans les poches est dépensable ; le HUD le compte directement dans l'inventaire. Le compte bancaire `XXX-XXX` reste séparé dans `lightrp_wallets.bank`. Les anciens soldes sont convertis une seule fois, avec sauvegarde avant conversion dans `lightrp_cash_migrations` et transaction atomique. Les nouveaux personnages reçoivent `economy.startingCash` en item et `startingBank` en banque. Voir [docs/cash-inventory.md](docs/cash-inventory.md) pour migration, persistance et tests.
+Cash is the **`cash` / Eurodollars** item: 1 unit = €$1, **0 kg**, transferable, divisible, storable and tradable like any other item. Only the money in your pockets can be spent; the HUD counts it straight from the inventory. The `XXX-XXX` bank account stays separate in `lightrp_wallets.bank`. Old balances are converted only once, with a backup before conversion in `lightrp_cash_migrations` and an atomic transaction. New characters get `economy.startingCash` as an item and `startingBank` in the bank. See [docs/cash-inventory.md](docs/cash-inventory.md) for migration, persistence and tests.
 
-API pour les autres modules (jobs, boutiques, loyers) : `LightRP.money.addCash/removeCash/addBank/removeBank(playerId, amount, kind, note, counterparty)`, `deposit/withdraw`, `transfer(playerId, "XXX-XXX", amount, note)`, `pay(playerId, targetId, amount)` (main à main, `economy.payRange`), `creditAccount(number, …)` (fonctionne hors ligne), `findAccount`, `format`. Hook `onMoneyChanged(playerId, wallet, delta, balance, kind)`. Les soldes ne passent jamais sous zéro ; un drapeau `busy` par portefeuille évite deux opérations entrelacées.
+API for other modules (jobs, shops, rent): `LightRP.money.addCash/removeCash/addBank/removeBank(playerId, amount, kind, note, counterparty)`, `deposit/withdraw`, `transfer(playerId, "XXX-XXX", amount, note)`, `pay(playerId, targetId, amount)` (hand to hand, `economy.payRange`), `creditAccount(number, …)` (works offline), `findAccount`, `format`. Hook `onMoneyChanged(playerId, wallet, delta, balance, kind)`. Balances never go below zero; a `busy` flag per wallet prevents two interleaved operations.
 
-Page : état `money` (`cash`, `bank { number, balance }`, `history`), actions `money.deposit|withdraw|transfer|pay` (prêtes pour la future page ATM). Commandes : `/money`, `/bank`, `/pay <id> <montant>`, `/transfer <compte> <montant> [note]`, `/deposit`, `/withdraw` (tant que `economy.counterCommands`), staff `/lightrp.givemoney`, `/lightrp.takemoney`, `/lightrp.account`.
+Page: `money` state (`cash`, `bank { number, balance }`, `history`), actions `money.deposit|withdraw|transfer|pay` (ready for the future ATM page). Commands: `/money`, `/bank`, `/pay <id> <amount>`, `/transfer <account> <amount> [note]`, `/deposit`, `/withdraw` (as long as `economy.counterCommands` is on), staff `/lightrp.givemoney`, `/lightrp.takemoney`, `/lightrp.account`.
 
-### Équilibrage et dépenses récurrentes (`server/config/economy.lua`)
+### Balancing and recurring costs (`server/config/economy.lua`)
 
-La courbe visée, ses mesures et le tableau avant/après de chaque prix sont dans
-[docs/economy-balance.md](docs/economy-balance.md). Les prix restent avec leurs
-fonctionnalités ; `server/config/economy.lua` porte les règles transversales :
+The target curve, its measurements and the before/after table for each price are in
+[docs/economy-balance.md](docs/economy-balance.md). Prices stay with their
+features; `server/config/economy.lua` holds the cross-cutting rules:
 
-- **Missions et gigs** (`server/modules/mission_pay.lua`) : la paie d'une difficulté est
-  la part de **chaque** opérateur à l'équipage minimum. Au-delà, la cagnotte croît comme
-  équipage^0,7 et se partage. Une paie pleine au même point de mission n'est reversée
-  qu'après 60 min au même personnage, et un compte touche 6 paies pleines par jour UTC ;
-  au-delà, 25 %. Plafond de 250 €$ par minute de durée. Les opérateurs voient la paie
-  attendue au lancement et la raison d'une réduction à la fin. Tables
-  `lightrp_mission_payout_cooldowns` et `lightrp_mission_payout_daily`.
-- **Hôpital** : 300 €$ après *Give up and go to hospital*, banque puis liquide, sans jamais
-  passer sous zéro (le reste est effacé). Gratuit sur un sauvetage au kit, en mission, en
-  activité, pendant le premier jour et les 120 premières minutes de jeu du personnage.
-- **Cabine d'essayage** : 50 €$ par visite d'une cabine de la ville qui enregistre une
-  tenue ; logement, hall d'arrivée, wizard et nouveaux venus gratuits, offert si le joueur
-  ne peut pas payer.
-- **Activités** (`server/modules/activity_pay.lua`, `economy.lua` → `activities`) : un
-  résultat PvP classé paie 70 €$ par minute jouée × (0,75 + 0,5 × résultat), le résultat
-  allant de 1 (victoire, première place) à 0 (dernière place, défaite), multiplié par la
-  part du lobby plein réellement présente (joueurs vus par le serveur dans la même
-  activité et le même bucket, par compte ; jamais un chiffre du fournisseur). Un joueur
-  moyen gagne à peu près le taux d'un métier, un bon joueur un cinquième de plus. Le PvE
-  paie 40 / 50 / 60 €$ la minute selon la difficulté, moitié sur une défaite. Rien pour un
-  résultat non classé (bots, `result.unranked`, mode bots staff, `test`), un départ ou un
-  forfait, un AFK (aucune statistique de progression), un match plus court que le minimum
-  du mode, ni un match dont tous les joueurs réels sont du même crew. Les mêmes comptes
-  ne sont payés ensemble que 3 à 5 fois par heure, et un compte touche au plus
-  12 000 €$ PvP et 6 000 €$ PvE par jour UTC (table `lightrp_activity_pay_daily`).
-  Chaque paie passe par la banque (`activity_pvp` / `activity_pve`) avec une notice
-  « +€$ N — raison ».
-- **Voitures** (`server/config/dealerships.lua`) : premières 4 000 – 6 500 €$, correctes
-  12 000 – 16 000 (≈ 3 h de jeu mêlé), haut de gamme 80 000 – 100 000 (≈ 20 – 25 h).
-  Le rythme complet par profil (régulier, grinder, PvP, PvE) est au §7 du barème.
-- Fourrière (`server/config/garages.lua`), carburant (4 €$/L, `shared/config.lua`) et
-  nourriture (`server/config/shops.lua`) sont relevés. Aucun solde existant n'est modifié.
+- **Missions and gigs** (`server/modules/mission_pay.lua`): the pay for a difficulty is
+  the share of **each** operator at the minimum crew size. Above that, the pot grows as
+  crew^0.7 and is split. A full payout at the same mission point is only paid again
+  to the same character after 60 min, and an account gets 6 full payouts per UTC day;
+  beyond that, 25%. Cap of 250 €$ per minute of duration. Operators see the expected
+  pay at launch and the reason for any reduction at the end. Tables
+  `lightrp_mission_payout_cooldowns` and `lightrp_mission_payout_daily`.
+- **Hospital**: 300 €$ after *Give up and go to hospital*, bank first, then cash, never
+  going below zero (the rest is written off). Free after a rescue with the kit, in a mission, in an
+  activity, during the first day and during the character's first 120 minutes of play.
+- **Fitting room**: 50 €$ per visit to a city fitting room that saves an
+  outfit; free in a home, the arrival hall, the wizard and for newcomers, and waived if the player
+  can't pay.
+- **Activities** (`server/modules/activity_pay.lua`, `economy.lua` → `activities`): a
+  ranked PvP result pays 70 €$ per minute played × (0.75 + 0.5 × result), the result
+  going from 1 (win, first place) to 0 (last place, loss), multiplied by the
+  share of the full lobby actually present (players seen by the server in the same
+  activity and the same bucket, per account; never a number from the provider). An average
+  player earns roughly a job's rate, a good player a fifth more. PvE
+  pays 40 / 50 / 60 €$ per minute depending on difficulty, half on a loss. Nothing for an
+  unranked result (bots, `result.unranked`, staff bot mode, `test`), leaving or
+  forfeiting, being AFK (no progression stats), a match shorter than the mode's
+  minimum, or a match where all the real players are in the same crew. The same accounts
+  are only paid together 3 to 5 times per hour, and an account earns at most
+  12,000 €$ PvP and 6,000 €$ PvE per UTC day (table `lightrp_activity_pay_daily`).
+  Each payout goes through the bank (`activity_pvp` / `activity_pve`) with a notice
+  "+€$ N — reason".
+- **Cars** (`server/config/dealerships.lua`): starter cars 4,000 – 6,500 €$, decent ones
+  12,000 – 16,000 (≈ 3 h of mixed play), high end 80,000 – 100,000 (≈ 20 – 25 h).
+  The full pace per profile (regular, grinder, PvP, PvE) is in §7 of the pay scale.
+- Impound (`server/config/garages.lua`), fuel (4 €$/L, `shared/config.lua`) and
+  food (`server/config/shops.lua`) prices are raised. No existing balance is changed.
 
-## Menu joueur (F1)
+## Player menu (F1)
 
-Menu liste façon RageUI (design system : Menus / RageMenu, porté en `ui/src/design/components/RageMenu.tsx` avec des classes `o77-rage*`) : une colonne, une ligne surlignée, flèches pour bouger, Entrée pour descendre, Retour arrière / Échap pour remonter, F1 pour fermer. `features/menu/PlayerMenu.tsx` construit l'arbre depuis l'état serveur à chaque rendu et garde une pile `{ key, index }`. Premier sous-menu : **Identity** (ID citoyen, prénom, nom, naissance, origine, compte bancaire, temps de jeu, statut). Le client Lua prend le clavier seul (`setFocus(true, false)`) ; le menu ne s'ouvre qu'avec un personnage actif et hors briefing. Il n'y a plus de menu « terminal », ni de commandes de spawn ou de dépôt pour les joueurs : véhicules par `/lightrp.car` et `/lightrp.dv` (staff), argent par l'ATM à venir.
+RageUI-style list menu (design system: Menus / RageMenu, ported to `ui/src/design/components/RageMenu.tsx` with `o77-rage*` classes): one column, one highlighted row, arrows to move, Enter to go down, Backspace / Esc to go back up, F1 to close. `features/menu/PlayerMenu.tsx` builds the tree from the server state on every render and keeps a `{ key, index }` stack. First submenu: **Identity** (citizen ID, first name, last name, date of birth, origin, bank account, playtime, status). The Lua client takes only the keyboard (`setFocus(true, false)`); the menu only opens with an active character and outside the briefing. There is no longer a "terminal" menu, nor spawn or deposit commands for players: vehicles through `/lightrp.car` and `/lightrp.dv` (staff), money through the upcoming ATM.
 
-## Caméra libre (`client/core/freecam.lua`, page `features/freecam/`)
+## Free camera (`client/core/freecam.lua`, page `features/freecam/`)
 
-La vue se détache du personnage et vole autour de lui pour regarder une scène sous un autre angle. Le corps reste où il est, complet et en troisième personne (`thirdPersonBody`), quelle que soit la perspective de départ : c'est une caméra, pas un noclip. Elle s'ouvre depuis le menu joueur (ligne **Free camera**) ou avec sa touche (F5 par défaut) ; à pied uniquement, jamais pendant une action, un dialogue, la création ou une caméra du tutoriel.
+The view detaches from the character and flies around them to look at a scene from another angle. The body stays where it is, whole and in third person (`thirdPersonBody`), whatever the starting perspective: it is a camera, not a noclip. It opens from the player menu (**Free camera** row) or with its key (F5 by default); on foot only, never during an action, a dialog, character creation or a tutorial camera.
 
-- **Rayon** : l'objectif reste à `freecam.radius` mètres du personnage (25 par défaut, 100 au plus) et ne descend pas à plus de `freecam.below` mètres sous ses pieds. La limite se longe en glissant ; la jauge du bandeau vire à l'orange puis au rouge.
-- **Touches** : toutes passent par `RegisterKeyMapping` (`Config.freecam.keys`), donc réglables dans Pause > Paramètres > Raccourcis. Avancer / reculer / gauche / droite suivent la disposition du clavier (WASD, ZQSD en AZERTY), Espace / C montent et descendent, Maj accélère, Ctrl ralentit, molette = vitesse, Ctrl + molette = zoom, R revient derrière le personnage, H masque le rappel, Retour arrière ou la touche d'ouverture quittent.
-- **Fluidité** : vitesse, rotation et zoom sont lissés (`freecam.smoothing`), l'entrée et la sortie fondent sur `blendMs`. Parti de la troisième personne, le plan démarre exactement où était la vue.
-- **Vol partagé** : le pas de vol (regard, vitesse, déplacement, laisse sphérique et plancher) est dans `client/core/freecam_motion.lua`, réutilisé par la vue *Free* des tables (`docs/board-games.md`) avec les mêmes touches.
-- **Rappel des touches** : bandeau passif en bas de l'écran, dessiné depuis les touches effectives, avec distance / rayon, vitesse et focale. Le chat, la pause ou le menu F1 figent le plan sans le fermer.
-- **Fermeture automatique** : mort, montée en véhicule, dialogue ouvert, personnage déplacé de plus de `freecam.leash` mètres, vue reprise par le moteur, arrêt de la ressource. Les blocages du personnage sont rendus un par un (pas de `resetControls`, qui lâcherait aussi le mode de marche).
+- **Radius**: the camera stays within `freecam.radius` meters of the character (25 by default, 100 at most) and never goes more than `freecam.below` meters below their feet. It slides along the limit; the banner gauge turns orange, then red.
+- **Keys**: all go through `RegisterKeyMapping` (`Config.freecam.keys`), so they can be changed in Pause > Settings > Key Bindings. Forward / back / left / right follow the keyboard layout (WASD, ZQSD on AZERTY), Space / C go up and down, Shift speeds up, Ctrl slows down, mouse wheel = speed, Ctrl + wheel = zoom, R goes back behind the character, H hides the key hints, Backspace or the opening key exits.
+- **Smoothness**: speed, rotation and zoom are smoothed (`freecam.smoothing`), entering and leaving fade over `blendMs`. When started from third person, the shot begins exactly where the view was.
+- **Shared flight**: the flight step (look, speed, movement, spherical leash and floor) lives in `client/core/freecam_motion.lua`, reused by the *Free* view of the tables (`docs/board-games.md`) with the same keys.
+- **Key hints**: a passive banner at the bottom of the screen, drawn from the actual keys, with distance / radius, speed and focal length. Chat, pause or the F1 menu freeze the shot without closing it.
+- **Automatic close**: death, getting into a vehicle, a dialog opening, the character moved more than `freecam.leash` meters, the engine taking the view back, resource stop. The character's locks are given back one by one (no `resetControls`, which would also drop the walk mode).
 
-Limites de la plateforme : pas de collision de l'objectif (il traverse les murs dans le rayon) et le monde reste chargé autour du corps, pas de la caméra. Tests : `tests/freecam_client_test.lua`, `ui/tests/freecam.browser.cjs`.
+Platform limits: the camera has no collision (it goes through walls within the radius) and the world stays loaded around the body, not around the camera. Tests: `tests/freecam_client_test.lua`, `ui/tests/freecam.browser.cjs`.
 
-## Interactions de proximité et location de véhicules
+## Proximity interactions and vehicle rental
 
-**Interactions** (`server/core/interact.lua`, `client/core/interact.lua`) : un module déclare un point avec `LightRP.interaction(id, { position, radius, label, prompt, key })`. Chaque client reçoit la liste (`op77_lightrp:interactions`). Si `marker` est renseigné, il crée un marqueur 3D natif via `Open77.markers` ; sinon il conserve le cercle au sol historique, sauf si `ring = false`. L'ancre WebUI partagée affiche « E · Rent a vehicle » au-dessus du point seulement quand le joueur est dans le rayon. E (touche `lightrp.interact`, rebindable) envoie l'id au serveur, qui revérifie la distance depuis sa propre position puis appelle `onInteract(playerId, id)` sur les modules. `LightRP.dialog(playerId, kind, payload)` ouvre une fenêtre de la page (`lightrp:ui:dialog`).
+**Interactions** (`server/core/interact.lua`, `client/core/interact.lua`): a module declares a point with `LightRP.interaction(id, { position, radius, label, prompt, key })`. Each client receives the list (`op77_lightrp:interactions`). If `marker` is set, it creates a native 3D marker through `Open77.markers`; otherwise it keeps the legacy ground circle, unless `ring = false`. The shared WebUI anchor shows "E · Rent a vehicle" above the point only when the player is within the radius. E (key `lightrp.interact`, rebindable) sends the id to the server, which rechecks the distance from its own position, then calls `onInteract(playerId, id)` on the modules. `LightRP.dialog(playerId, kind, payload)` opens a page window (`lightrp:ui:dialog`).
 
-Les agences utilisent désormais un **cylindre 3D jaune translucide, avec un dégradé vers le haut**, sans cercle superposé. `shared/config.lua` → `rentals.marker` règle `shape`, `radius`, `height`, `color` (RGBA 0–255), `minDistance` / `maxDistance`, `groundOffset` (mètres), ainsi que `scale`, `rotation`, `style` et `visible` si nécessaire. Le rayon visuel ne change pas `rentals.interactRadius` : le PNJ, la touche E, le blip et la validation serveur restent indépendants du marqueur. Les handles sont supprimés au remplacement de la liste ; la plateforme les nettoie aussi à la déconnexion ou à l'arrêt de la ressource. Il faut un client Open77 avec l'API **et l'archive des marqueurs 3D**, ainsi que la permission `world.markers` (déjà déclarée). Sur un ancien client, un diagnostic est journalisé sans bloquer la location ni réafficher le cercle.
+Rental agencies now use a **translucent yellow 3D cylinder, with an upward gradient**, with no circle on top. `shared/config.lua` → `rentals.marker` sets `shape`, `radius`, `height`, `color` (RGBA 0–255), `minDistance` / `maxDistance`, `groundOffset` (meters), plus `scale`, `rotation`, `style` and `visible` if needed. The visual radius doesn't change `rentals.interactRadius`: the NPC, the E key, the blip and the server validation stay independent of the marker. Handles are deleted when the list is replaced; the platform also cleans them up on disconnect or resource stop. You need an Open77 client with the API **and the 3D marker archive**, plus the `world.markers` permission (already declared). On an old client, a diagnostic is logged without blocking the rental or bringing back the circle.
 
-**Location** (`server/modules/rental.lua`, page `features/rental/RentalDialog.tsx`) : les agences sont dans `config.rentals.spots` (PNJ via `Open77.npcs.create`, candidats essayés dans l'ordre ; stock = clés de `vehicles.catalog` avec prix ; `parking` = point d'apparition à relever avec `/pos`). Un joueur ne peut avoir qu'une location à la fois ; il paie en cash ou en banque via `LightRP.money`, le véhicule apparaît sur le parking pour `durationMinutes`, puis est repris (notice) ; retour possible à n'importe quelle agence (bouton « Return vehicle »), et nettoyage à la déconnexion ou au changement de personnage. Historique dans `lightrp_rentals`. Staff : `/lightrp.rentals`. État page `rental.active` (puce HUD avec le décompte), actions `rental.rent { spot, key, pay }` et `rental.return`.
+**Rental** (`server/modules/rental.lua`, page `features/rental/RentalDialog.tsx`): agencies are in `config.rentals.spots` (NPC through `Open77.npcs.create`, candidates tried in order; stock = keys of `vehicles.catalog` with prices; `parking` = spawn point to record with `/pos`). A player can only have one rental at a time; they pay in cash or by bank through `LightRP.money`, the vehicle appears in the parking lot for `durationMinutes`, then is taken back (notice); it can be returned at any agency ("Return vehicle" button), and it is cleaned up on disconnect or character change. History in `lightrp_rentals`. Staff: `/lightrp.rentals`. Page state `rental.active` (HUD chip with the countdown), actions `rental.rent { spot, key, pay }` and `rental.return`.
 
-## Clés de véhicule (`server/modules/keys.lua`, `client/core/keys.lua`)
+## Vehicle keys (`server/modules/keys.lua`, `client/core/keys.lua`)
 
-Une clé autorise à verrouiller / déverrouiller explicitement : **un véhicule verrouillé est fermé pour tout le monde, propriétaire compris**. Les deux opérations passent par `Open77.vehicles.setLockedForAll` pour supprimer les exceptions individuelles. Une clé est une entrée du registre `LightRP.keys.ledger[vehicleId].holders[identifier#slot]`, liée au personnage, pas à la session. La reconnexion, le changement de personnage ou le partage de clés ne déverrouillent jamais la voiture. Réplication par state bags : `Open77.state.entity("vehicle", id).keys = { label, owner, holders }` et `Open77.state.player(id).vehicleKeys = { [vehicleId] = label }` (lu par le client pour savoir s'il peut appuyer sur L).
+A key lets you lock / unlock explicitly: **a locked vehicle is closed to everyone, owner included**. Both operations go through `Open77.vehicles.setLockedForAll` to remove individual exceptions. A key is an entry in the registry `LightRP.keys.ledger[vehicleId].holders[identifier#slot]`, tied to the character, not the session. Reconnecting, changing character or sharing keys never unlocks the car. Replication through state bags: `Open77.state.entity("vehicle", id).keys = { label, owner, holders }` and `Open77.state.player(id).vehicleKeys = { [vehicleId] = label }` (read by the client to know whether it can press L).
 
-API : `LightRP.keys.give(vehicleId, playerId, { label, owner })`, `take`, `clear`, `has`, `holders`, `lock(vehicleId, locked)`, `toggle(playerId, vehicleId)` (validé : clé, même bucket, distance `vehicleKeys.range` ou assis dedans, klaxon court). Hook `onVehicleLockChanged`. Touche L (`lightrp.vehiclelock`, rebindable) : le véhicule occupé, sinon le plus proche. Les clés disparaissent avec le véhicule (`onVehicleRemoved`). Staff : `/lightrp.givekeys`, `/lightrp.takekeys`. La location livre la voiture verrouillée avec la clé dans la poche du loueur : appuyer sur L pour entrer.
+API: `LightRP.keys.give(vehicleId, playerId, { label, owner })`, `take`, `clear`, `has`, `holders`, `lock(vehicleId, locked)`, `toggle(playerId, vehicleId)` (validated: key, same bucket, distance `vehicleKeys.range` or sitting inside, short horn). Hook `onVehicleLockChanged`. Key L (`lightrp.vehiclelock`, rebindable): the occupied vehicle, otherwise the closest one. Keys disappear with the vehicle (`onVehicleRemoved`). Staff: `/lightrp.givekeys`, `/lightrp.takekeys`. The rental delivers the car locked, with the key in the renter's pocket: press L to get in.
 
-## Menu véhicule Alt + clic
+## Alt + click vehicle menu
 
-Les détenteurs des clés disposent d'un menu principal limité à quatre entrées : verrouillage, **Coffre & capot**, **Commandes véhicule** et état. Le premier sous-menu contient les ouvrants coffre/capot et l'inventaire du coffre ciblé ; le second contient le moteur à l'arrêt, les feux et le klaxon. Les portes latérales, leurs commandes générales et les vitres sont retirées, y compris de la liste des actions acceptées côté serveur. Les choix suivent l'état courant ; les motos n'affichent pas de coffre/capot. Retour, flèche gauche, Retour arrière ou clic droit remonte au menu principal ; Échap ferme tout. Le package contextmenu reste générique, sans action par défaut.
+Key holders get a main menu limited to four entries: lock, **Trunk & hood**, **Vehicle controls** and condition. The first submenu has the trunk/hood openers and the inventory of the targeted trunk; the second has engine stop, the lights and the horn. Side doors, their general controls and the windows are removed, including from the list of actions the server accepts. The choices follow the current state; motorcycles don't show trunk/hood. Back, left arrow, Backspace or right click goes back up to the main menu; Esc closes everything. The contextmenu package stays generic, with no default action.
 
-Chaque demande est revérifiée côté serveur (clés, personnage actif et vivant, proximité, bucket, conducteur / occupants, vitesse, anti-spam). Le déverrouillage reste obligatoire pour ouvrir un coffre ou un capot. Paramètres : `shared/config.lua` → `vehicleContext`. Détails, API et tests : [docs/vehicle-context.md](docs/vehicle-context.md).
+Each request is rechecked on the server (keys, active and living character, proximity, bucket, driver / occupants, speed, anti-spam). Unlocking is still required to open a trunk or a hood. Settings: `shared/config.lua` → `vehicleContext`. Details, API and tests: [docs/vehicle-context.md](docs/vehicle-context.md).
 
-## Inventaire (`shared/items.lua`, `server/modules/inventory.lua`, page `features/inventory/`)
+## Inventory (`shared/items.lua`, `server/modules/inventory.lua`, page `features/inventory/`)
 
-Modèle ox_inventory : grilles de cases à poids maximum, stacks d'items identiques (même `name` + mêmes `metadata`, jusqu'à `stack` du template), tout mouvement validé côté serveur. Kinds : `player:<identifier>#<slot>` (persistant, chargé avec le personnage, items de départ dans `config.inventory.starting`), `trunk:<vehicleId>` (session, véhicule proche dans le même bucket, obligatoirement déverrouillé, même avec les clés), `drop:<n>` (session, tas au sol avec point d'interaction E « Pick up », expire après `drop.ttlMinutes`), `stash:<id>` (persistant, points de `config.inventory.stashes`). Table `lightrp_inventories` (items en JSON).
+ox_inventory model: grids of slots with a maximum weight, stacks of identical items (same `name` + same `metadata`, up to the template's `stack`), every move validated on the server. Kinds: `player:<identifier>#<slot>` (persistent, loaded with the character, starting items in `config.inventory.starting`), `trunk:<vehicleId>` (session, a nearby vehicle in the same bucket, which must be unlocked, even with the keys), `drop:<n>` (session, a pile on the ground with an E "Pick up" interaction point, expires after `drop.ttlMinutes`), `stash:<id>` (persistent, points from `config.inventory.stashes`). Table `lightrp_inventories` (items as JSON).
 
-Verrouiller retire immédiatement le coffre de l'inventaire de tous ses utilisateurs, sans fermer leurs poches ni déplacer d'objets. Les transferts déjà en cours sont revérifiés côté serveur et refusés si le coffre est devenu verrouillé, distant ou dans un autre bucket. Les abonnements périmés sont retirés avant toute publication. I près d'un véhicule verrouillé ouvre uniquement les poches et explique qu'il faut déverrouiller le coffre. Tests isolés : `pwsh -NoProfile -File tests/run-lua.ps1 -Test vehicle_access_test.lua` depuis la ressource (aucun jeu requis).
+Locking immediately removes the trunk from the inventory of everyone using it, without closing their pockets or moving any items. Transfers already in progress are rechecked on the server and refused if the trunk has become locked, too far away or in another bucket. Stale subscriptions are removed before anything is published. I near a locked vehicle opens only the pockets and explains that the trunk must be unlocked first. Isolated tests: `pwsh -NoProfile -File tests/run-lua.ps1 -Test vehicle_access_test.lua` from the resource (no game needed).
 
-Templates dans `shared/items.lua` : `label`, `description`, `weight` (kg), `stack`, `icon` (nom Lucide connu de la page, repli `package`), `category`, `use = { consume, food, drink, health, notice }`. Un autre module peut brancher `LightRP.inventory.onUse(name, fn)`. API : `addItem(invId, name, count, metadata)`, `removeItem`, `count`, `canHold`, `move`, `use`, `drop`, `give`, `open(playerId, invId?)`, `playerId(playerId)`; hook `onItemUsed`. Actions page : `inventory.open|close|move|use|drop|give`. Touche I (`lightrp.inventory`). Staff : `/lightrp.giveitem <id|me> <item> [n]`, `/lightrp.items`.
+Templates in `shared/items.lua`: `label`, `description`, `weight` (kg), `stack`, `icon` (a Lucide name the page knows, fallback `package`), `category`, `use = { consume, food, drink, health, notice }`. Another module can hook in with `LightRP.inventory.onUse(name, fn)`. API: `addItem(invId, name, count, metadata)`, `removeItem`, `count`, `canHold`, `move`, `use`, `drop`, `give`, `open(playerId, invId?)`, `playerId(playerId)`; hook `onItemUsed`. Page actions: `inventory.open|close|move|use|drop|give`. Key I (`lightrp.inventory`). Staff: `/lightrp.giveitem <id|me> <item> [n]`, `/lightrp.items`.
 
-Page : deux grilles aérées (poches à gauche, coffre / tas / stockage au centre) et une fiche objet à droite. Sans stockage proche, une zone de dépôt remplace la seconde grille. Un clic sélectionne ; un déplacement de plus de 6 px commence le glisser-déposer. La fiche affiche description, poids unitaire / total, quantité (1 / moitié / tout), utilisation, transfert, division, don au joueur le plus proche et dépôt. Les boutons Don / Dépôt demandent confirmation ; déposer par glisser-déposer reste direct. Le serveur vérifie toujours propriété, proximité, poids, métadonnées et quantités. Un coffre ne peut pas être glissé vers le sol en visant par erreur une case du joueur : il faut d'abord prendre l'objet.
+Page: two airy grids (pockets on the left, trunk / pile / storage in the middle) and an item sheet on the right. With no storage nearby, a drop zone replaces the second grid. A click selects; a move of more than 6 px starts drag and drop. The sheet shows the description, unit / total weight, quantity (1 / half / all), use, transfer, split, give to the nearest player and drop. The Give / Drop buttons ask for confirmation; dropping by drag and drop stays instant. The server always checks ownership, proximity, weight, metadata and quantities. A trunk item can't be dragged to the ground by mistakenly aiming at a player slot: you have to take the item first.
 
-Recherche indépendante par panneau sans renumérotation des cases, clic droit pour les actions rapides, flèches pour naviguer dans la grille, 1–5 pour sélectionner les premières cases, Shift + glisser pour la moitié d'une pile. Échap ferme d'abord une confirmation / un menu contextuel / un drag, puis l'inventaire, même depuis un champ texte. Tab reste dans la fenêtre. Les actions attendent le serveur (pas de modification optimiste ni de double envoi pendant l'attente) ; les snapshots frais arrivent par `lightrp:ui:inventory` à tous ceux qui regardent l'inventaire modifié. Une mise à jour ou une perte de focus annule les glisser-déposer devenus périmés. Grilles défilantes, états vides et erreurs explicites, transitions courtes avec respect de `prefers-reduced-motion`.
+Search per panel without renumbering the slots, right click for quick actions, arrows to move around the grid, 1–5 to select the first slots, Shift + drag for half a stack. Esc first closes a confirmation / a context menu / a drag, then the inventory, even from a text field. Tab stays inside the window. Actions wait for the server (no optimistic change and no double send while waiting); fresh snapshots arrive through `lightrp:ui:inventory` for everyone looking at the changed inventory. An update or a focus loss cancels drags that have gone stale. Scrolling grids, explicit empty and error states, short transitions that respect `prefers-reduced-motion`.
 
-Tests UI : `ui/tests/inventory.browser.cjs` contre le serveur Vite. Le bridge simulé vérifie les actions réellement émises, les réponses serveur, les quantités, le focus, les annulations de drag, les tableaux Lua vides, les résolutions 720p / 1080p / 1440p / ultralarge et les alertes HUD. Installer Playwright dans l'environnement de test (ou fournir `PLAYWRIGHT_MODULE`), puis lancer `node tests/inventory.browser.cjs` depuis `ui`. `UI_URL` et `BROWSER_CHANNEL` permettent de changer le serveur et le navigateur ; par défaut Vite sur `127.0.0.1:5177` et Edge.
+UI tests: `ui/tests/inventory.browser.cjs` against the Vite server. The mock bridge checks the actions actually emitted, the server answers, quantities, focus, drag cancels, empty Lua tables, 720p / 1080p / 1440p / ultrawide resolutions and HUD alerts. Install Playwright in the test environment (or provide `PLAYWRIGHT_MODULE`), then run `node tests/inventory.browser.cjs` from `ui`. `UI_URL` and `BROWSER_CHANNEL` let you change the server and the browser; by default, Vite on `127.0.0.1:5177` and Edge.
 
-Le HUD et l'inventaire gardent l'identité jaune / noir du serveur : `--accent` du design system pour les actions principales, les sélections, les jauges de vie / endurance et les repères de navigation. Typographie sobre, fonds noirs translucides, aucune grosse plaque derrière les besoins. Les alertes et les autres besoins conservent leurs couleurs sémantiques.
+The HUD and the inventory keep the server's yellow / black identity: the design system `--accent` for main actions, selections, health / stamina gauges and navigation cues. Clean typography, translucent black backgrounds, no big plate behind the needs. Alerts and the other needs keep their semantic colors.
 
-**I ouvre et referme l'inventaire**. Le raccourci de fermeture est fourni par `Open77.input.keyFor` : il suit une éventuelle réaffectation dans les paramètres. Une fois le clavier capturé, la page ferme au relâchement d'un nouvel appui, sans réagir au relâchement initial ni aux répétitions de touche ; la lettre reste saisissable dans la recherche. Le client applique un court anti-rebond au retour du focus pour éviter une réouverture immédiate. Échap reste disponible depuis les champs texte. Tests des helpers : `node --experimental-strip-types --test tests/inventory-model.test.ts` (Node 22.6+).
+**I opens and closes the inventory**. The close shortcut comes from `Open77.input.keyFor`: it follows any rebinding in the settings. Once the keyboard is captured, the page closes on the release of a new press, without reacting to the initial release or to key repeats; the letter can still be typed in the search. The client applies a short debounce when focus returns to avoid an immediate reopen. Esc stays available from text fields. Helper tests: `node --experimental-strip-types --test tests/inventory-model.test.ts` (Node 22.6+).
 
-## Ce que voit le joueur
+## What the player sees
 
-- HUD bas gauche : vie principale et quatre jauges distinctes (armure, endurance, faim, soif),
-  sans grosse plaque ni répétition du nom / logo. Les jauges évoluent en douceur, les variations
-  de vie sont affichées brièvement, les alertes n'apparaissent que sous les seuils critiques.
-  Une ombre diffuse garde les libellés lisibles sur le monde. Le HUD s'efface pendant l'inventaire.
-  Voix et compteur véhicule restent dans leurs emplacements habituels.
-- À la première connexion, un [wizard en quatre étapes](docs/character-creation.md)
-  guide l'identité, l'histoire facultative, l'apparence et le récapitulatif. Design noir/jaune,
-  retour arrière sans perdre les saisies, validation serveur et navigation clavier.
-  Tant que l'identité n'est pas remplie, seul `/ooc` fonctionne dans le chat.
-- **F1** ouvre le menu joueur (identité, informations et aide) ; **I** ouvre l'inventaire.
-- Le chat normal est la parole en jeu à 20 m, sous le nom du personnage.
+- Bottom-left HUD: main health bar and four separate gauges (armor, stamina, hunger, thirst),
+  with no big plate and no repeated name / logo. The gauges move smoothly, health changes
+  are shown briefly, and alerts only appear below critical thresholds.
+  A soft shadow keeps the labels readable over the world. The HUD fades out while the inventory is open.
+  Voice and the vehicle gauge stay in their usual places.
+- On first connection, a [four-step wizard](docs/character-creation.md)
+  walks through identity, the optional backstory, appearance and the summary. Black/yellow design,
+  going back without losing what you typed, server validation and keyboard navigation.
+  Until the identity is filled in, only `/ooc` works in chat.
+- **F1** opens the player menu (identity, information and help); **I** opens the inventory.
+- Normal chat is in-game speech at 20 m, under the character's name.
 
-| Commande | Effet |
+| Command | Effect |
 |---|---|
-| `/register <Prénom> <Nom>` | Crée ou renomme le personnage. |
-| `/w` · `/s` · `/ooc` | Chuchoter (4 m) · crier (45 m) · hors-jeu (global). |
-| `/me` · `/do` · `/try` · `/roll [max]` | Action · scène · tentative (50 %) · dé. |
-| `/pm <id> <texte>` | Message privé. |
-| `/car <modèle>` · `/cars` · `/dv` | Appeler · ouvrir le garage · rendre. |
-| `/who` · `/rules` · `/help` · `/report <texte>` | Présents · règles · aide · signalement au staff. |
+| `/register <First> <Last>` | Creates or renames the character. |
+| `/w` · `/s` · `/ooc` | Whisper (4 m) · shout (45 m) · out of character (global). |
+| `/me` · `/do` · `/try` · `/roll [max]` | Action · scene · attempt (50%) · dice. |
+| `/pm <id> <text>` | Private message. |
+| `/car <model>` · `/cars` · `/dv` | Call · open the garage · return. |
+| `/who` · `/rules` · `/help` · `/report <text>` | Who's online · rules · help · report to staff. |
 
-Staff (`command.lightrp.<nom>` dans `acl.jsonc`) : `/lightrp.tp <id|me> <lieu|x y z>`,
-`/lightrp.bring <id>`, `/lightrp.goto <id>`, `/lightrp.heal <id|me>`, `/lightrp.announce <texte>`,
-`/lightrp.setname <id> <Prénom> <Nom>`, `/lightrp.car <modèle>`, `/lightrp.status`.
+Staff (`command.lightrp.<name>` in `acl.jsonc`): `/lightrp.tp <id|me> <place|x y z>`,
+`/lightrp.bring <id>`, `/lightrp.goto <id>`, `/lightrp.heal <id|me>`, `/lightrp.announce <text>`,
+`/lightrp.setname <id> <First> <Last>`, `/lightrp.car <model>`, `/lightrp.status`.
 
-## Persistance
+## Persistence
 
-### Véhicules personnels et concessionnaire
+### Personal vehicles and dealership
 
-**Night City Motors** (la map `cardealer`) propose un catalogue de véhicules à
-acheter (cash ou banque) : **E** auprès du vendeur, à l'accueil du showroom. Le
-véhicule acheté sort aussitôt sur la baie de livraison, verrouillé, clés en main, et
-une balise avec route GPS y mène ; si la baie est prise ou qu'un autre véhicule
-personnel est déjà dehors, il attend au garage et la GPS mène au garage. Quatre
-voitures d'exposition (verrouillées, figées) occupent les podiums. Le **Public Garage** permet de sortir
-et ranger les voitures personnelles ; elles restent récupérables après reboot ou
-suppression admin. **Aucune voiture de départ n'est attribuée.**
-**Fourrière** : un véhicule resté dehors lors d'un redémarrage, ou disparu du monde
-(détruit, supprimé, bug), part en fourrière ; depuis n'importe quel garage, le
-propriétaire peut y envoyer le sien (volé, perdu, bloqué), ce qui le retire du monde
-où qu'il soit. On le récupère dans n'importe quel garage public (onglet Impound),
-contre des frais selon le motif (`impound.fees` dans `server/config/garages.lua` :
-gratuit après un redémarrage pour un véhicule intact, 400 €$ pour une épave (détruit,
-explosé ou à 0 de santé, quel qu'en soit l'auteur ; l'assurance la répare), 150 €$ pour
-un véhicule disparu sans trace d'épave (supprimé, nettoyé, bug), 250 €$ sur demande du
-propriétaire, 500 €$ après un enlèvement par le staff). Une épave ne se range pas au
-garage. Staff : `/lightrp.givevehicle <id|me> <modèle> [garage]`,
-`/lightrp.impound` à côté du véhicule (ou avec son id réseau).
-SQL est obligatoire pour ces fonctionnalités ; elles se ferment en cas d'erreur
-de stockage. Voir [configuration, API et garanties](docs/personal-vehicles.md).
+**Night City Motors** (the `cardealer` map) offers a catalog of vehicles to
+buy (cash or bank): **E** at the salesperson, at the showroom front desk. The
+vehicle you buy comes out right away in the delivery bay, locked, keys in hand, and
+a marker with a GPS route leads to it; if the bay is taken or another personal
+vehicle is already out, it waits in the garage and the GPS leads to the garage. Four
+display cars (locked, frozen) sit on the podiums. The **Public Garage** lets you take out
+and store personal cars; they can still be recovered after a reboot or an
+admin deletion. **No starter car is given.**
+**Impound**: a vehicle left out during a restart, or gone from the world
+(destroyed, deleted, bug), goes to the impound; from any garage, the
+owner can send their own vehicle there (stolen, lost, stuck), which removes it from the world
+wherever it is. You get it back at any public garage (Impound tab),
+for a fee that depends on the reason (`impound.fees` in `server/config/garages.lua`:
+free after a restart for an intact vehicle, 400 €$ for a wreck (destroyed,
+exploded or at 0 health, whoever did it; insurance repairs it), 150 €$ for
+a vehicle gone with no trace of a wreck (deleted, cleaned up, bug), 250 €$ at the
+owner's request, 500 €$ after a removal by staff). A wreck can't be stored in
+the garage. Staff: `/lightrp.givevehicle <id|me> <model> [garage]`,
+`/lightrp.impound` next to the vehicle (or with its network id).
+SQL is required for these features; they shut down on a storage
+error. See [configuration, API and guarantees](docs/personal-vehicles.md).
 
-Tables `lightrp_characters` (identité Master, compte, prénom/nom, dernière position, faim, soif,
-temps de jeu) et `lightrp_reports`. Sans base configurée le framework démarre et le dit dans le
-journal ; tout vit alors le temps de la session.
+Tables `lightrp_characters` (Master identity, account, first/last name, last position, hunger, thirst,
+playtime) and `lightrp_reports`. Without a configured database, the framework starts and says so in the
+log; everything then only lasts for the session.
 
 ## Crews (`server/modules/parties.lua`, `client/core/crew.lua`, page `features/crew/`)
 
-Le **crew** est la seule façon de se grouper : missions, raid Chimera, activités (arène, courses,
-poursuites, turf) et gigs de fixers. Le serveur fait foi ; le crew vit en mémoire (un
-redémarrage le dissout). Réglages dans `server/config/missions.lua`, bloc `party` :
-`maxSize` (8), `inviteSeconds` (60), `nearby` (15 m, liste « Nearby » des panneaux),
-`inviteRange` (300 m, portée d'une invitation), `farRange` (250 m, au-delà un membre est
-marqué FAR), `refreshMs` (2 s, rafraîchissement de l'état des membres).
+The **crew** is the only way to group up: missions, the Chimera raid, activities (arena, races,
+chases, turf) and fixer gigs. The server is the authority; the crew lives in memory (a
+restart disbands it). Settings in `server/config/missions.lua`, `party` block:
+`maxSize` (8), `inviteSeconds` (60), `nearby` (15 m, the "Nearby" list in the panels),
+`inviteRange` (300 m, range of an invite), `farRange` (250 m, beyond that a member is
+marked FAR), `refreshMs` (2 s, refresh rate of the members' state).
 
-- **Inviter** : **Alt + clic** sur un joueur › *Invite to crew* (`open77_contextmenu`, groupe
-  « Crew », 15 m), ou `/crew invite <id>`, ou le bouton *Invite* des panneaux. Seul le chef
-  invite ; le joueur doit être dans la même instance et à moins de 300 m. Le premier envoi crée
-  un crew d'une personne qui reste **solo** tant que personne n'a accepté.
-- **Répondre** : invite à l'écran au-dessus du cadre du crew, **Y** accepter / **N** refuser
-  (touches réassignables, « Light RP: accept crew invite » et « Light RP: decline crew invite » ;
-  l'invite affiche la touche effective), boutons cliquables quand le curseur est visible, ou
-  **F1 › Crew**, l'onglet *Crew* du panneau Activités, `/crew accept` · `/crew decline`.
-  Pendant le ready-check du raid, si les deux actions partagent la même touche, c'est le raid
-  qui la prend. Pour rejoindre un autre crew, il faut quitter le sien (un crew d'une personne
-  qui attend encore des réponses s'efface de lui-même).
-- **Gérer** : Alt + clic › *Make crew leader* / *Kick from crew* (chef seulement) et, sur
-  soi-même, *Leave crew* ; ou `/crew lead <id>`, `/crew kick <id>`, `/crew leave`, et les
-  mêmes boutons dans F1 › Crew et l'onglet *Crew*. Si le chef part, le commandement passe au
-  plus ancien membre ; un crew réduit à une personne se dissout.
-- **Commandes** : `/crew` (état), `/crew invite <id> · accept · decline · leave · kick <id> ·
-  lead <id> · matchmaking on|off` ; `/party` est un alias.
-- **Cadre HUD** en bas à gauche, au-dessus de l'arme et des jauges : couronne du chef, YOU,
-  DOWN / DEAD, MISSION / BOARD / ACTIVITY (ce qui occupe le membre), FAR. Huit lignes en 1080p,
-  cinq sur un écran court (≤ 800 px de haut), le reste dans F1 › Crew ; votre ligne reste
-  toujours visible. Pendant une mission, le même cadre montre la vie et l'armure de chaque
-  opérateur (les inconnus du matchmaking en grisé). Les notices se décalent à droite du cadre
-  quand les deux se touchent.
+- **Invite**: **Alt + click** on a player › *Invite to crew* (`open77_contextmenu`, "Crew"
+  group, 15 m), or `/crew invite <id>`, or the *Invite* button in the panels. Only the leader
+  invites; the player must be in the same instance and less than 300 m away. The first invite creates
+  a one-person crew that stays **solo** until someone accepts.
+- **Reply**: an on-screen invite above the crew frame, **Y** to accept / **N** to decline
+  (rebindable keys, "Light RP: accept crew invite" and "Light RP: decline crew invite";
+  the invite shows the actual key), clickable buttons when the cursor is visible, or
+  **F1 › Crew**, the *Crew* tab of the Activities panel, `/crew accept` · `/crew decline`.
+  During the raid ready check, if both actions share the same key, the raid
+  takes it. To join another crew, you have to leave yours (a one-person crew
+  still waiting for replies clears itself).
+- **Manage**: Alt + click › *Make crew leader* / *Kick from crew* (leader only) and, on
+  yourself, *Leave crew*; or `/crew lead <id>`, `/crew kick <id>`, `/crew leave`, and the
+  same buttons in F1 › Crew and the *Crew* tab. If the leader leaves, command passes to the
+  longest-standing member; a crew down to one person disbands.
+- **Commands**: `/crew` (status), `/crew invite <id> · accept · decline · leave · kick <id> ·
+  lead <id> · matchmaking on|off`; `/party` is an alias.
+- **HUD frame** at the bottom left, above the weapon and the gauges: leader's crown, YOU,
+  DOWN / DEAD, MISSION / BOARD / ACTIVITY (what the member is busy with), FAR. Eight rows at 1080p,
+  five on a short screen (≤ 800 px tall), the rest in F1 › Crew; your own row always
+  stays visible. During a mission, the same frame shows each
+  operator's health and armor (matchmaking strangers grayed out). Notices shift to the right of the frame
+  when the two touch.
 
-**Missions et raid Chimera.** Le **chef inscrit le crew** sur le tableau (**E**) ; un membre ne
-peut pas s'inscrire seul (« Your crew leader tags the crew in. Leave the crew to go solo. »).
-L'interrupteur **matchmaking** (touche **M** sur le tableau, F1 › Crew, onglet *Crew*,
-`/crew matchmaking on|off`, réservé au chef) est **coupé par défaut** :
+**Missions and the Chimera raid.** The **leader tags the crew in** on the board (**E**); a member
+can't sign up alone ("Your crew leader tags the crew in. Leave the crew to go solo.").
+The **matchmaking** switch (**M** key on the board, F1 › Crew, *Crew* tab,
+`/crew matchmaking on|off`, leader only) is **off by default**:
 
-- coupé : tableau privé, personne d'autre n'entre ; le compte à rebours part dès que le crew
-  atteint le minimum de la difficulté ; en dessous, l'inscription est refusée avec la marche à
-  suivre (inviter, ou ouvrir le matchmaking) ;
-- ouvert : le crew rejoint le tableau ouvert le plus rempli qui a la place, des joueurs solo en
-  matchmaking complètent ; le compte à rebours part au maximum, ou l'hôte lance (**R**) dès le
-  minimum atteint.
+- off: private board, nobody else gets in; the countdown starts as soon as the crew
+  reaches the difficulty's minimum; below that, sign-up is refused with what to do
+  next (invite, or open matchmaking);
+- on: the crew joins the fullest open board that still has room, and solo players in
+  matchmaking fill it up; the countdown starts at the maximum, or the host launches (**R**) once the
+  minimum is reached.
 
-Un joueur solo suit la même règle : matchmaking coupé, il n'entre que dans une difficulté
-jouable seul ; ouvert, il rejoint les tableaux ouverts. Le tableau signale les tableaux ouverts
-voisins. Quitter le crew retire le joueur du tableau où le crew l'avait inscrit, en rejoindre un
-annule son inscription solo ; fermer le matchmaking ferme le tableau du crew, ou retire le crew
-d'un tableau partagé. La puce de file affiche FILLING (ouvert) ou CREW ONLY.
+A solo player follows the same rule: with matchmaking off, they only enter a difficulty
+that can be played alone; with it on, they join open boards. The board points out nearby open
+boards. Leaving the crew removes the player from the board the crew signed them up for; joining one
+cancels their solo sign-up; turning matchmaking off closes the crew's board, or removes the crew
+from a shared board. The queue chip shows FILLING (open) or CREW ONLY.
 
-**Un membre sous la difficulté n'est jamais refusé** (décision du propriétaire, 2026-11-03).
-Le chef choisit, et seul son palier (plus l'échelle « terminer la précédente ») borne ce choix ;
-un membre dont le palier ou les clears n'ouvrent pas la difficulté est inscrit et lancé avec le
-crew, joue la difficulté pleine et touche la paie entière, mais sa réputation est celle de la
-plus haute difficulté que lui a ouverte (`Missions.rewardBasis`) : un Street porté en Critical
-gagne 100, pas 450. Il le lit une fois, en notice « STREET CRED » (« Critical is above your
-street cred: you play it, you earn the Standard reward (+100 reputation). »), le chef voit la
-liste des récompenses réduites dans la réponse d'inscription, la notice de fin dit laquelle a
-payé, et le tableau du membre montre la difficulté verrouillée « WITH THE CREW +100 REP ». Un
-joueur solo, et un inconnu du matchmaking (inscrit pour lui-même), restent soumis au palier.
+**A member below the difficulty is never refused** (owner's decision, 2026-11-03).
+The leader chooses, and only their tier (plus the "finish the previous one" ladder) limits that choice;
+a member whose tier or clears don't unlock the difficulty is signed up and launched with the
+crew, plays the full difficulty and gets the full pay, but their reputation is that of the
+highest difficulty unlocked for them (`Missions.rewardBasis`): a Street carried into Critical
+earns 100, not 450. They read it once, in a "STREET CRED" notice ("Critical is above your
+street cred: you play it, you earn the Standard reward (+100 reputation)."), the leader sees the
+list of reduced rewards in the sign-up reply, the end notice says which one
+paid, and the member's board shows the locked difficulty "WITH THE CREW +100 REP". A
+solo player, and a matchmaking stranger (signed up for themselves), are still bound by the tier.
 
-**Activités.** Le chef rejoint (*Join with the crew*) : chaque membre éligible est mis en file
-avec les mêmes `options` et le même `options.squad = { id, leader, members }` ; un membre
-inéligible reste dehors avec la raison en notice. Un membre ne lance pas d'activité seul ;
-`/leave` le sort de la file, et si le chef annule, les membres mis en file avec lui sortent aussi.
-En PvE, le membre reçoit la difficulté du chef (`options.difficulty`) même au-dessus de son
-palier : il la joue et son résultat compte à la plus haute difficulté que son palier ouvre
-(même règle que les missions, dite une fois en notice).
+**Activities.** The leader joins (*Join with the crew*): each eligible member is queued
+with the same `options` and the same `options.squad = { id, leader, members }`; an
+ineligible member stays out, with the reason in a notice. A member doesn't launch an activity alone;
+`/leave` takes them out of the queue, and if the leader cancels, the members queued with them leave too.
+In PvE, the member gets the leader's difficulty (`options.difficulty`) even above their
+tier: they play it and their result counts at the highest difficulty their tier unlocks
+(same rule as missions, stated once in a notice).
 
-**Gigs de fixers.** Les offres ne vont qu'au chef d'un crew (ou aux joueurs solo) ; quand il
-accepte, les membres libres qui ont un implant Neural-Link rejoignent le gig avec lui.
+**Fixer gigs.** Offers only go to a crew's leader (or to solo players); when the leader
+accepts, free members who have a Neural-Link implant join the gig with them.
 
-## Gigs de fixers (`server/modules/fixers.lua`, `server/config/fixers.lua`)
+## Fixer gigs (`server/modules/fixers.lua`, `server/config/fixers.lua`)
 
-Des fixers fictifs (côté serveur : Mama Okoro, Silas "Ledger" Varga, Nix Delacroix) envoient au
-hasard, par SMS Neural-Link, un « gig » tiré du catalogue : les missions de l'éditeur marquées
-**Fixer gig** (`/lightrp.missions` › mission › Fixer gig : interrupteur, fixer, brief). Une mission
-de fixer n'a **pas de tableau** dans la ville : on ne peut pas s'y inscrire, on la reçoit.
+Fictional fixers (server side: Mama Okoro, Silas "Ledger" Varga, Nix Delacroix) randomly send,
+by Neural-Link SMS, a "gig" drawn from the catalog: the editor missions marked
+**Fixer gig** (`/lightrp.missions` › mission › Fixer gig: switch, fixer, brief). A fixer
+mission has **no board** in the city: you can't sign up for it, you receive it.
 
-- **Offre** : carte du job (paie maximale par opérateur, durée), boutons *Take the job* / *Pass* (3 min).
-- **Brief** une fois acceptée : l'objectif (le brief du fixer, sinon la description), le point de
-  rendez-vous (= position du tableau dans l'éditeur) avec *Pin the meet point* (waypoint sur la
-  carte), *Share the job* (un contact ou un numéro reçoit l'offre et peut *Join the crew*),
-  *Go now* (le chef lance avec les présents, au moins le minimum de la difficulté) et *Bail*.
-- **Rendez-vous** : quand tout l'équipage est au point (20 m), compte à rebours de 10 s puis la
-  mission démarre comme une mission normale (kit, instance). Sans tout le monde après 20 min :
-  lancement avec les présents s'ils suffisent, sinon le job tombe.
-- **Crew** : quand le chef d'un crew accepte, ses membres libres (avec implant) rejoignent le
-  gig ; les offres automatiques ne vont pas aux membres d'un crew qu'ils ne mènent pas.
-- **Fin** : chaque opérateur est payé (`gig` à la banque) selon les règles des missions
-  (cagnotte partagée, recharge de 60 min, plafond journalier, voir « Équilibrage ») +
-  réputation ; le fixer envoie un message avec la somme réellement versée.
-  La réputation suit le palier de chacun : un équipier invité sous le palier de la difficulté
-  reçoit celle de la plus haute difficulté que son palier ouvre (`docs/pve-progression.md`) ; il
-  le lit une fois en notice « STREET CRED » en rejoignant le gig.
-- Les offres ne tirent que des difficultés ouvertes au palier de réputation du joueur
-  (Standard au palier I, Hard au II, Critical au III).
-- Puce HUD « GIG » (état `fixerGig`) : présents au point, horloge du rendez-vous, compte à rebours.
-- Envoi automatique : un passage par minute, chance 8 % par joueur éligible (implant, en ville,
-  libre, 2 min après l'arrivée), 20 min entre deux offres, 6 gigs ouverts au maximum.
-- Staff : `/fixers.offer <id> [missionId] [difficulté]`, `/fixers.list`, `/fixers.cancel <gig>`,
+- **Offer**: job card (maximum pay per operator, duration), *Take the job* / *Pass* buttons (3 min).
+- **Brief** once accepted: the objective (the fixer's brief, otherwise the description), the
+  meet point (= board position in the editor) with *Pin the meet point* (waypoint on the
+  map), *Share the job* (a contact or a number receives the offer and can *Join the crew*),
+  *Go now* (the leader launches with whoever is there, at least the difficulty's minimum) and *Bail*.
+- **Meet**: when the whole crew is at the point (20 m), a 10 s countdown, then the
+  mission starts like a normal mission (kit, instance). If not everyone is there after 20 min:
+  launch with whoever is there if that's enough, otherwise the job falls through.
+- **Crew**: when a crew's leader accepts, their free members (with an implant) join the
+  gig; automatic offers don't go to members of a crew they don't lead.
+- **End**: each operator is paid (`gig` to the bank) according to the mission rules
+  (shared pot, 60 min cooldown, daily cap, see "Balancing") +
+  reputation; the fixer sends a message with the amount actually paid.
+  Reputation follows each player's tier: a crewmate invited below the difficulty's tier
+  gets the reputation of the highest difficulty their tier unlocks (`docs/pve-progression.md`); they
+  read it once in a "STREET CRED" notice when joining the gig.
+- Offers only draw difficulties unlocked at the player's reputation tier
+  (Standard at tier I, Hard at II, Critical at III).
+- "GIG" HUD chip (`fixerGig` state): players at the point, meet clock, countdown.
+- Automatic dispatch: one pass per minute, 8% chance per eligible player (implant, in the city,
+  free, 2 min after arriving), 20 min between two offers, 6 open gigs at most.
+- Staff: `/fixers.offer <id> [missionId] [difficulty]`, `/fixers.list`, `/fixers.cancel <gig>`,
   `/fixers.dispatch on|off|now`.
-- Les gigs vivent en mémoire : un redémarrage les annule (leurs boutons répondent « Expired »).
+- Gigs live in memory: a restart cancels them (their buttons answer "Expired").
 
-## Activités et The Crossing (`server/modules/activities.lua`, `activities_hub.lua`)
+## Activities and The Crossing (`server/modules/activities.lua`, `activities_hub.lua`)
 
-Arène, courses, poursuites et événements sont des **ressources fournisseuses** séparées
-(`op77_arena`, `op77_race`, `op77_chase`, `op77_fireworks`…) qui gèrent leurs propres instances.
-Light RP en est le **noyau** : il possède le joueur pendant l'activité, capture son point de
-retour, met ses armes RP de côté, gèle la faim et la soif, refuse objets RP, véhicules RP,
-logement et ordres de travail selon les `caps` de l'activité, n'applique ni inconscience ni
-hôpital, ne sauvegarde jamais la position de l'instance et ramène le joueur à la fin. Les
-résultats deviennent statistiques et classements, **jamais d'objet** ; les résultats classés
-paient des eddies (`server/modules/activity_pay.lua`, voir « Équilibrage ») et seules les
-activités **PvE** rapportent en plus de la réputation (voir « Progression PvE » plus bas).
+Arena, races, chases and events are separate **provider resources**
+(`op77_arena`, `op77_race`, `op77_chase`, `op77_fireworks`…) that run their own instances.
+Light RP is their **core**: it owns the player during the activity, captures their return
+point, puts their RP weapons aside, freezes hunger and thirst, refuses RP items, RP vehicles,
+housing and work orders according to the activity's `caps`, applies neither unconsciousness nor
+hospital, never saves the instance position and brings the player back at the end. The
+results become stats and leaderboards, **never items**; ranked results
+pay eddies (`server/modules/activity_pay.lua`, see "Balancing") and only
+**PvE** activities also give reputation (see "PvE progression" below).
 
-### Le contrat (exports serveur de `op77_lightrp`)
+### The contract (`op77_lightrp` server exports)
 
-Tous synchrones : ils ne cèdent jamais la main et n'écrivent pas la base (un export qui attend
-échoue chez l'appelant avec `export_yielded`). Un fournisseur n'agit que sur ses propres
-activités (`GetInvokingResource`).
+All synchronous: they never yield and don't write to the database (an export that waits
+fails on the caller's side with `export_yielded`). A provider only acts on its own
+activities (`GetInvokingResource`).
 
-| Export | Rôle |
+| Export | Role |
 |---|---|
-| `activityRegister(def)` → `true` \| `false, raison` | `def = { id, resource, label, kind, description, minPlayers, maxPlayers, caps }`. `id` préfixé par le fournisseur (`arena.ffa`, `race.trial`, `chase.1v1`), `kind` ∈ `pvp`, `race`, `chase`, `event`, `caps = { rpWeapons, rpItems, needs, vehicles }` (tout à `false` par défaut). Réenregistrer remplace. Facultatif : `modes = { { id, label } }` et `modeKey` (choix proposés par le panneau, rendus dans `options[modeKey]` ; un choix inconnu est refusé avant d'atteindre le fournisseur ; sans `modes`, `joinChoices` de la config peut en fournir — voiture ou à pied pour `chase.1v1`). Facultatif aussi : `pve = true` (joueurs contre bots, seule source de réputation ; sans le drapeau, la liste `pve.activities` de la config peut marquer l'id, `pve = false` l'emporte) et `difficulties = { "standard", "hard", "critical" }` (celles que le fournisseur joue vraiment ; sans elles, Standard seule). `botFill = true` : le fournisseur sait compléter avec des bots (`options.fill`, `options.match.bots`) — sans lui, le panneau ne propose jamais de bots ; un mode s'en exclut par `modes = { { id, label, botFill = false } }`. |
-| `activityCheck(id, activityId, opts)` → `true` \| `false, raison` | Éligibilité seule, dans cet ordre : personnage actif, vivant et pas à terre, ni en mission ni dans une autre activité, pas dans le premier jour, pas dans un logement, pas en véhicule, pas blessé depuis 60 s, et dans la ville partagée (bucket 0). Avec `opts.difficulty` sur une activité PvE : aussi le palier de réputation qu'elle demande — pour un membre de crew, celui de son chef (un membre sous la difficulté passe, pour la récompense de son palier). La raison est une phrase anglaise montrée au joueur. |
-| `activityEnter(id, activityId, opts)` | Revérifie, enregistre la possession, capture `{ x, y, z, heading, bucket }`, range les armes RP si `caps.rpWeapons` est faux. Le fournisseur déplace ensuite le joueur dans son bucket. PvE : la difficulté jouée est `opts.difficulty`, sinon celle choisie au panneau (celle du chef pour un membre mis en file avec lui), sinon la première proposée ; refusée au-dessus du palier d'un joueur solo ou d'un chef. Un membre de crew sous le palier n'est **jamais refusé** si son chef peut choisir cette difficulté : il la joue en entier, son résultat compte à la plus haute difficulté que son palier ouvre, et il le lit une fois en notice. |
-| `activityLeave(id, activityId, opts)` | Libère. `opts.returnPlayer` (vrai par défaut) : retour au point capturé, bucket compris, en descendant du véhicule ; un joueur mort y réapparaît (jamais laissé mort), puis soin complet et armes RP rendues, sur le thread de Light RP. |
-| `activityOwner(id)` | L'id de l'activité, `"missions"` pendant une mission, sinon `nil`. |
-| `activityPlayer(id)` | `{ name, identifier, characterKey, gang = { id, label, grade, gradeLabel, tag, color } \| nil, job = { id, label, grade, gradeLabel, tag } }` — `nil` sans personnage actif ; `gang` vaut `nil` sans affiliation, `job.id` vaut `unemployed` sans emploi. Le gang et le métier sont lus dans `server/modules/jobs.lua` (mêmes vues que les state bags `gang` / `job`). `job.onDuty` reste absent : Light RP n'a pas de prise de service. |
-| `activityKit(id, activityId, kit, opts)` → `true, hand` \| `false, raison` | Un kit temporaire de mission pour un joueur que cette activité possède, remis par le même code que les missions (`server/modules/activity_kits.lua`) : `kit` nul pour celui que les missions présélectionnent, l'id d'un kit de `LightRpRaid.loadouts`, ou `{ primary, secondary, reserve, label, names }`. L'issue arrive sur `op77_lightrp:activity:kit`. Pendant le kit, l'armement s'efface et la roue liste et dégaine le kit. Contrat complet : en-tête de `activities.lua`. |
-| `activityKitTake(id, activityId, opts)` → `true` \| `false, raison` | Reprend le kit en cours d'activité. Le cœur le reprend aussi seul à chaque sortie, puis rend les armes RP par le même chemin qu'après une mission. Les armes du personnage ne sont jamais touchées. |
-| `notice(id, notice)` → `true` \| `false, raison` | Un message au joueur dans la notice de Light RP (sa page, son design) : **un fournisseur n'affiche jamais d'interface à lui** (règle du 2026-11-02), il passe par là et ne retombe sur `open77_notifications` que sans Light RP. `notice = { kind, title, body, durationMs, source }` nettoyé par `shared/notice.lua` : `kind` ∈ `info`, `success`, `warning`, `error` (`danger` lu `warning`, autre → `info`), titre 48 car., texte 280 (requis ; `text` ou `message` acceptés), durée 2 à 20 s (6 s par défaut). Un seul joueur, jamais `-1`. Raisons : `Invalid player.`, `invalid_notice`, `empty_notice`. Ce que le noyau dit déjà (réponse d'inscription « Request sent to … », sortie de file, MATCH FOUND, panneau de file) n'est pas répété par le fournisseur. |
+| `activityRegister(def)` → `true` \| `false, reason` | `def = { id, resource, label, kind, description, minPlayers, maxPlayers, caps }`. `id` prefixed by the provider (`arena.ffa`, `race.trial`, `chase.1v1`), `kind` ∈ `pvp`, `race`, `chase`, `event`, `caps = { rpWeapons, rpItems, needs, vehicles }` (all `false` by default). Registering again replaces. Optional: `modes = { { id, label } }` and `modeKey` (choices offered by the panel, returned in `options[modeKey]`; an unknown choice is refused before it reaches the provider; without `modes`, the config's `joinChoices` can provide some — car or on foot for `chase.1v1`). Also optional: `pve = true` (players against bots, the only source of reputation; without the flag, the config's `pve.activities` list can mark the id, and `pve = false` wins) and `difficulties = { "standard", "hard", "critical" }` (the ones the provider really plays; without them, Standard only). `botFill = true`: the provider can fill with bots (`options.fill`, `options.match.bots`) — without it, the panel never offers bots; a mode opts out with `modes = { { id, label, botFill = false } }`. |
+| `activityCheck(id, activityId, opts)` → `true` \| `false, reason` | Eligibility only, in this order: active character, alive and not downed, neither in a mission nor in another activity, not in the first day, not in a home, not in a vehicle, not hurt in the last 60 s, and in the shared city (bucket 0). With `opts.difficulty` on a PvE activity: also the reputation tier it requires — for a crew member, their leader's (a member below the difficulty gets through, for their own tier's reward). The reason is an English sentence shown to the player. |
+| `activityEnter(id, activityId, opts)` | Rechecks, records ownership, captures `{ x, y, z, heading, bucket }`, puts RP weapons away if `caps.rpWeapons` is false. The provider then moves the player into its bucket. PvE: the difficulty played is `opts.difficulty`, otherwise the one chosen in the panel (the leader's for a member queued with them), otherwise the first one offered; refused above the tier of a solo player or a leader. A crew member below the tier is **never refused** if their leader can choose that difficulty: they play it in full, their result counts at the highest difficulty their tier unlocks, and they read it once in a notice. |
+| `activityLeave(id, activityId, opts)` | Releases. `opts.returnPlayer` (true by default): return to the captured point, bucket included, getting out of the vehicle; a dead player respawns there (never left dead), then gets a full heal and their RP weapons back, on Light RP's thread. |
+| `activityOwner(id)` | The activity id, `"missions"` during a mission, otherwise `nil`. |
+| `activityPlayer(id)` | `{ name, identifier, characterKey, gang = { id, label, grade, gradeLabel, tag, color } \| nil, job = { id, label, grade, gradeLabel, tag } }` — `nil` without an active character; `gang` is `nil` with no affiliation, `job.id` is `unemployed` with no job. The gang and job are read from `server/modules/jobs.lua` (same views as the `gang` / `job` state bags). `job.onDuty` stays absent: Light RP has no clock-in. |
+| `activityKit(id, activityId, kit, opts)` → `true, hand` \| `false, reason` | A temporary mission kit for a player this activity owns, handed out by the same code as missions (`server/modules/activity_kits.lua`): `kit` nil for the one missions preselect, the id of a kit from `LightRpRaid.loadouts`, or `{ primary, secondary, reserve, label, names }`. The outcome arrives on `op77_lightrp:activity:kit`. While the kit is active, the regular armament is hidden and the wheel lists and draws the kit. Full contract: header of `activities.lua`. |
+| `activityKitTake(id, activityId, opts)` → `true` \| `false, reason` | Takes the kit back during the activity. The core also takes it back on its own at every exit, then gives the RP weapons back the same way as after a mission. The character's own weapons are never touched. |
+| `notice(id, notice)` → `true` \| `false, reason` | A message to the player in Light RP's notice (its page, its design): **a provider never shows an interface of its own** (rule of 2026-11-02); it goes through this and only falls back to `open77_notifications` when Light RP is absent. `notice = { kind, title, body, durationMs, source }` cleaned by `shared/notice.lua`: `kind` ∈ `info`, `success`, `warning`, `error` (`danger` read as `warning`, anything else → `info`), title 48 chars, text 280 (required; `text` or `message` accepted), duration 2 to 20 s (6 s by default). One player only, never `-1`. Reasons: `Invalid player.`, `invalid_notice`, `empty_notice`. What the core already says (sign-up reply "Request sent to …", leaving the queue, MATCH FOUND, queue panel) is not repeated by the provider. |
 
-Événements serveur, `TriggerEvent` / `AddEventHandler` uniquement (jamais `RegisterNetEvent` :
-un client ne peut pas les lever) :
+Server events, `TriggerEvent` / `AddEventHandler` only (never `RegisterNetEvent`:
+a client can't raise them):
 
-- fournisseur → noyau `op77_lightrp:activity:result (id, activityId, result)` avec
+- provider → core `op77_lightrp:activity:result (id, activityId, result)` with
   `result = { placement, score, won, stats = { kills, deaths, timeMs, courseId, courseRevision… }, reputation, difficulty }`.
-  Un résultat par entrée toutes les 15 s, et un seul jusqu'à 10 min après la sortie. `reputation`
-  ne compte que pour une activité PvE (voir plus bas) ; ailleurs il est ignoré.
-  Un résultat **non classé** n'enregistre rien — ni statistique (donc aucune ligne au Hall of
-  Fame), ni classement, ni réputation, ni paie : mode bots staff, entrée non classée (match
-  amical, PvP complété par des bots), `result.test = true`, `result.unranked = true` du
-  fournisseur, ou résultat PvP portant `stats.bots` / `stats.vsAi`. Le noyau le marque alors
-  `result.unranked = true` et `result.ranked = false` (voir *Lobby* plus bas). Les eddies d'un résultat accepté sont
-  calculés par `server/modules/activity_pay.lua` (voir *Équilibrage*), à partir de
-  `stats.durationMs` / `timeMs` / `seconds`, `quit`, `forfeit`, `bots`, `dnfReason`, de la
-  difficulté de l'entrée et des statistiques de progression du mode.
-- fournisseur → noyau `op77_lightrp:activity:status (activityId, { phase, players, queued, joinable, detail })`,
-  à chaque changement (les envois rapprochés sont regroupés avant d'atteindre les joueurs).
-- noyau → fournisseur `op77_lightrp:activity:join (id, activityId, options)` : le joueur l'a demandé
-  depuis le panneau (`activityCheck` déjà passé). `options` contient le choix du panneau
-  (`options.mode`, `options.course`…), `options.from` et, pour un crew, `options.squad = { id, leader, members }`
-  (le même pour chaque membre mis en file par le chef ; voir *Crews*).
-  Pour une activité PvE à difficultés : `options.difficulty` (celle du chef, déjà vérifiée contre son
-  palier) et `options.scaling = { enemies, health, damage, ai }`, que le fournisseur traduit en bots.
-  Toujours `options.ranked` ; selon le cas `options.fill = { allies, enemies }` et
-  `options.match = { id, ranked, friendly, format, players, teams, side, bots }` (voir *Lobby*).
-- noyau → fournisseur `op77_lightrp:activity:leaveRequest (id, activityId)` : le joueur veut
-  partir (panneau, F1, `/leave`) — y compris s'il n'est qu'en file. Sans `activityLeave` du
-  fournisseur sous 15 s, le noyau libère et ramène le joueur lui-même (`dropped`, raison `timeout`).
-- noyau → fournisseur `op77_lightrp:activity:dropped (id, activityId, raison)` : `disconnect`,
-  `character`, `provider_stopped`, `timeout` ou `core_stopped`. La possession est déjà libérée.
-- noyau → tous `op77_lightrp:activity:ready ()` : Light RP vient de démarrer, les fournisseurs se
-  réenregistrent (en plus de leur propre écoute de `onResourceStart`).
-- `op77_lightrp:announce (text, { title, durationMs })` — ou une table `{ body, title, durationMs }`,
-  la forme d'`op77_fireworks` : annonce diffusée par le même chemin que `/lightrp.announce`
-  (chat + notice). Texte nettoyé, 2 à 200 caractères, titre 40, durée 3 à 30 s, une par seconde.
+  One result per entry every 15 s, and only one up to 10 min after leaving. `reputation`
+  only counts for a PvE activity (see below); elsewhere it is ignored.
+  An **unranked** result records nothing — no stats (so no row in the Hall of
+  Fame), no leaderboard, no reputation, no pay: staff bot mode, unranked entry (friendly
+  match, PvP filled with bots), `result.test = true`, `result.unranked = true` from the
+  provider, or a PvP result carrying `stats.bots` / `stats.vsAi`. The core then marks it
+  `result.unranked = true` and `result.ranked = false` (see *Lobby* below). The eddies for an accepted result are
+  computed by `server/modules/activity_pay.lua` (see *Balancing*), from
+  `stats.durationMs` / `timeMs` / `seconds`, `quit`, `forfeit`, `bots`, `dnfReason`, the
+  entry's difficulty and the mode's progression stats.
+- provider → core `op77_lightrp:activity:status (activityId, { phase, players, queued, joinable, detail })`,
+  on every change (sends close together are batched before they reach players).
+- core → provider `op77_lightrp:activity:join (id, activityId, options)`: the player asked for it
+  from the panel (`activityCheck` already passed). `options` holds the panel choice
+  (`options.mode`, `options.course`…), `options.from` and, for a crew, `options.squad = { id, leader, members }`
+  (the same for each member queued by the leader; see *Crews*).
+  For a PvE activity with difficulties: `options.difficulty` (the leader's, already checked against their
+  tier) and `options.scaling = { enemies, health, damage, ai }`, which the provider turns into bots.
+  Always `options.ranked`; depending on the case, `options.fill = { allies, enemies }` and
+  `options.match = { id, ranked, friendly, format, players, teams, side, bots }` (see *Lobby*).
+- core → provider `op77_lightrp:activity:leaveRequest (id, activityId)`: the player wants to
+  leave (panel, F1, `/leave`) — even if they are only in the queue. Without an `activityLeave` from the
+  provider within 15 s, the core releases the player and brings them back itself (`dropped`, reason `timeout`).
+- core → provider `op77_lightrp:activity:dropped (id, activityId, reason)`: `disconnect`,
+  `character`, `provider_stopped`, `timeout` or `core_stopped`. Ownership is already released.
+- core → all `op77_lightrp:activity:ready ()`: Light RP has just started, and providers
+  register again (on top of their own `onResourceStart` listener).
+- `op77_lightrp:announce (text, { title, durationMs })` — or a table `{ body, title, durationMs }`,
+  the `op77_fireworks` shape: an announcement broadcast the same way as `/lightrp.announce`
+  (chat + notice). Cleaned text, 2 to 200 characters, title 40, duration 3 to 30 s, one per second.
 
-Quand un fournisseur s'arrête, ses activités sont oubliées et ses joueurs ramenés ; lors d'un
-rechargement, ce que la nouvelle VM a déjà réenregistré est conservé.
+When a provider stops, its activities are forgotten and its players brought back; on a
+reload, whatever the new VM has already registered again is kept.
 
-Buckets : arène `4100000–4199999`, course `4200000–4299999`, poursuite `4300000–4399999`, jeux `4500000–4599999`
-(ville 0, hall 620000, pratique 700000+id, cabines 710000+id, logements 1000000+id, missions
-3000000+n). Le carburant ignore les véhicules de ces buckets ; clés et fourrière ne concernent
-que les véhicules du système RP (personnels, location, `/car`), jamais ceux qu'une activité crée.
+Buckets: arena `4100000–4199999`, race `4200000–4299999`, chase `4300000–4399999`, games `4500000–4599999`
+(city 0, hall 620000, practice 700000+id, fitting rooms 710000+id, homes 1000000+id, missions
+3000000+n). Fuel ignores vehicles in these buckets; keys and impound only apply
+to RP system vehicles (personal, rental, `/car`), never to those an activity creates.
 
-### À l'intérieur de Light RP
+### Inside Light RP
 
-`LightRP.activities.owns(id)`, `owner(id)`, `allows(id, cap)` et `savedPosition(id, repli)`
-sont les crochets d'une ligne posés dans `server/main.lua` (pas de réapparition RP),
-`medical.lua` (pas d'inconscience), `armament.lua` (armes RP rangées, la porte de dégâts laisse
-passer les armes de l'activité), `needs.lua` (faim et soif gelées), `characters.lua` (position
-sauvegardée = point de retour), `inventory.lua` (utiliser, donner, jeter — donc consommables,
-grenades et barre rapide), `grenades.lua`, `cyberware.lua` (lames Mantis), `rental.lua`,
+`LightRP.activities.owns(id)`, `owner(id)`, `allows(id, cap)` and `savedPosition(id, repli)`
+are the one-line hooks placed in `server/main.lua` (no RP respawn),
+`medical.lua` (no unconsciousness), `armament.lua` (RP weapons put away; the damage gate lets
+the activity's weapons through), `needs.lua` (hunger and thirst frozen), `characters.lua` (saved
+position = return point), `inventory.lua` (use, give, drop — so consumables,
+grenades and the quick bar), `grenades.lua`, `cyberware.lua` (Mantis blades), `rental.lua`,
 `garages.lua`, `vehicles.lua` (`/car`), `keys.lua`, `fuel.lua`, `housing.lua`, `job_runs.lua`,
-`job_work.lua` et `fixers.lua`. Les **missions** sont un fournisseur interne : un opérateur en
-mission est refusé par `activityCheck`, et une déconnexion en mission sauvegarde le point du
-tableau, plus les coordonnées de l'arène.
+`job_work.lua` and `fixers.lua`. **Missions** are an internal provider: an operator in a
+mission is refused by `activityCheck`, and disconnecting during a mission saves the
+board's point, plus the arena coordinates.
 
-### Statistiques, classements, réputation
+### Stats, leaderboards, reputation
 
-Tables `lightrp_activity_stats` (par compte + personnage + activité, et par parcours
-`courseId@révision` pour les courses : parties, victoires, kills, morts, meilleur score, meilleur
-temps, meilleure place, réputation) et `lightrp_activity_rep_daily` (réputation accordée par
-compte et par jour UTC).
+Tables `lightrp_activity_stats` (per account + character + activity, and per course
+`courseId@revision` for races: matches, wins, kills, deaths, best score, best
+time, best place, reputation) and `lightrp_activity_rep_daily` (reputation granted per
+account and per UTC day).
 
-**Seules les activités PvE donnent de la réputation.** PvP, courses, poursuites et événements
-enregistrent parties, victoires et classements à 0 réputation, quoi que demande le résultat. Un
-résultat PvE vaut la réputation de sa difficulté (`pve.difficulties` : Standard 30, Hard 60,
-Critical 100) × le poids de l'activité (`pve.activities` : `arena.pve` 1,0, `race.pve` 0,5,
-`turf.pve` 1,2, `chase.pve` 0,6) : en entier pour une victoire qui ne précise rien, sinon
-`min(reputation, ce plafond)`. La difficulté comptée est celle de l'entrée, abaissée à la plus
-haute que le palier du joueur ouvre. Le tout reste sous `reputation.dailyCap` (500) par compte
-et par jour ; avec `grantTo = "missions"` elle s'ajoute à la réputation de rue des missions.
-`reputation.pvpGrants = true` rétablit l'ancienne règle (tous les genres, bornés à
-`maxPerResult` = 50). Classements : top 5 par activité, au meilleur temps pour les courses, aux
-victoires sinon. Sans base, tout vit le temps de la session.
+**Only PvE activities give reputation.** PvP, races, chases and events
+record matches, wins and leaderboards at 0 reputation, whatever the result asks for. A
+PvE result is worth its difficulty's reputation (`pve.difficulties`: Standard 30, Hard 60,
+Critical 100) × the activity weight (`pve.activities`: `arena.pve` 1.0, `race.pve` 0.5,
+`turf.pve` 1.2, `chase.pve` 0.6): in full for a win that specifies nothing, otherwise
+`min(reputation, that cap)`. The difficulty counted is the entry's, lowered to the highest
+one the player's tier unlocks. The total stays under `reputation.dailyCap` (500) per account
+and per day; with `grantTo = "missions"` it adds to the missions' street reputation.
+`reputation.pvpGrants = true` restores the old rule (all kinds, capped at
+`maxPerResult` = 50). Leaderboards: top 5 per activity, by best time for races, by
+wins otherwise. Without a database, everything only lasts for the session.
 
-### Ce que voit le joueur
+### What the player sees
 
-- **The Crossing**, l'esplanade de Westbrook où arrivent les nouveaux : deux terminaux (marqueur
-  jaune, **E**) — *The Crossing* ouvre le panneau Activités, *Contracts* liste les tableaux de
-  mission de la ville avec un itinéraire GPS vers chacun (les tableaux eux-mêmes ne changent
-  pas). Une épingle « Activities » sur la carte (`op77_map3d`, catégorie Missions).
-- **Panneau Activités** (`ui/src/features/activities/`) : la liste (état, joueurs, file), le
-  détail (choix du mode quand il y en a, badge PVE et choix de la difficulté — les verrouillées
-  disent quel palier les ouvre —, Rejoindre / Partir / Annuler, la raison d'un refus),
-  votre bilan et le classement ; onglets *Contracts* et *Crew* (invitations, membres, matchmaking
-  des missions, joueurs à 15 m). Bandeau d'état en tête : dans une activité, en attente, en
-  mission, ou pourquoi pas.
-- **F1 → Activities** (ouvre le panneau, et *Leave …* / *Cancel …* direct) et **F1 → Crew**
-  (accepter ou refuser une invitation, membres, passer le commandement, exclure, matchmaking,
-  quitter).
-- **Neural-Link → Gigs & Arena** (`client/core/activities.lua`) : ouvre le même panneau partout.
-- À la fin du premier jour (terminé ou passé) : une notice qui pointe vers The Crossing, et un
-  itinéraire si le joueur en est loin. Les répliques voix de Mara ne changent pas.
-- Pied du panneau : palier de réputation (« Street cred ») et réputation PvE du jour.
-- Commandes : `/leave` (quitter l'activité ou sa file), `/activity [list · join <id> [mode|difficulté] · leave]`.
-  Staff : `/lightrp.activities` (activités, propriétaires, files, opérateurs en mission) et
-  `/lightrp.survey [libellé]` (position et cap, au format de la config).
+- **The Crossing**, the Westbrook plaza where newcomers arrive: two terminals (yellow
+  marker, **E**) — *The Crossing* opens the Activities panel, *Contracts* lists the city's mission
+  boards with a GPS route to each one (the boards themselves don't
+  change). An "Activities" pin on the map (`op77_map3d`, Missions category).
+- **Activities panel** (`ui/src/features/activities/`): the list (status, players, queue), the
+  details (mode choice when there is one, PVE badge and difficulty choice — locked ones
+  say which tier unlocks them —, Join / Leave / Cancel, the reason for a refusal),
+  your record and the leaderboard; *Contracts* and *Crew* tabs (invites, members, mission
+  matchmaking, players within 15 m). Status banner at the top: in an activity, waiting, in a
+  mission, or why not.
+- **F1 → Activities** (opens the panel, plus direct *Leave …* / *Cancel …*) and **F1 → Crew**
+  (accept or decline an invite, members, hand over leadership, kick, matchmaking,
+  leave).
+- **Neural-Link → Gigs & Arena** (`client/core/activities.lua`): opens the same panel anywhere.
+- At the end of the first day (finished or skipped): a notice pointing to The Crossing, and a
+  route if the player is far from it. Mara's voice lines don't change.
+- Panel footer: reputation tier ("Street cred") and today's PvE reputation.
+- Commands: `/leave` (leave the activity or its queue), `/activity [list · join <id> [mode|difficulty] · leave]`.
+  Staff: `/lightrp.activities` (activities, owners, queues, operators in a mission) and
+  `/lightrp.survey [label]` (position and heading, in the config format).
 
-### Lobby : bots, file classée, match amical (`server/config/activities.lua` → `lobby`)
+### Lobby: bots, ranked queue, friendly match (`server/config/activities.lua` → `lobby`)
 
-Les bots sont un **choix du panneau**, plus une commande. Une activité n'en propose que si elle
-figure dans `lobby.activities` **et** que son fournisseur a déclaré `botFill = true` (un mode peut
-s'en exclure) ; une activité absente de la liste se rejoint comme avant (classée, sans bots ni
-match amical). Les poursuites (`op77_chase`) n'y sont pas : joueurs réels ou NCPD du jeu seulement.
+Bots are a **panel choice**, no longer a command. An activity only offers them if it
+is listed in `lobby.activities` **and** its provider has declared `botFill = true` (a mode can
+opt out); an activity missing from the list is joined as before (ranked, without bots or
+friendly match). Chases (`op77_chase`) are not in it: real players or the game's NCPD only.
 
-- **PvE, « Fill empty slots with bots »** (`allies = true`) : des bots alliés complètent le crew
-  jusqu'à `seats` places (par défaut `maxPlayers`) — 6 places et un crew de 4 donnent 2 alliés.
-  Le fournisseur les reçoit dans `options.fill.allies` ; ils ne prennent aucun multiplicateur de
-  difficulté. **Toujours classé** : réputation, paie et Hall of Fame comme d'habitude.
-- **PvP, « Play with bots »** (`bots = true`) : le noyau forme tout de suite un match avec des bots
-  (`options.match`, `bots` par camp). **Non classé.**
-- **File classée** (`queue = true` : `arena.duel`, `arena.teams`, `race.grid`, `race.foot`) : une
-  demande PvP sans bots devient un ticket dans la file du noyau. Un crew reste entier, du même
-  côté, et compte pour la taille d'équipe (`teams`, `teamSize`, une taille par mode possible) ; un
-  crew trop grand est refusé. Appariement par **tranche de cyberware** : le rang que débloque le
-  street cred (`cyberware.lua` → `gating.byRank`, le plus haut membre pour un crew), ramené à une
-  tranche par `matchmaking.brackets`. D'abord la même tranche ou la voisine, puis l'écart s'élargit
-  selon l'attente du plus ancien (`matchmaking.widen` : 2 tranches à 60 s, 3 à 80 s, tout le monde à
-  100 s) ; les courses ignorent les tranches (`brackets = false`) et attendent `gatherMs` (15 s)
-  d'autres joueurs une fois le minimum atteint. Le panneau montre le chrono, trouvés / requis,
-  *Near your rank* ou *All ranks*, et *Cancel*. Après `fillAfterMs` (2 min), le chef se voit
-  proposer *Fill with bots* (match non classé) ou *Keep waiting*. `turf.war` garde la file de son
-  fournisseur (une guerre à la fois) ; la proposition de bots y vaut aussi.
-- **Match amical** (`friendly = true`) : le chef de crew ouvre *Friendly match* ; le noyau répartit
-  le crew par street cred (*Auto-balance*), le chef déplace les joueurs (flèches ou clic, un camp
-  plein échange), met des bots dans les places vides si le mode le permet, puis *Start*. Les membres
-  voient la répartition sans la modifier. Toujours **non classé**.
+- **PvE, "Fill empty slots with bots"** (`allies = true`): allied bots fill the crew
+  up to `seats` places (by default `maxPlayers`) — 6 seats and a crew of 4 give 2 allies.
+  The provider gets them in `options.fill.allies`; they take no difficulty
+  multiplier. **Always ranked**: reputation, pay and Hall of Fame as usual.
+- **PvP, "Play with bots"** (`bots = true`): the core forms a match with bots right away
+  (`options.match`, `bots` per side). **Unranked.**
+- **Ranked queue** (`queue = true`: `arena.duel`, `arena.teams`, `race.grid`, `race.foot`): a
+  PvP request without bots becomes a ticket in the core's queue. A crew stays whole, on the same
+  side, and counts toward the team size (`teams`, `teamSize`, one size per mode possible); a
+  crew that is too large is refused. Matching by **cyberware bracket**: the rank unlocked by
+  street cred (`cyberware.lua` → `gating.byRank`, the highest member for a crew), mapped to a
+  bracket by `matchmaking.brackets`. First the same bracket or the next one, then the gap widens
+  with the wait of the longest-waiting player (`matchmaking.widen`: 2 brackets at 60 s, 3 at 80 s, everyone at
+  100 s); races ignore brackets (`brackets = false`) and wait `gatherMs` (15 s)
+  for other players once the minimum is reached. The panel shows the timer, found / required,
+  *Near your rank* or *All ranks*, and *Cancel*. After `fillAfterMs` (2 min), the leader is
+  offered *Fill with bots* (unranked match) or *Keep waiting*. `turf.war` keeps its
+  provider's queue (one war at a time); the bot offer applies there too.
+- **Friendly match** (`friendly = true`): the crew leader opens *Friendly match*; the core splits
+  the crew by street cred (*Auto-balance*), the leader moves players (arrows or click; a full
+  side swaps), puts bots in the empty seats if the mode allows it, then *Start*. Members
+  see the split without being able to change it. Always **unranked**.
 
-**Ce qui compte.** Le noyau seul décide : `options.ranked` sur chaque `join`,
-`A.isRanked(entrée | match | joueur)` et l'export `activityRanked(id)`. Un résultat non classé
-(match amical, PvP avec bots, mode bots staff, `test`, `unranked` du fournisseur, `stats.bots` /
-`stats.vsAi` en PvP — jamais un PvE avec alliés) est marqué `result.unranked = true`,
-`result.ranked = false` dans `A.result` et s'arrête là : aucune statistique (donc aucune ligne du
-Hall of Fame, dont les lignes d'activité viennent de `lightrp_activity_stats`), aucun classement, aucune réputation, et
-`activity_pay.lua` n'est pas appelé (il refuse aussi `result.unranked` de lui-même). Un résultat
-classé porte `result.ranked = true`.
+**What counts.** The core alone decides: `options.ranked` on every `join`,
+`A.isRanked(entry | match | player)` and the `activityRanked(id)` export. An unranked result
+(friendly match, PvP with bots, staff bot mode, `test`, the provider's `unranked`, `stats.bots` /
+`stats.vsAi` in PvP — never a PvE with allies) is marked `result.unranked = true`,
+`result.ranked = false` in `A.result` and stops there: no stats (so no
+Hall of Fame row, since its activity rows come from `lightrp_activity_stats`), no leaderboard, no reputation, and
+`activity_pay.lua` is not called (it also refuses `result.unranked` on its own). A ranked
+result carries `result.ranked = true`.
 
-Le panneau envoie l'action `activities.lobby` (`fill`, `friendly`, `move`, `balance`, `bots`,
-`cancel`, `start`). Un ticket expire après 15 min, un match formé qui n'a pas démarré après 2 min.
-`/lightrp.bots on|off` (staff) reste disponible pour tester seul : rien n'est enregistré.
+The panel sends the `activities.lobby` action (`fill`, `friendly`, `move`, `balance`, `bots`,
+`cancel`, `start`). A ticket expires after 15 min, and a formed match that hasn't started after 2 min.
+`/lightrp.bots on|off` (staff) is still available to test alone: nothing is recorded.
 
-### Salons de jeu (`server/modules/activity_rooms.lua`, `ui/src/features/rooms/`)
+### Game rooms (`server/modules/activity_rooms.lua`, `ui/src/features/rooms/`)
 
-Un joueur héberge une partie auprès du **PNJ des salons** de The Crossing (terminal
-`kind = "rooms"`, *Jackie Welles*, avec son propre `host` et sa propre épingle), ou par `/room`
-de n'importe où : il choisit le jeu, la carte, la taille des camps, salon public ou privé (un code
-de 5 caractères) ; les autres entrent ; l'hôte lance. Un jeu sans carte activée n'apparaît pas. **Un salon est un match amical sans crew** :
-même forme que la mise en place d'un amical, même lancement (`A.launchFriendly`, donc `startMatch`
-avec `friendly = true`). Le match, le récapitulatif et le retour sont ceux du noyau, et rien n'est
-enregistré (ni statistique, ni Hall of Fame, ni paie, ni réputation). Tout vit en mémoire.
+A player hosts a match at the **rooms NPC** in The Crossing (terminal
+`kind = "rooms"`, *Jackie Welles*, with its own `host` and its own pin), or with `/room`
+from anywhere: they pick the game, the map, the team size, a public or private room (a
+5-character code); others join; the host launches. A game with no enabled map doesn't show up. **A room is a friendly match without a crew**:
+same shape as setting up a friendly, same launch (`A.launchFriendly`, so `startMatch`
+with `friendly = true`). The match, the recap and the return are the core's, and nothing is
+recorded (no stats, no Hall of Fame, no pay, no reputation). Everything lives in memory.
 
-- **Ce qui s'héberge** : `rooms = true` dans `lobby.activities`, activité enregistrée, match amical
-  possible, forme sans `teamSize` fixe. Le menu ne montre que l'intersection de `rooms.games` et de
-  la liste `activities` : un fournisseur absent disparaît. Sans `modes` (`race.grid`,
-  `race.foot`), le fournisseur fait tourner ses parcours.
-- **Camps** : `teams = n` donne `n` camps d'au plus `size` joueurs, choisi par l'hôte entre
-  `ceil(min / n)` et `floor(max / n)` ; sinon tout le monde dans une liste de `size` au plus. Un
-  joueur qui entre rejoint le camp le plus petit. Pas de banc ni de bots. *Prop hunt* est sans camps
-  : le fournisseur tire ses chasseurs à chaque manche.
-- **Fin d'un salon** : l'hôte part, la main passe au membre suivant, le dernier ferme. Une
-  déconnexion, un changement de personnage, une autre activité ou une mission (vu toutes les 5 s)
-  sortent le joueur. `/leave` aussi. Dix minutes sans changement (`rooms.idleMs`) ferment le salon,
-  tout comme l'arrêt du fournisseur (`A.roomsForget`) et le lancement lui-même. `rooms.maxRooms` (24)
-  borne les salons du serveur, privés compris.
-- **Lancer** : réservé à l'hôte, chaque membre repasse `A.check`, et un seul membre refusé refuse
-  tout. Il faut au moins deux joueurs et aucun camp vide.
+- **What can be hosted**: `rooms = true` in `lobby.activities`, a registered activity, a friendly match
+  possible, a shape with no fixed `teamSize`. The menu only shows the intersection of `rooms.games` and
+  the `activities` list: a missing provider disappears. Without `modes` (`race.grid`,
+  `race.foot`), the provider rotates its courses.
+- **Sides**: `teams = n` gives `n` sides of at most `size` players, chosen by the host between
+  `ceil(min / n)` and `floor(max / n)`; otherwise everyone goes in a single list of at most `size`. A
+  player who joins goes to the smallest side. No bench and no bots. *Prop hunt* has no sides:
+  the provider draws its hunters each round.
+- **End of a room**: if the host leaves, control passes to the next member, and the last one closes it. A
+  disconnect, a character change, another activity or a mission (checked every 5 s)
+  takes the player out. So does `/leave`. Ten minutes without any change (`rooms.idleMs`) close the room,
+  as do the provider stopping (`A.roomsForget`) and the launch itself. `rooms.maxRooms` (24)
+  caps the number of rooms on the server, private ones included.
+- **Launch**: host only; each member goes through `A.check` again, and a single refused member blocks
+  the whole launch. You need at least two players and no empty side.
 - **Action** `activities.rooms` (`create`, `join`, `leave`, `kick`, `move`, `settings`, `start`,
-  `open`, `close`) : entrée hostile, tout est recherché côté serveur. Un exclu ne revient pas
-  dans ce salon. Un salon privé ne se trouve que par son code. La page espace ses actions de
-  260 ms (limite de 250 ms par type).
-- **État** : clé `rooms`, poussée au changement seulement (regroupée sur `rooms.pushMs`), aux membres,
-  et aux menus ouverts pour un salon public. Les libellés et cartes restent dans `activities`.
+  `open`, `close`): input is treated as hostile, and everything is looked up on the server. A kicked player can't come back
+  to that room. A private room can only be found by its code. The page spaces its actions
+  260 ms apart (limit of 250 ms per type).
+- **State**: `rooms` key, pushed only on change (batched over `rooms.pushMs`), to members,
+  and to open menus for a public room. Labels and maps stay in `activities`.
 
-Aperçu sans jeu : `npm run dev` puis `?registered=1&dialog=rooms` (`&room=host|member|private`).
-Tests : `lua tests/activity_rooms_test.lua`, `tests/rooms-model.test.ts`.
+Preview without the game: `npm run dev` then `?registered=1&dialog=rooms` (`&room=host|member|private`).
+Tests: `lua tests/activity_rooms_test.lua`, `tests/rooms-model.test.ts`.
 
-### Mise en place de The Crossing (en jeu)
+### Setting up The Crossing (in game)
 
-Les positions des terminaux sont des décalages plausibles depuis le point d'arrivée
-(`server/config/activities.lua`, `hub.terminals`, marqués `-- survey in game`). Sur place :
-`/lightrp.survey board`, coller la ligne en `position = { ... }` du terminal, idem pour
-`contracts` et `rooms` (le PNJ des salons, encore à son décalage par défaut), puis `ensure op77_lightrp`. La zone de sécurité ne peut pas venir de la config
-(ce sont des enregistrements audités en base) : **/admin → Safe zones**, nouvelle zone centrée
-sur l'esplanade (`-756.6, 777.3`), rayon d'environ 30 m, *blockShoot*, *blockMelee* et
-*blockGrenades* cochés, puis publier.
+The terminal positions are plausible offsets from the arrival point
+(`server/config/activities.lua`, `hub.terminals`, marked `-- survey in game`). On site:
+`/lightrp.survey board`, paste the line into the terminal's `position = { ... }`, and do the same for
+`contracts` and `rooms` (the rooms NPC, still at its default offset), then `ensure op77_lightrp`. The safe zone can't come from the config
+(these are audited records in the database): **/admin → Safe zones**, new zone centered
+on the plaza (`-756.6, 777.3`), radius about 30 m, *blockShoot*, *blockMelee* and
+*blockGrenades* checked, then publish.
 
-## Dogtown, zone PvP ouverte (`server/modules/dogtown.lua`, `server/config/dogtown.lua`, `client/core/dogtown.lua`, page `features/dogtown/`)
+## Dogtown, open PvP zone (`server/modules/dogtown.lua`, `server/config/dogtown.lua`, `client/core/dogtown.lua`, page `features/dogtown/`)
 
-Dans la ville partagée (bucket 0), Dogtown est une zone de danger : passé les murs, quiconque
-porte la **mise** peut tuer quiconque la porte aussi, et une mort coûte une part de l'argent
-liquide — jamais la banque. Les membres d'une même escouade ne se blessent pas. **Ailleurs, rien
-ne change** : le tir ami global reste coupé (défaut de la plateforme), les zones de sécurité
-restent sûres (y compris celles posées dans Dogtown), missions et activités gardent leurs buckets
-et leurs règles. Les règles sont celles du propriétaire (2026-11-03) ; tous les nombres sont dans
-`server/config/dogtown.lua`, commentés, et le guide (Johnny) les cite depuis cette config.
+In the shared city (bucket 0), Dogtown is a danger zone: past the walls, anyone
+carrying the **stake** can kill anyone else who carries it too, and a death costs a share of the cash
+they carry — never the bank. Members of the same squad don't hurt each other. **Everywhere else, nothing
+changes**: global friendly fire stays off (platform default), safe zones
+stay safe (including those placed in Dogtown), missions and activities keep their buckets
+and their rules. The rules are the owner's (2026-11-03); all the numbers are in
+`server/config/dogtown.lua`, commented, and the guide (Johnny) quotes them from that config.
 
-### Comment le PvP est accordé
+### How PvP is granted
 
-- Le tir ami global n'est jamais activé. Toutes les 500 ms (`sweepMs`), chaque joueur est placé
-  dedans ou dehors (polygone plan, toute hauteur : toits et stade compris) et les joueurs
-  **qualifiés** reçoivent une portée de combat (`Open77.combat.createScope`) dans le bucket 0.
-  Qualifié = personnage actif, bucket 0, ni activité ni mission, vivant ou en récupération, zone
-  allumée, **mise en poche**, **et** dans le polygone ou marqué au combat. Une position de plus
-  de 2,5 s (`positionMaxAgeMs`) garde la dernière réponse.
-- **Escouades** : les membres d'une escouade `LightRP.parties` partagent une équipe de combat
-  (`Open77.combat.setTeam`, `teamBase` + numéro de l'escouade) : la plateforme refuse les coups
-  entre eux. L'équipe suit chaque changement d'escouade (`onPartyChanged`) ; en quittant la
-  portée, le joueur repasse sans équipe, sauf s'il est passé dans un autre bucket ou une
-  activité, qui gère alors la sienne. L'arbitre refuse aussi entre équipiers, le temps d'une mise
-  à jour.
-- **Marque de combat** : un coup entre deux joueurs de la zone marque les deux pendant 20 s
-  (`combatTagMs`), renouvelée à chaque coup. Un joueur marqué qui sort reste attaquable jusqu'à
-  la fin de la marque.
-- L'arbitre de dégâts (`Open77.combat.onDamage`) ne fait que **refuser** : il ferme l'écart entre
-  deux balayages quand l'un des deux ne qualifie plus. Zones de sécurité, porte d'armement,
-  activités refusent comme avant (le premier refus gagne).
-- Limites de la plateforme : 32 joueurs par portée, 8 portées par ressource (`maxScopes`), 64 sur
-  tout le serveur, partagées avec les autres ressources. Au-delà de 32 joueurs qualifiés, le
-  groupe est découpé par position (d'ouest en est) et deux joueurs de groupes différents ne
-  peuvent pas se blesser.
-- Prérequis : les permissions `combat.scope.control`, `combat.config` (équipes),
-  `players.teleport` (escorte) et `world.vehicles` (voiture de l'escorte), déclarées dans
-  `open77.lua`, et **la base de données** — sans elle, les zones de sécurité sont indisponibles
-  et leur arbitre refuse tout PvP, et l'argent ne bouge pas (`database_unavailable`).
+- Global friendly fire is never turned on. Every 500 ms (`sweepMs`), each player is marked
+  inside or outside (flat polygon, any height: roofs and stadium included), and
+  **qualified** players get a combat scope (`Open77.combat.createScope`) in bucket 0.
+  Qualified = active character, bucket 0, no activity and no mission, alive or recovering, zone
+  turned on, **stake in pocket**, **and** inside the polygon or combat-tagged. A position older than
+  2.5 s (`positionMaxAgeMs`) keeps the last answer.
+- **Squads**: members of a `LightRP.parties` squad share a combat team
+  (`Open77.combat.setTeam`, `teamBase` + the squad number): the platform refuses hits
+  between them. The team follows every squad change (`onPartyChanged`); when leaving the
+  scope, the player goes back to having no team, unless they moved to another bucket or an
+  activity, which then manages its own. The referee also refuses hits between teammates while an
+  update goes through.
+- **Combat tag**: a hit between two players in the zone tags both of them for 20 s
+  (`combatTagMs`), renewed on every hit. A tagged player who leaves can still be attacked until
+  the tag runs out.
+- The damage referee (`Open77.combat.onDamage`) only ever **refuses**: it closes the gap between
+  two sweeps when one of the two no longer qualifies. Safe zones, the armament gate and
+  activities refuse as before (the first refusal wins).
+- Platform limits: 32 players per scope, 8 scopes per resource (`maxScopes`), 64 on
+  the whole server, shared with the other resources. Beyond 32 qualified players, the
+  group is split by position (west to east) and two players from different groups
+  can't hurt each other.
+- Requirements: the permissions `combat.scope.control`, `combat.config` (teams),
+  `players.teleport` (escort) and `world.vehicles` (escort car), declared in
+  `open77.lua`, and **the database** — without it, safe zones are unavailable
+  and their referee refuses all PvP, and money doesn't move (`database_unavailable`).
 
-### La mise
+### The stake
 
-- Il faut `stake.minCash` (€$ 1 000) **en poche** pour se battre ; la banque ne compte pas. En
-  dessous, dans la zone : pas de PvP (ni tirer, ni être touché), une notice avec **le montant
-  manquant**, et la tuile passe au jaune avec un compte à rebours.
-- Après `stake.graceMs` (10 s), toujours dedans et toujours sous la mise : téléporté à la
-  **sortie la plus proche** (`exits`, points hors du polygone, distance plane ; sans sortie
-  utilisable, l'hôpital). À pied (`dismount`), sauf le conducteur seul dans sa voiture : la
-  voiture est posée 4 m à côté de lui (`Open77.vehicles.setTransform`). Un passager laisse le
-  véhicule aux autres. Un téléport refusé est retenté 3 s plus tard.
-- Même chose après une mort : relevé dedans sous la mise → notice, délai, escorte. Revenir
-  au-dessus de la mise (DAB, virement) arrête le compte à rebours.
-- Les quatre sorties livrées sont **à relever en jeu** (`-- survey in game`, `z` estimés) :
-  `/lightrp.dogtown survey exit [nom]` imprime la ligne (refusé dans le polygone). Une sortie
-  dans le polygone est ignorée et signalée au démarrage.
+- You need `stake.minCash` (€$ 1,000) **in your pocket** to fight; the bank doesn't count. Below
+  that, inside the zone: no PvP (you can't shoot or be hit), a notice with **the missing
+  amount**, and the tile turns yellow with a countdown.
+- After `stake.graceMs` (10 s), if you are still inside and still below the stake: you are teleported to the
+  **nearest exit** (`exits`, points outside the polygon, flat distance; with no usable
+  exit, the hospital). On foot (`dismount`), except a driver alone in their car: the
+  car is placed 4 m next to them (`Open77.vehicles.setTransform`). A passenger leaves the
+  vehicle to the others. A refused teleport is retried 3 s later.
+- Same thing after a death: picked up inside below the stake → notice, delay, escort. Getting back
+  above the stake (ATM, transfer) stops the countdown.
+- The four exits shipped are **to be surveyed in game** (`-- survey in game`, estimated `z`):
+  `/lightrp.dogtown survey exit [name]` prints the line (refused inside the polygon). An exit
+  inside the polygon is ignored and reported at startup.
 
-### Mort, sac, bonus
+### Death, bag, bonus
 
-- La mort suit le **parcours médical normal** (inconscience, trauma kit, transfert à l'hôpital,
-  hors de Dogtown). **Pas de facture d'hôpital** après une mort dans un combat de Dogtown
-  (`waiveHospitalBill`, exemption `dogtown` de `economy_sinks.lua`) : la zone a déjà pris sa part
-  et la banque reste hors du jeu. La dispense vaut jusqu'à 15 s après la remise sur pied (au plus
-  30 min après la mort).
-- Un kill compte quand les deux joueurs partagent une portée, ou que le tueur a touché la victime
-  dans les 20 dernières secondes ; victime dans le bucket 0, aucun des deux en activité.
-- **Perte** : `loot.share` (10 %) de l'argent porté, au moins `loot.min` (€$ 100), au plus
-  `loot.max` (€$ 750), jamais plus que ce qui est porté.
-- **Sac** (`loot.mode = "bag"`) : un sac scellé (on ne peut rien y déposer) tombe là où la victime
-  est tombée, avec la perte **plus un bonus serveur** de `loot.bonus` (25 % de la perte) : de
-  l'argent neuf (`Inv.dropCash`, option `mint`), payé par personne. Le sac est **réservé au tueur
-  et à son escouade** pendant `loot.reserveMs` (15 s ; l'escouade au moment du ramassage), puis
-  n'importe qui peut le prendre, victime comprise : le tueur a la priorité, ensuite c'est
-  Dogtown. C'est un tas au sol de l'inventaire, en mémoire seulement : perdu au redémarrage et
-  après `LightRpConfig.inventory.drop.ttlMinutes`.
-- **Plafond du bonus** : `loot.bonusDailyCap` (€$ 3 000) par **compte** (tous ses personnages) et
-  par jour UTC, bonus de kill et primes compris. Table `lightrp_dogtown_bonus_daily`
-  (identifiant, jour, total), cache en écriture relu une fois par jour, comme
-  `activity_pay.lua`. Le bonus compte quand le sac est posé, même si un autre le ramasse. Journal
-  : `dogtown bonus: +N minted into a cash bag for <compte> (killer …, victim …)`.
-- `"transfer"` : la perte passe dans la poche du tueur et le bonus est versé à côté (écriture
-  `dogtown_bonus`). Un sac impossible à poser retombe sur le transfert.
+- Death follows the **normal medical flow** (unconsciousness, trauma kit, transfer to the hospital,
+  outside Dogtown). **No hospital bill** after a death in a Dogtown fight
+  (`waiveHospitalBill`, the `dogtown` exemption in `economy_sinks.lua`): the zone has already taken its share
+  and the bank stays out of the game. The waiver lasts until 15 s after getting back on your feet (at most
+  30 min after the death).
+- A kill counts when both players share a scope, or when the killer hit the victim
+  in the last 20 seconds; the victim must be in bucket 0, and neither of them in an activity.
+- **Loss**: `loot.share` (10%) of the cash carried, at least `loot.min` (€$ 100), at most
+  `loot.max` (€$ 750), never more than what is carried.
+- **Bag** (`loot.mode = "bag"`): a sealed bag (nothing can be put in it) drops where the victim
+  fell, with the loss **plus a server bonus** of `loot.bonus` (25% of the loss): newly minted
+  money (`Inv.dropCash`, `mint` option), paid by nobody. The bag is **reserved for the killer
+  and their squad** for `loot.reserveMs` (15 s; the squad at pickup time), then
+  anyone can take it, victim included: the killer gets first pick, after that it's
+  Dogtown. It is an inventory ground pile, in memory only: lost on restart and
+  after `LightRpConfig.inventory.drop.ttlMinutes`.
+- **Bonus cap**: `loot.bonusDailyCap` (€$ 3,000) per **account** (all its characters) and
+  per UTC day, kill bonuses and bounties included. Table `lightrp_dogtown_bonus_daily`
+  (identifier, day, total), write cache reread once a day, like
+  `activity_pay.lua`. The bonus counts when the bag is placed, even if someone else picks it up. Log:
+  `dogtown bonus: +N minted into a cash bag for <account> (killer …, victim …)`.
+- `"transfer"`: the loss goes into the killer's pocket and the bonus is paid alongside it (entry
+  `dogtown_bonus`). A bag that can't be placed falls back to the transfer.
 
-### Anti-gank, primes
+### Anti-gank, bounties
 
-- Escouade du tueur avec `antiGank.crewSize` (4) membres ou plus **dans la zone** (dedans, ou
-  marqués dehors ; la mise n'est pas exigée pour compter) : la perte est multipliée par
-  `antiGank.lossFactor` (0,5), après le minimum et le plafond — le sac et son bonus rétrécissent
-  avec.
-- Victime d'une escouade plus nombreuse dans la zone que celle du tueur : bonus × (1 +
-  `antiGank.underdogBonus`), soit × 1,5, toujours dans le plafond.
-- **Prime** : `bounty.streak` (5) kills comptés d'affilée dans la zone sans mourir → une épingle
-  `op77_map3d` (`addBlip(-1, …)`, réticule rouge pulsant, « BOUNTY · Nom ») qui suit la cible
-  toutes les `bounty.refreshMs` (3 s) sur la carte de tout le monde. Retirée à la mort (quelle
-  qu'en soit la cause), en quittant la zone (dehors et plus marqué : la série s'arrête), à la
-  déconnexion, au changement de personnage, à l'arrêt de la zone ou de la ressource. Celui qui
-  l'abat (kill compté) reçoit `bounty.perKill` (€$ 250) par kill de la série, au plus
-  `bounty.max` (€$ 1 500), **en liquide** (écriture `dogtown_bounty`), dans son plafond. Journal :
-  `dogtown bounty: +N to <compte> (…)`.
+- Killer's squad with `antiGank.crewSize` (4) or more members **in the zone** (inside, or
+  tagged outside; the stake is not required to count): the loss is multiplied by
+  `antiGank.lossFactor` (0.5), after the minimum and the cap — the bag and its bonus shrink
+  with it.
+- Victim from a squad with more members in the zone than the killer's: bonus × (1 +
+  `antiGank.underdogBonus`), so × 1.5, still within the cap.
+- **Bounty**: `bounty.streak` (5) counted kills in a row in the zone without dying → an
+  `op77_map3d` pin (`addBlip(-1, …)`, pulsing red reticle, "BOUNTY · Name") that follows the target
+  every `bounty.refreshMs` (3 s) on everyone's map. Removed on death (whatever
+  the cause), when leaving the zone (outside and no longer tagged: the streak ends), on
+  disconnect, on character change, when the zone or the resource stops. Whoever
+  takes them down (counted kill) gets `bounty.perKill` (€$ 250) per kill in the streak, at most
+  `bounty.max` (€$ 1,500), **in cash** (entry `dogtown_bounty`), within their cap. Log:
+  `dogtown bounty: +N to <account> (…)`.
 
-### Anti-farm, déconnexion en combat
+### Anti-farm, combat logging
 
-- **Paires bloquées** : même compte (`lootSameAccount`), même escouade (`lootCrewmates`), ou même
-  tueur sur la même victime en moins de 10 min (`pairCooldownMs`, par personnage et dans ce
-  sens : la revanche reste possible). **Rien du tout** : ni kill, ni mort, ni perte, ni sac, ni
-  bonus. Chaque refus est expliqué aux deux joueurs.
-- **Déconnexion en combat** (`combatLog`) : un joueur marqué qui se déconnecte dans la zone lâche
-  le sac d'une mort (même perte, **sans bonus**) à sa dernière position, réservé à l'escouade de
-  son dernier attaquant ; journal `combat log by …`. Rien s'il était déjà à terre (le kill
-  compte) ou mort depuis moins d'une marque. Nouveau crochet de framework `onDisconnecting`,
-  appelé avant `onDisconnected` tant que l'inventaire et le portefeuille sont chargés (il peut
-  attendre).
-- **Tout passe par `LightRP.money`** : `dogtown_loss` chez la victime, `dogtown_loot` chez celui
-  qui ramasse (la note nomme le bonus), `dogtown_bonus` (transfert), `dogtown_bounty`. Ramasser
-  son propre sac reste une écriture `inventory`. Fichiers partagés touchés : `inventory.lua`
-  (tas scellés, `mint`, `reserve`, raison `reserved`), `economy.lua` (étiquettes),
-  `economy_sinks.lua` (exemption), `framework.lua` (`onDisconnecting`). À l'arrêt de la
-  ressource, portées, équipes, épingles de prime et sacs en cours sont retirés.
+- **Blocked pairs**: same account (`lootSameAccount`), same squad (`lootCrewmates`), or the same
+  killer on the same victim within 10 min (`pairCooldownMs`, per character and in that
+  direction: a rematch is still possible). **Nothing at all**: no kill, no death, no loss, no bag, no
+  bonus. Each refusal is explained to both players.
+- **Combat logging** (`combatLog`): a tagged player who disconnects in the zone drops
+  a death bag (same loss, **no bonus**) at their last position, reserved for their
+  last attacker's squad; log `combat log by …`. Nothing if they were already downed (the kill
+  counts) or died less than one tag ago. New framework hook `onDisconnecting`,
+  called before `onDisconnected` while the inventory and the wallet are still loaded (it can
+  wait).
+- **Everything goes through `LightRP.money`**: `dogtown_loss` for the victim, `dogtown_loot` for whoever
+  picks it up (the note names the bonus), `dogtown_bonus` (transfer), `dogtown_bounty`. Picking up
+  your own bag stays an `inventory` entry. Shared files touched: `inventory.lua`
+  (sealed piles, `mint`, `reserve`, reason `reserved`), `economy.lua` (labels),
+  `economy_sinks.lua` (exemption), `framework.lua` (`onDisconnecting`). When the
+  resource stops, scopes, teams, bounty pins and pending bags are removed.
 
-### Statistiques, Temple de la renommée
+### Stats, Hall of Fame
 
-Table `lightrp_dogtown_stats` (compte + personnage + semaine, la semaine 0 portant le cumul) :
-kills comptés, morts, meilleure série (`best_streak`, colonne ajoutée par migration au démarrage
-sur une table plus ancienne), eddies ramassés (`dogtown_loot` et `dogtown_bonus` positifs ; une
-prime n'est pas du butin). Semaines UTC, du lundi 00:00. Classement F1 : les 5 meilleurs tueurs
-de la semaine (`stats.leaderboardSize`), relus toutes les 60 s. **Temple de la renommée**
-(`halloffame.lua`, onglet PvP) : `dogtown.kills` (kills à vie, détail K/D et meilleure série) et
-`dogtown.streak` (meilleures séries, hors vue d'ensemble) ; `hallOfFame = false` les retire.
-**Aucune réputation.** Sans base, tout vit en mémoire le temps de la session.
+Table `lightrp_dogtown_stats` (account + character + week, week 0 holding the all-time total):
+counted kills, deaths, best streak (`best_streak`, a column added by a migration at startup
+on an older table), eddies picked up (positive `dogtown_loot` and `dogtown_bonus`; a
+bounty is not loot). UTC weeks, starting Monday 00:00. F1 leaderboard: the top 5 killers
+of the week (`stats.leaderboardSize`), reread every 60 s. **Hall of Fame**
+(`halloffame.lua`, PvP tab): `dogtown.kills` (lifetime kills, with K/D and best streak) and
+`dogtown.streak` (best streaks, not in the overview); `hallOfFame = false` removes them.
+**No reputation.** Without a database, everything lives in memory for the session.
 
-### Ce que voit le joueur
+### What the player sees
 
-- **À l'entrée** : un bandeau rouge « DOGTOWN — NO LAW · ANYONE CAN KILL YOU », l'argent porté et
-  ce qu'un tueur en prendrait (plus le bonus) ; sans la mise, « NO STAKE · YOU CAN'T FIGHT
-  HERE » et le montant manquant. Une ligne de chat (mise, argent porté) au plus toutes les 2 min
+- **At the entrance**: a red banner "DOGTOWN — NO LAW · ANYONE CAN KILL YOU", the cash carried and
+  what a killer would take from it (plus the bonus); without the stake, "NO STAKE · YOU CAN'T FIGHT
+  HERE" and the missing amount. A chat line (stake, cash carried) at most every 2 min
   (`entryChatMs`).
-- **Tuile en haut à gauche** tant qu'il est dedans ou marqué : marque de combat, argent en jeu,
-  série en cours, « BOUNTY · ON EVERYONE'S MAP » ; sans la mise, tuile jaune « €$ X missing » et
-  « ESCORTED OUT IN N S ».
-- **F1 → Dogtown** : les règles chiffrées depuis la config (mise, perte, bonus et plafond avec le
-  bonus gagné aujourd'hui, escouades, prime, fair-play), son bilan (semaine, total, meilleure
-  série, série en cours ou prime), les meilleurs tueurs de la semaine.
-- **Guide (Johnny)** : le sujet « Dogtown PvP » (mise, mort et sac, bonus, escouades, prime,
-  anti-farm, déconnexion, hôpital) et les réponses PvP de la ville suivent `enabled` dans la
-  config, pas l'interrupteur `/lightrp.dogtown`.
-- **Carte 3D (`op77_map3d`, touche M) et minicarte** : la zone elle-même, le polygone du serveur
-  posé sur le sol, les routes et les bâtiments : remplissage rouge translucide hachuré en
-  diagonale, bordure rouge pleine, étiquette « DOGTOWN · DANGER ZONE » lisible à l'échelle de la
-  ville ; sur la minicarte, la ligne sous la carte affiche ce nom tant qu'on est dedans. La tête
-  de mort rouge reste au centre. Réglages dans `area` de `server/config/dogtown.lua` (couleurs,
-  opacité, motif `hatch` ou `solid`, épaisseur de bordure, position de l'étiquette, minicarte,
-  pulsation ; `area = false` n'affiche que l'épingle). La zone suit `/lightrp.dogtown on|off`
-  (retirée à l'arrêt) et `survey apply|reset` (redessinée chez tout le monde) ; le serveur envoie
-  au plus 150 points (un relevé plus long perd d'abord ses sommets les moins marquants). Les
-  primes y ajoutent leur épingle mobile.
-- **Carte du jeu** : le sprite de la porte de Dogtown (panneau de danger en repli), rien de plus.
-  La plateforme n'y pose que des épingles (`Open77.blips` : sprite, titre, distance de
-  visibilité) et `Open77.map` ne donne ni projection monde-écran ni distance de zoom : aucun
-  polygone, cercle ou calque n'est possible sur la carte native (vérifié dans
+- **Top-left tile** while the player is inside or tagged: combat tag, money at stake,
+  current streak, "BOUNTY · ON EVERYONE'S MAP"; without the stake, a yellow "€$ X missing" tile and
+  "ESCORTED OUT IN N S".
+- **F1 → Dogtown**: the rules with their numbers from the config (stake, loss, bonus and cap with the
+  bonus earned today, squads, bounty, fair play), your record (week, total, best
+  streak, current streak or bounty), the top killers of the week.
+- **Guide (Johnny)**: the "Dogtown PvP" topic (stake, death and bag, bonus, squads, bounty,
+  anti-farm, disconnecting, hospital) and the city's PvP answers follow `enabled` in the
+  config, not the `/lightrp.dogtown` switch.
+- **3D map (`op77_map3d`, M key) and minimap**: the zone itself, the server polygon
+  laid over the ground, roads and buildings: translucent red fill with diagonal
+  hatching, solid red border, a "DOGTOWN · DANGER ZONE" label readable at
+  city scale; on the minimap, the line under the map shows that name while you are inside. The red
+  skull stays in the center. Settings in `area` of `server/config/dogtown.lua` (colors,
+  opacity, `hatch` or `solid` pattern, border thickness, label position, minimap,
+  pulse; `area = false` only shows the pin). The zone follows `/lightrp.dogtown on|off`
+  (removed when off) and `survey apply|reset` (redrawn for everyone); the server sends
+  at most 150 points (a longer survey drops its least significant vertices first). The
+  bounties add their moving pin to it.
+- **Game map**: the Dogtown gate sprite (danger sign as a fallback), nothing more.
+  The platform only places pins there (`Open77.blips`: sprite, title, visibility
+  distance) and `Open77.map` gives neither a world-to-screen projection nor a zoom distance: no
+  polygon, circle or layer is possible on the native map (checked in
   `wiki/data/api.json`).
 
-### Staff : `/lightrp.dogtown`
+### Staff: `/lightrp.dogtown`
 
-ACL `command.lightrp.dogtown` (couverte par `command.lightrp.*`).
+ACL `command.lightrp.dogtown` (covered by `command.lightrp.*`).
 
-| Sous-commande | Effet |
+| Subcommand | Effect |
 |---|---|
-| `status` | État, joueurs dedans (dont sous la mise), marqués, portées, primes, source du polygone, sorties, mise, perte, bonus, plafond, réserve. |
-| `on` · `off` | Allume ou coupe la zone jusqu'au prochain redémarrage (`enabled` fixe le défaut). `off` retire portées, équipes, marques, séries et primes. |
-| `survey add` · `undo` · `clear` | Ajoute un point à sa position (avec le district que voit le moteur), retire le dernier, vide le brouillon. |
-| `survey list` | Écrit le brouillon au format de `polygon` dans le journal serveur. |
-| `survey apply` · `reset` | Le brouillon devient la zone pour la session ; retour au polygone de la config. La zone dessinée sur la carte 3D suit. |
-| `survey test` | Dedans ou dehors ici, et district du moteur. |
-| `survey passage` | Ligne `{ x, y, z, heading }` pour une extrémité de passage. |
-| `survey exit [nom]` | Ligne d'une sortie pour `exits` (dehors seulement ; se placer sur la route, dos à Dogtown). |
+| `status` | State, players inside (including those below the stake), tagged players, scopes, bounties, polygon source, exits, stake, loss, bonus, cap, reserve. |
+| `on` · `off` | Turns the zone on or off until the next restart (`enabled` sets the default). `off` removes scopes, teams, tags, streaks and bounties. |
+| `survey add` · `undo` · `clear` | Adds a point at your position (with the district the engine sees), removes the last one, clears the draft. |
+| `survey list` | Writes the draft in the `polygon` format to the server log. |
+| `survey apply` · `reset` | The draft becomes the zone for the session; back to the config polygon. The zone drawn on the 3D map follows. |
+| `survey test` | Inside or outside here, and the engine's district. |
+| `survey passage` | `{ x, y, z, heading }` line for one end of a passage. |
+| `survey exit [name]` | An exit line for `exits` (outside only; stand on the road, with your back to Dogtown). |
 
-Chaque client signale aussi les frontières de district que franchit le moteur ; un désaccord
-avec le polygone est journalisé (`logDistrictMismatch`). C'est une aide au relevé, jamais une
-source d'autorisation : le serveur ne connaît pas les districts.
+Each client also reports the district borders the engine crosses; a disagreement
+with the polygon is logged (`logDistrictMismatch`). It is a survey aid, never a
+source of authorization: the server doesn't know about districts.
 
-### Mise en place (en jeu)
+### Setup (in game)
 
-Le polygone livré (30 points) est dérivé des volumes du district `ep1_dogtown` des données de
-`op77_map3d` : il épouse l'extérieur des murs, donc un peu large, et chaque point est marqué
-`-- survey in game`. Longer les murs avec `/lightrp.dogtown survey add` à chaque angle,
-`survey apply` pour essayer, `survey list`, coller les lignes dans `polygon`. Relever ensuite les
-sorties avec `survey exit` (une par porte ou route principale) et les coller dans `exits`, puis
+The shipped polygon (30 points) is derived from the volumes of the `ep1_dogtown` district in the
+`op77_map3d` data: it hugs the outside of the walls, so it is a bit wide, and each point is marked
+`-- survey in game`. Walk along the walls with `/lightrp.dogtown survey add` at each corner,
+`survey apply` to try it, `survey list`, then paste the lines into `polygon`. Next, survey the
+exits with `survey exit` (one per gate or main road) and paste them into `exits`, then
 `ensure op77_lightrp`.
 
-**Phantom Liberty.** Dogtown appartient à l'extension, que le lanceur exige. Sur une sauvegarde
-où l'extension n'a jamais commencé, les portes du district peuvent rester fermées ; Open77 coupe
-le téléport de frontière, mais l'accès réel est à vérifier en jeu. Si les portes restent closes,
-`passages` ajoute des points **E** (dehors → dedans et retour, sortie refusée en étant marqué,
-entrée refusée sans la mise), relevés avec `survey passage`.
+**Phantom Liberty.** Dogtown belongs to the expansion, which the launcher requires. On a save
+where the expansion never started, the district gates can stay closed; Open77 disables
+the border teleport, but actual access still has to be checked in game. If the gates stay closed,
+`passages` adds **E** points (outside → inside and back, exit refused while tagged,
+entry refused without the stake), surveyed with `survey passage`.
 
-## Progression PvE : paliers de réputation, difficultés, cyberware
+## PvE progression: reputation tiers, difficulties, cyberware
 
-Proposition complète et décisions du propriétaire (2026-11-03) : `docs/pve-progression.md`.
-Paliers, noms, prix du haut de gamme, poids PvE et plafond de 500 par jour sont validés tels que
-proposés. En bref :
+Full proposal and owner decisions (2026-11-03): `docs/pve-progression.md`.
+Tiers, names, high-end prices, PvE weights and the 500-per-day cap are approved as
+proposed. In short:
 
-- **Cinq paliers** de réputation de rue (`server/config/missions.lua`, `reputation`) : I Street
-  (0), II Merc (500), III Operator (1 500), IV Edgerunner (4 000), V Legend (10 000). Missions,
-  raid Chimera et gigs rapportent 100 / 220 / 450 par difficulté ; les activités PvE 30 / 60 / 100
-  × poids, 500 par jour ; le PvP rien. Une notice « STREET CRED » annonce chaque palier ;
-  `/missions.rep <id>` affiche points, palier et prochain seuil.
-- **Difficultés** : Hard demande le palier II, Critical le III (`difficultyTiers`), en plus de
-  l'échelle « terminer la difficulté précédente » au même point (`requireClear`, gardée). Le
-  contrôle vaut pour le chef d'un crew et pour un joueur solo, sur les tableaux de mission et le
-  raid, pour les offres de fixers et pour les activités PvE (`activityCheck` / `activityEnter` /
-  panneau). **Un membre de crew sous la difficulté choisie par son chef n'est jamais refusé** :
-  il joue la difficulté pleine et gagne la réputation de la plus haute difficulté qu'il a ouverte
-  (voir *Crews*).
-- **Cyberware** (`server/config/cyberware.lua`, `gating`) : rangs I–II ouverts à tous, III au
-  palier II, IV au III, V au IV, V+ au V (le champ `repTier` d'un implant l'emporte). Le serveur
-  refuse la pose avant tout paiement ; la dépose reste possible, un implant déjà posé reste actif
-  et `lightrp.cyberware <id> give` ignore le palier. La clinique montre les implants verrouillés
-  (badge `REP III`, ligne « Street cred », bouton `LOCKED`) ; le bundle `op77_ripperdoc/web` doit
-  être reconstruit depuis `ripperdoc-ui` pour l'afficher.
-- **Haut de gamme** : rang V — Iron Lungs Mk.2 (+80 endurance max), Adrenaline Booster Mk.2
-  (+15 endurance/s), Bioplastic Blood Vessels (+3 vie/s) ; rang V+ — Neofiber Actuators Mk.3
-  (dash `apex`), Aegis Dermal Plating (+100 armure), Rara Avis (+100 vie max), Zetatech Apogee
-  (overdrive `apex`, 11 s).
-- **PvP classé** : `activeInPvp` (vrai par défaut, décision du propriétaire : le cyberware reste
-  actif en PvP classé). À `false`, les dons de session (dash, overdrive, slam) et les stats
-  passives sont suspendus dans une activité non PvE et rendus à la sortie (crochet de module
-  `onActivityChanged`) ; jambes et bras durables restent.
-- **Titres cosmétiques PvP** : voulus plus tard, pas construits.
+- **Five tiers** of street reputation (`server/config/missions.lua`, `reputation`): I Street
+  (0), II Merc (500), III Operator (1,500), IV Edgerunner (4,000), V Legend (10,000). Missions,
+  the Chimera raid and gigs give 100 / 220 / 450 per difficulty; PvE activities 30 / 60 / 100
+  × weight, 500 per day; PvP nothing. A "STREET CRED" notice announces each tier;
+  `/missions.rep <id>` shows points, tier and the next threshold.
+- **Difficulties**: Hard requires tier II, Critical tier III (`difficultyTiers`), on top of
+  the "finish the previous difficulty" ladder at the same point (`requireClear`, kept). The
+  check applies to a crew's leader and to a solo player, on mission boards and the
+  raid, for fixer offers and for PvE activities (`activityCheck` / `activityEnter` /
+  panel). **A crew member below the difficulty chosen by their leader is never refused**:
+  they play the full difficulty and earn the reputation of the highest difficulty they have unlocked
+  (see *Crews*).
+- **Cyberware** (`server/config/cyberware.lua`, `gating`): ranks I–II open to everyone, III at
+  tier II, IV at III, V at IV, V+ at V (an implant's `repTier` field wins). The server
+  refuses the install before any payment; removal is still possible, an implant already installed stays active
+  and `lightrp.cyberware <id> give` ignores the tier. The clinic shows locked implants
+  (`REP III` badge, "Street cred" line, `LOCKED` button); the `op77_ripperdoc/web` bundle must
+  be rebuilt from `ripperdoc-ui` to show them.
+- **High end**: rank V — Iron Lungs Mk.2 (+80 max stamina), Adrenaline Booster Mk.2
+  (+15 stamina/s), Bioplastic Blood Vessels (+3 health/s); rank V+ — Neofiber Actuators Mk.3
+  (`apex` dash), Aegis Dermal Plating (+100 armor), Rara Avis (+100 max health), Zetatech Apogee
+  (`apex` overdrive, 11 s).
+- **Ranked PvP**: `activeInPvp` (true by default, owner's decision: cyberware stays
+  active in ranked PvP). When `false`, session abilities (dash, overdrive, slam) and passive
+  stats are suspended in a non-PvE activity and given back on exit (module hook
+  `onActivityChanged`); durable legs and arms stay.
+- **Cosmetic PvP titles**: wanted later, not built.
 
 ### Hall of Fame (`server/modules/halloffame.lua`, page `features/halloffame/`)
 
-Un vrai prop serveur (par défaut la borne d'arcade `electronics.arcade`, collision active) à
-environ 4 m à gauche du terminal *The Crossing*, face tournée vers le point d'arrivée, plus un
-point **E** devant lui : pas de marqueur au sol, une icône trophée flottante (avec la distance)
-et une épingle sur la carte (`board.blip`). **ALT + clic** sur le prop (`open77_contextmenu`,
-modèles avec collision seulement) ou **E** ouvrent le dialogue
-`halloffame` de la page Light RP : onglets *Overview* (podiums), *PvP*, *Races*, *PvE*,
-*Missions*, *Wealth* ; podium du top 3, rangs 4 à 10, la ligne du joueur surlignée ou « YOU #N »
-sous chaque tableau. Noms de personnages uniquement, jamais d'identifiant de compte.
+A real server prop (by default the arcade cabinet `electronics.arcade`, collision on) about
+4 m to the left of the *The Crossing* terminal, facing the arrival point, plus an
+**E** point in front of it: no ground marker, a floating trophy icon (with the distance)
+and a pin on the map (`board.blip`). **ALT + click** on the prop (`open77_contextmenu`,
+models with collision only) or **E** opens the
+`halloffame` dialog of the Light RP page: tabs *Overview* (podiums), *PvP*, *Races*, *PvE*,
+*Missions*, *Wealth*; a top-3 podium, ranks 4 to 10, and the player's row highlighted or "YOU #N"
+under each board. Character names only, never an account identifier.
 
-- Sources : `lightrp_activity_stats` (victoires et kills PvP / PvE, meilleurs temps sur le
-  parcours courant de chaque course), `lightrp_mission_rep` et `lightrp_mission_clears`
-  (contrats, braquages et raid Chimera classés par difficulté), `lightrp_wallets` + l'objet
-  `cash` de l'inventaire (fortune, coupée par `showWealth = false`). Sans base : les résultats de
-  la session (`LightRP.activities.memoryRows`), et la page le dit.
-- Cache serveur : reconstruit toutes les 5 min ; le bouton REFRESH au plus une fois par 30 s et
-  par joueur (10 s minimum pour tout le serveur). Ouvrir le panneau ne lit que le cache.
-- Extension : `LightRP.hallOfFame.registerBoard(key, { tab, title, unit, provider })` (exemple en
-  tête du module).
-- Staff : `/lightrp.halloffame place` (se placer devant l'emplacement, face à là où l'écran doit
-  regarder : le panneau se pose 0,8 m derrière, le point E suit, la ligne de config est
-  affichée), `where` (position, modèle, échelle, rotation et ligne de config), `refresh`. Coller
-  la ligne dans `server/config/halloffame.lua` (`board`).
-- Choix du prop en jeu (staff) : `/lightrp.halloffame model` liste les candidats numérotés de
-  `board.models` (alias, échelle, décalage de lacet, libellé ; `*` = en place) ;
-  `model <n|alias> [échelle|-] [rotation]` remplace le prop tout de suite (le nouveau d'abord :
-  un modèle refusé laisse l'ancien debout ; le point E, l'icône et l'ALT + clic suivent) et
-  garde le choix en kvp (`halloffame.board.model`), prioritaire sur `board.model` au
-  démarrage ; `model reset` revient au défaut de la config. La rotation s'ajoute au décalage
-  de la ligne (« - » : l'échelle de la ligne). Le balayage des orphelins reconnaît tous les
-  candidats.
-- Exclusions (`exclude` dans `server/config/halloffame.lua`) : staff et personnages de test ne
-  figurent sur **aucun** tableau, y compris ceux ajoutés par `registerBoard` (un seul filtre
-  dans `HoF.refresh`, après tous les fournisseurs, avant le classement : les autres
-  remontent). Un joueur exclu ne voit pas de « YOU #N ». Les lignes portent le compte Open77
-  (`GetPlayerIdentifier`, le même `userId` que les principaux d'`acl.jsonc`) et la clé du
-  personnage (`<compte>#<clé>`).
-  - Staff (`staff = true`) : le test de Light RP (`LightRP.staff.isStaff`, les
-    `LightRpConfig.staffPermissions` dans l'ACL). L'ACL ne répond que pour un joueur en ligne
-    (une ressource ne peut pas lire `acl.jsonc`) : chaque compte staff vu en ligne est retenu
-    dans le magasin kvp de la ressource (`data/`, conservé aux redémarrages) et reste exclu
-    hors ligne ; un compte retenu revu en ligne sans les droits est oublié. **Limite** : un
-    staff jamais vu en ligne depuis cette version est inconnu — mettre son `userId` dans
-    `staffAccounts`. Une ACL qui ne répond pas (pas d'`acl.read`) n'oublie personne.
-  - Tests (`tests = true`) : `characters` (`<compte>#<clé>`), `accounts` (`<compte>`, tous ses
-    personnages), plus la liste de la commande `/lightrp.halloffame exclude <playerId [account]
-    | compte#clé | compte>`, `include <…>` (retire de la liste ; sur un compte, oublie aussi
-    un staff retenu), `excluded` (état). Conservée en kvp ; chaque changement relance la
-    reconstruction des tableaux.
+- Sources: `lightrp_activity_stats` (PvP / PvE wins and kills, best times on each race's
+  current course), `lightrp_mission_rep` and `lightrp_mission_clears`
+  (contracts, heists and the Chimera raid, ranked by difficulty), `lightrp_wallets` + the inventory
+  `cash` item (wealth, turned off by `showWealth = false`). Without a database: the results of
+  the session (`LightRP.activities.memoryRows`), and the page says so.
+- Server cache: rebuilt every 5 min; the REFRESH button works at most once per 30 s
+  per player (10 s minimum for the whole server). Opening the panel only reads the cache.
+- Extension: `LightRP.hallOfFame.registerBoard(key, { tab, title, unit, provider })` (example at
+  the top of the module).
+- Staff: `/lightrp.halloffame place` (stand in front of the spot, facing where the screen should
+  look: the panel is placed 0.8 m behind you, the E point follows, and the config line is
+  shown), `where` (position, model, scale, rotation and config line), `refresh`. Paste
+  the line into `server/config/halloffame.lua` (`board`).
+- Choosing the prop in game (staff): `/lightrp.halloffame model` lists the numbered candidates from
+  `board.models` (alias, scale, yaw offset, label; `*` = currently placed);
+  `model <n|alias> [scale|-] [rotation]` replaces the prop right away (the new one first:
+  a refused model leaves the old one standing; the E point, the icon and ALT + click follow) and
+  keeps the choice in kvp (`halloffame.board.model`), which takes priority over `board.model` at
+  startup; `model reset` goes back to the config default. The rotation is added to the line's
+  offset ("-": use the line's scale). The orphan sweep recognizes all the
+  candidates.
+- Exclusions (`exclude` in `server/config/halloffame.lua`): staff and test characters
+  appear on **no** board, including those added by `registerBoard` (a single filter
+  in `HoF.refresh`, after all providers, before ranking: everyone else
+  moves up). An excluded player doesn't see a "YOU #N". Rows carry the Open77 account
+  (`GetPlayerIdentifier`, the same `userId` as the principals in `acl.jsonc`) and the
+  character key (`<account>#<key>`).
+  - Staff (`staff = true`): Light RP's own test (`LightRP.staff.isStaff`, the
+    `LightRpConfig.staffPermissions` in the ACL). The ACL only answers for an online player
+    (a resource can't read `acl.jsonc`): each staff account seen online is remembered
+    in the resource's kvp store (`data/`, kept across restarts) and stays excluded
+    while offline; a remembered account seen online again without the rights is forgotten. **Limit**: a
+    staff member never seen online since this version is unknown — put their `userId` in
+    `staffAccounts`. An ACL that doesn't answer (no `acl.read`) forgets nobody.
+  - Tests (`tests = true`): `characters` (`<account>#<key>`), `accounts` (`<account>`, all of its
+    characters), plus the list from the command `/lightrp.halloffame exclude <playerId [account]
+    | account#key | account>`, `include <…>` (removes from the list; on an account, also forgets
+    a remembered staff member), `excluded` (status). Kept in kvp; each change triggers a
+    rebuild of the boards.
 
 ## Housing
 
-Appartements et maisons instanciés, achat/location, clés persistantes, coffre par
-contrat et attribution administrative. **F1 → My homes** ou `/housing` pour les
-joueurs ; **/admin → Housing** ou `/housingadmin` pour créer les modèles, capturer
-les points et ajouter/supprimer des logements. SQL est obligatoire.
-Voir le [guide housing](docs/housing.md) pour le parcours complet et les garanties.
+Instanced apartments and houses, buying/renting, persistent keys, storage per
+contract and admin assignment. **F1 → My homes** or `/housing` for
+players; **/admin → Housing** or `/housingadmin` to create templates, capture
+points and add/delete homes. SQL is required.
+See the [housing guide](docs/housing.md) for the full flow and the guarantees.
 
-## HUD d'activité (`client/core/activity_hud.lua`, page `features/activityhud/`)
+## Activity HUD (`client/core/activity_hud.lua`, page `features/activityhud/`)
 
-Le HUD commun des activités (arène, course, poursuite, guerre de territoire…) : une ressource
-fournisseur décrit son état, Light RP le dessine dans son design. C'est un pur calque, sans focus,
-sans entrée et sans touche. Un seul HUD à la fois : un `Show` plus récent remplace l'ancien, quelle
-que soit la ressource qui l'envoie. Exports **client** (toujours sous `pcall`, l'appel lève si
-`op77_lightrp` est arrêté) :
+The shared HUD for activities (arena, race, chase, turf war…): a provider
+resource describes its state, and Light RP draws it in its own design. It is a pure overlay, with no focus,
+no input and no keys. Only one HUD at a time: a newer `Show` replaces the old one, whichever
+resource sends it. **Client** exports (always wrap them in `pcall`; the call throws if
+`op77_lightrp` is stopped):
 
 ```lua
-local ok, why = exports.op77_lightrp:ActivityHudShow(hud)      -- remplace tout l'état
+local ok, why = exports.op77_lightrp:ActivityHudShow(hud)      -- replaces the whole state
 exports.op77_lightrp:ActivityHudPush("feed", { text = "Vi took the zone", tone = "success" })
 exports.op77_lightrp:ActivityHudPush("banner", { title = "FINAL LAP", text = "...", tone = "accent", durationMs = 2500 })
 exports.op77_lightrp:ActivityHudPush("result", { title = "Street Race", placement = 2, subtitle = "Watson Loop",
@@ -1176,68 +1176,68 @@ exports.op77_lightrp:ActivityHudClear()
 exports.op77_lightrp:Notice({ kind = "warning", title = "NCPD Chase", body = "Crash! Engine stalled." })
 ```
 
-`Notice` est la notice côté client, mêmes règles que l'export serveur `notice` (`shared/notice.lua`,
-même limite de débit que le HUD) : c'est le repli d'un fournisseur quand son HUD n'est pas affiché.
+`Notice` is the client-side notice, with the same rules as the server `notice` export (`shared/notice.lua`,
+same rate limit as the HUD): it is a provider's fallback when its HUD isn't shown.
 
-Chaque appel rend `true` ou `false, raison` (`invalid_hud`, `invalid_kind`, `invalid_payload`,
-`not_owner`, `rate_limited`, `ui_unavailable`). Tout est validé et borné côté Lua ; un champ
-invalide est ignoré, jamais transmis tel quel.
+Each call returns `true` or `false, reason` (`invalid_hud`, `invalid_kind`, `invalid_payload`,
+`not_owner`, `rate_limited`, `ui_unavailable`). Everything is validated and bounded on the Lua side; an
+invalid field is ignored, never passed on as is.
 
-| Champ de `hud` | Contenu | Bornes |
+| `hud` field | Content | Limits |
 | --- | --- | --- |
-| `activity` | identifiant libre (`race.grid`) | 48 car., `[%w_%-.:]` |
-| `title`, `subtitle` | nom de l'activité, lieu ou mode | 48 / 80 car., titre par défaut « Activity » |
-| `phase` | `lobby` · `countdown` · `running` · `ended` | autre valeur → `running` |
-| `timer` | `{ remainingMs, label, countUp }` | 0 à 24 h, libellé 16 car. |
-| `countdown` | ms avant le départ (phase `countdown`) | ≤ 60 s ; **≤ 10 est lu en secondes** |
-| `objective` | une ligne sous le bandeau | 120 car. |
-| `stats` | `{ { label, value } }` | 4 au plus, 24 car. chacun |
-| `progress` | `{ { id, label, value 0..1, tone } }` | 3 au plus |
-| `teams` | `{ { name, color, score, self } }` | 4 au plus ; `color` = `#rgb`/`#rrggbb` ou un ton |
-| `scoreboard` | `{ columns = {...}, rows = { { name, values, self, team } } }` | 4 colonnes, 16 lignes, une seule `self` |
-| `hints` | `{ { key, label } }` | 4 au plus |
+| `activity` | free identifier (`race.grid`) | 48 chars, `[%w_%-.:]` |
+| `title`, `subtitle` | activity name, place or mode | 48 / 80 chars, default title "Activity" |
+| `phase` | `lobby` · `countdown` · `running` · `ended` | any other value → `running` |
+| `timer` | `{ remainingMs, label, countUp }` | 0 to 24 h, label 16 chars |
+| `countdown` | ms before the start (`countdown` phase) | ≤ 60 s; **≤ 10 is read as seconds** |
+| `objective` | one line under the banner | 120 chars |
+| `stats` | `{ { label, value } }` | 4 at most, 24 chars each |
+| `progress` | `{ { id, label, value 0..1, tone } }` | 3 at most |
+| `teams` | `{ { name, color, score, self } }` | 4 at most; `color` = `#rgb`/`#rrggbb` or a tone |
+| `scoreboard` | `{ columns = {...}, rows = { { name, values, self, team } } }` | 4 columns, 16 rows, only one `self` |
+| `hints` | `{ { key, label } }` | 4 at most |
 
-- **Temps relatifs** : `timer.remainingMs` et `countdown` valent au moment de l'envoi, la page
-  décompte seule. Un `countUp` n'avance qu'en phase `running` (un temps final reste figé). Ne pas
-  renvoyer le HUD à chaque frame : à chaque changement d'état suffit (30 appels/s au plus).
-- Un `countdown` en millisecondes qui tombe à 10 ou moins serait lu en secondes : envoyer `0`.
-- `countdown` absent en phase `countdown` : « GET READY ». Au-delà de 5 s, une puce « STARTS IN » ;
-  les 5 dernières secondes en grands chiffres, puis « GO ».
-- Tons : `accent` (jaune, réservé au joueur et aux temps forts), `danger`, `info`, `success`.
-- `team` d'une ligne : index (1..4) ou nom d'une équipe de `teams`.
-- Pushs : `feed` (5 lignes au plus, effacées après ~5 s), `banner` (0,8 à 10 s, 3 s par défaut),
-  `result` (titre ou `placement` 1..999 / court texte comme « DNF », 2 à 30 s, 8 s par défaut,
-  6 lignes au plus).
-- **Propriété** : `Push` et `Clear` sont refusés (`not_owner`) quand le HUD affiché appartient à
-  une autre ressource. Un `Clear` du propriétaire laisse la carte de résultat et la dernière
-  bannière finir leur temps.
-- **Fin de vie** : le HUD disparaît à l'arrêt ou au redémarrage de la ressource propriétaire, et
-  à un changement de personnage.
+- **Relative times**: `timer.remainingMs` and `countdown` are valid at the moment they are sent; the page
+  counts down on its own. A `countUp` only advances in the `running` phase (a final time stays frozen). Don't
+  resend the HUD every frame: on each state change is enough (30 calls/s at most).
+- A `countdown` in milliseconds that drops to 10 or less would be read as seconds: send `0`.
+- `countdown` missing in the `countdown` phase: "GET READY". Above 5 s, a "STARTS IN" chip;
+  the last 5 seconds in big digits, then "GO".
+- Tones: `accent` (yellow, reserved for the player and big moments), `danger`, `info`, `success`.
+- A row's `team`: index (1..4) or the name of a team from `teams`.
+- Pushes: `feed` (5 lines at most, cleared after ~5 s), `banner` (0.8 to 10 s, 3 s by default),
+  `result` (title or `placement` 1..999 / short text like "DNF", 2 to 30 s, 8 s by default,
+  6 lines at most).
+- **Ownership**: `Push` and `Clear` are refused (`not_owner`) when the HUD on screen belongs to
+  another resource. A `Clear` from the owner lets the result card and the last
+  banner run out their time.
+- **End of life**: the HUD disappears when the owning resource stops or restarts, and
+  on a character change.
 
-À l'écran : bandeau en haut au centre (phase, titre, horloge, deux équipes de part et d'autre ou
-puces d'équipes dessous, objectif), panneau à droite à la place du bon de travail (stats, barres,
-classement centré sur le joueur, raccourcis), fil en haut à droite près de la minimap (en haut à
-gauche sous 1600 px), compte à rebours, bannières et carte de résultat au centre. Pendant un match
-(toute phase sauf `lobby`), les cadrans faim/soif, leur alerte et le bon de travail s'effacent
-(besoins gelés dans les activités) ; santé, armure, énergie, chat, voix et notifications restent.
-En `lobby` à côté d'un bon de travail, le bon garde sa place et les raccourcis montent sous le
-bandeau. Le HUD se masque quand le menu F1 ou une boîte de dialogue est ouvert.
+On screen: a banner at the top center (phase, title, clock, two teams on either side or
+team chips below, objective), a panel on the right in place of the work order (stats, bars,
+leaderboard centered on the player, shortcuts), a feed at the top right near the minimap (top
+left below 1600 px), and the countdown, banners and result card in the center. During a match
+(any phase except `lobby`), the hunger/thirst dials, their alert and the work order fade out
+(needs are frozen in activities); health, armor, energy, chat, voice and notifications stay.
+In `lobby` next to a work order, the order keeps its place and the shortcuts move up under the
+banner. The HUD hides when the F1 menu or a dialog box is open.
 
-Aperçu sans jeu : `npm run dev` puis `?registered=1&activity=race` (`trial`, `arena`, `turf`,
-`lobby`, `countdown`, `result`, `editor`, `demo` pour une course complète). Tests :
+Preview without the game: `npm run dev` then `?registered=1&activity=race` (`trial`, `arena`, `turf`,
+`lobby`, `countdown`, `result`, `editor`, `demo` for a full race). Tests:
 `tests/activity_hud_client_test.lua`.
 
 ## WebUI
 
-Source dans `ui/` à la racine du projet (Vite, React 18, TypeScript strict, zustand,
-lucide-react). `npm run build` type-vérifie puis écrit `web/` (app.js, app.css, index.html,
-polices auto-hébergées). `npm run dev` sert la page dans un navigateur avec un bridge simulé :
-`?menu=1&view=vehicles&staff=1&registered=1&vehicle=1` pour forcer un état.
+Source in `ui/` at the project root (Vite, React 18, strict TypeScript, zustand,
+lucide-react). `npm run build` type-checks, then writes `web/` (app.js, app.css, index.html,
+self-hosted fonts). `npm run dev` serves the page in a browser with a mock bridge:
+`?menu=1&view=vehicles&staff=1&registered=1&vehicle=1` to force a state.
 
-Le design system est porté dans `ui/src/design` : `tokens.css` (jetons du kit), `components/`
+The design system is ported in `ui/src/design`: `tokens.css` (kit tokens), `components/`
 (Button, Panel, Badge, SectionHeader, HazardStripe, Keycap, StatusChip, VitalBar, MicIndicator,
-Notification, Input, Toggle, Tabs, ListRow, Modal). Aucune ressource externe : polices et icônes
-sont embarquées, l'hôte WebUI ne sert que les fichiers de la ressource.
+Notification, Input, Toggle, Tabs, ListRow, Modal). No external resources: fonts and icons
+are bundled, and the WebUI host only serves the resource's files.
 
-Après une modification serveur : `ensure op77_lightrp` dans la console. Après un changement de la
-page ou du client, reconnexion des joueurs (`reload_policy "reconnect"`).
+After a server change: `ensure op77_lightrp` in the console. After a change to the
+page or the client, players have to reconnect (`reload_policy "reconnect"`).

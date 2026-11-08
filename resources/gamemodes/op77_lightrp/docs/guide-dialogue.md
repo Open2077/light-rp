@@ -1,280 +1,280 @@
-# Parler à Johnny : le dialogue
+# Talking to Johnny: the dialogue
 
-Johnny Silverhand, à The Crossing, ne s'ouvre plus sur le panneau FAQ. Il parle d'abord,
-comme un dialogue du jeu : sa réplique en sous-titre en bas de l'écran, quelques choix
-pour le joueur à droite du centre, le monde et Johnny restent visibles. La FAQ complète
-reste à un choix de distance (« Write it down for me. », « Let me type it. »).
+Johnny Silverhand, at The Crossing, no longer opens on the FAQ panel. He talks first,
+like a dialogue in the game: his line as a subtitle at the bottom of the screen, a few choices
+for the player to the right of centre, and the world and Johnny stay visible. The full FAQ
+is still one choice away ("Write it down for me.", "Let me type it.").
 
-Le texte en jeu est en anglais. Ce document reprend l'arbre en français pour relecture ;
-les choix sont cités tels qu'ils s'affichent.
+The in-game text is in English. This document goes over the tree for review;
+the choices are quoted as they appear on screen.
 
-- Contenu : `server/config/guide_dialogue.lua` (modifiable sans rebuild de la page).
-- Module : `server/modules/guide_dialogue.lua` (nœuds, pagination, GPS, Hall of Fame).
-- Page : `ui/src/features/guide/TalkView.tsx`, `talk.ts`, `talk.css`.
-- Tests : `tests/guide_dialogue_test.lua`, `ui/tests/guide-talk.test.ts`.
+- Content: `server/config/guide_dialogue.lua` (editable without rebuilding the page).
+- Module: `server/modules/guide_dialogue.lua` (nodes, pagination, GPS, Hall of Fame).
+- Page: `ui/src/features/guide/TalkView.tsx`, `talk.ts`, `talk.css`.
+- Tests: `tests/guide_dialogue_test.lua`, `ui/tests/guide-talk.test.ts`.
 
-## Ce que voit le joueur
+## What the player sees
 
-1. **E « Talk to Johnny »** (ou ALT + clic). Johnny salue, une salutation tirée au sort
-   parmi trois. À droite, sept choix numérotés ; en dessous, son nom, la mention
-   « ROCKERBOY · GHOST IN THE MACHINE » et sa réplique.
-2. **↑ ↓** ou la souris choisissent, **Entrée**, **F** ou un clic valident, **1 à 9**
-   choisissent directement. La ligne sélectionnée est jaune, avec la touche F.
-3. Johnny répond en **trois lignes au plus à l'écran**. Si sa réponse est plus longue, le
-   seul choix est « Go on. » (des repères en haut à droite montrent la page) ; **← →**
-   tournent aussi les pages. Les choix suivants arrivent sur la dernière page.
-4. Chaque nœud finit par **« Back. »** (sauf la salutation) et **« That's all. »**.
-   **Retour arrière** ou **clic droit** reviennent en arrière, sur la page où étaient les
-   choix, le curseur là où il était. Un choix déjà pris est grisé.
-5. Un choix peut **agir** : il pose un itinéraire GPS (la confirmation s'affiche sous la
-   réplique, Johnny reste ouvert), ouvre un panneau (activités, contrats, guide du job,
-   Hall of Fame), ou ouvre la **FAQ écrite** à la bonne réponse. Depuis la FAQ, le bouton
-   **« TALK TO JOHNNY »** ou **clic droit** depuis la réponse ouverte ramène au dialogue,
-   à la réplique quittée.
-6. **« That's all. »** : Johnny dit au revoir (une phrase au hasard parmi trois), le
-   dialogue se ferme après 1,8 s ou à la première touche. **Échap** ferme tout de suite.
+1. **E "Talk to Johnny"** (or ALT + click). Johnny says hello, with a greeting picked at random
+   from three. On the right, seven numbered choices; below them, his name, the tag
+   "ROCKERBOY · GHOST IN THE MACHINE" and his line.
+2. **↑ ↓** or the mouse pick a choice, **Enter**, **F** or a click confirm it, **1 to 9**
+   pick one directly. The selected line is yellow, with the F key.
+3. Johnny answers in **three lines at most on screen**. If his answer is longer, the
+   only choice is "Go on." (markers at the top right show the page); **← →**
+   also turn the pages. The next choices arrive on the last page.
+4. Every node ends with **"Back."** (except the greeting) and **"That's all."**.
+   **Backspace** or **right-click** go back, to the page where the choices were,
+   with the cursor where it was. A choice already taken is greyed out.
+5. A choice can **do something**: it sets a GPS route (the confirmation shows under the
+   line, Johnny stays open), opens a panel (activities, contracts, job guide,
+   Hall of Fame), or opens the **written FAQ** at the right answer. From the FAQ, the
+   **"TALK TO JOHNNY"** button, or **right-click** from the open answer, brings you back to the
+   dialogue, at the line you left.
+6. **"That's all."**: Johnny says goodbye (a random line out of three), and the
+   dialogue closes after 1.8 s or at the first key press. **Esc** closes it right away.
 
-Les réponses tirées de la FAQ trop longues pour le dialogue (plus de quatre pages) sont
-coupées après deux pages par « There's more. A lot more. Want it written down? » ; le
-premier choix devient alors « Write it down for me. » (la FAQ à cette réponse).
+FAQ answers too long for the dialogue (more than four pages) are
+cut after two pages with "There's more. A lot more. Want it written down?"; the
+first choice then becomes "Write it down for me." (the FAQ at that answer).
 
-## L'arbre
+## The tree
 
-Notation : `→ nœud` mène à un autre nœud ; `FAQ x.y` fait répondre Johnny avec la
-réponse x.y de la FAQ (sa réplique, puis la réponse paginée ; les actions et les questions
-liées de cette réponse deviennent les choix suivants) ; `Sujet x` liste les questions du
-sujet x ; `GPS x` pose un itinéraire ; `Ouvre x` ouvre un panneau. Les valeurs entre
-accolades suivent la config (prix, touches, lieux).
+Notation: `→ node` leads to another node; `FAQ x.y` makes Johnny answer with
+FAQ answer x.y (his line, then the paginated answer; that answer's actions and related
+questions become the next choices); `Topic x` lists the questions of
+topic x; `GPS x` sets a route; `Opens x` opens a panel. Values in
+curly braces follow the config (prices, keys, places).
 
-### Salutation (`hello`)
+### Greeting (`hello`)
 
-Johnny se présente (rockerboy, légende, comité d'accueil malgré lui) et invite à
-demander. Trois variantes.
+Johnny introduces himself (rockerboy, legend, reluctant welcome committee) and invites
+questions. Three variants.
 
-- « What do I do first? » → `first`
-- « How do I make money? » → `money`
-- « Where's the action? » → `action`
-- « I need wheels. » → `wheels`
-- « Tell me about chrome. » → `chrome`
-- « Crew stuff. » → `crew`
-- « Something else… » → `other`
+- "What do I do first?" → `first`
+- "How do I make money?" → `money`
+- "Where's the action?" → `action`
+- "I need wheels." → `wheels`
+- "Tell me about chrome." → `chrome`
+- "Crew stuff." → `crew`
+- "Something else…" → `other`
 
-### Par où commencer (`first`)
+### Where to start (`first`)
 
-Argent de départ en poche et en banque, studio gratuit (`{v:starterDoor}`), trouver un job
-au Job Center, manger, revenir ici pour l'action.
+Starting money in your pocket and in the bank, a free studio (`{v:starterDoor}`), find a job
+at the Job Center, eat, come back here for the action.
 
-- « Mark my studio. » — GPS studio
-- « Mark the Job Center. » — GPS Job Center
-- « Where am I, exactly? » → `where`
-- « Show me my keys. » → `keys`
-- « Any rules? » — FAQ start.rules
+- "Mark my studio." — GPS studio
+- "Mark the Job Center." — GPS Job Center
+- "Where am I, exactly?" → `where`
+- "Show me my keys." → `keys`
+- "Any rules?" — FAQ start.rules
 
-`where` : The Crossing, Westbrook ; les nouveaux arrivent ici après le premier jour ; le
-terminal lance les activités ; Job Center, location et garage sont à City Center.
+`where`: The Crossing, Westbrook; newcomers arrive here after the first day; the
+terminal starts activities; the Job Center, rentals and the garage are in City Center.
 
-- « Show me the activities. » — Ouvre le panneau Activités
-- « What was that first day guide? » — FAQ start.tutorial
-- « Who are you, anyway? » — FAQ help.johnny
+- "Show me the activities." — Opens the Activities panel
+- "What was that first day guide?" — FAQ start.tutorial
+- "Who are you, anyway?" — FAQ help.johnny
 
-`keys` : les touches principales avec **les touches du joueur** (menu, Neural-Link,
-interagir, sac, ALT + clic) et où les réassigner.
+`keys`: the main keys with **the player's own bindings** (menu, Neural-Link,
+interact, bag, ALT + click) and where to rebind them.
 
-- « Write them all down for me. » — Ouvre la FAQ à controls.keys
-- « What's in the menu? » — FAQ controls.f1
-- « What does the Neural-Link do? » — FAQ controls.neuralink
-- « How do I walk instead of run? » — FAQ controls.walk
-- « Camera? » — FAQ controls.camera
+- "Write them all down for me." — Opens the FAQ at controls.keys
+- "What's in the menu?" — FAQ controls.f1
+- "What does the Neural-Link do?" — FAQ controls.neuralink
+- "How do I walk instead of run?" — FAQ controls.walk
+- "Camera?" — FAQ controls.camera
 
-### Gagner de l'argent (`money`)
+### Making money (`money`)
 
-Travail honnête ou sale. Le job paie toutes les N minutes (« quand tu fais vraiment
-quelque chose » si la paie exige une activité), les missions paient le plus en crew ; si
-les activités paient, les matchs de The Crossing paient à la minute.
+Honest work or dirty work. A job pays every N minutes ("while you're actually doing
+something" if pay requires activity), missions pay the most with a crew; if
+activities pay, The Crossing matches pay by the minute.
 
-- « Get me a job. » → `job`
-- « Tell me about missions. » → `missions`
-- « Cash or bank? » → `cash`
-- « How do I pay someone? » — FAQ money.pay
-- « What does stuff cost? » — FAQ money.spend
-- « What are these Dailies? » — FAQ money.dailies (où les ouvrir : F1 → Dailies et l'onglet Dailies du panneau Activities, chez Adam Smasher ; remise à zéro 00:00 UTC, weekly le lundi ; ce qu'ils paient)
+- "Get me a job." → `job`
+- "Tell me about missions." → `missions`
+- "Cash or bank?" → `cash`
+- "How do I pay someone?" — FAQ money.pay
+- "What does stuff cost?" — FAQ money.spend
+- "What are these Dailies?" — FAQ money.dailies (where to open them: F1 → Dailies and the Dailies tab of the Activities panel, at Adam Smasher's; reset at 00:00 UTC, weekly on Monday; what they pay)
 
-`job` : aller au Job Center, E au guichet, les jobs proposés ; tout le monde commence en
-bas.
+`job`: go to the Job Center, E at the counter, the jobs on offer; everyone starts at
+the bottom.
 
-- « Mark the Job Center. » — GPS Job Center
-- « What's each job like? » → `jobs` (Sanitation, Scrapper, Courier en deux lignes)
-- « What's the pay? » — FAQ jobs.pay
-- « Open my job guide. » — Ouvre le guide du job (caché sans job)
-- « How do I quit? » — FAQ jobs.quit
+- "Mark the Job Center." — GPS Job Center
+- "What's each job like?" → `jobs` (Sanitation, Scrapper, Courier in two lines)
+- "What's the pay?" — FAQ jobs.pay
+- "Open my job guide." — Opens the job guide (hidden without a job)
+- "How do I quit?" — FAQ jobs.quit
 
-`jobs` : « Tell me about Sanitation. » / « … Scrapper. » / « … Courier runs. » (FAQ
-jobs.sanitation, jobs.scrapper, jobs.courier), « Mark the Job Center. ».
+`jobs`: "Tell me about Sanitation." / "… Scrapper." / "… Courier runs." (FAQ
+jobs.sanitation, jobs.scrapper, jobs.courier), "Mark the Job Center.".
 
-`cash` : liquide en poche (seul le liquide en poche paie), banque par personnage, pas
-encore de distributeur.
+`cash`: cash in your pocket (only pocket cash pays), a bank account per character, no
+ATM yet.
 
-- « How do I check my balance? » — FAQ money.check
-- « How do I pay someone? » — FAQ money.pay
-- « Every way to earn? » — FAQ money.earn
+- "How do I check my balance?" — FAQ money.check
+- "How do I pay someone?" — FAQ money.pay
+- "Every way to earn?" — FAQ money.earn
 
-### L'action (`action`)
+### The action (`action`)
 
-Le terminal de The Crossing (arène, courses, poursuites, guerres de territoire) ; « en ce
-moment : … » si des activités tournent ; les missions dans toute la ville, et Dogtown
-s'il est activé.
+The Crossing terminal (arena, races, chases, turf wars); "right now: …" if activities
+are running; missions all over the city, and Dogtown
+if it is enabled.
 
-- « Show me the activities. » — Ouvre le panneau Activités
-- « Do they pay? » — FAQ activities.pay_rebalance ou activities.rewards (celle qui est
-  visible selon la config)
-- « Tell me about missions. » → `missions`
-- « Dogtown? » → `dogtown` (si Dogtown est activé)
-- « Open the Hall of Fame. » — Ouvre le Hall of Fame (si le module est là)
+- "Show me the activities." — Opens the Activities panel
+- "Do they pay?" — FAQ activities.pay_rebalance or activities.rewards (whichever is
+  visible under the config)
+- "Tell me about missions." → `missions`
+- "Dogtown?" → `dogtown` (if Dogtown is enabled)
+- "Open the Hall of Fame." — Opens the Hall of Fame (if the module is there)
 
-`missions` : un tableau de missions, E, difficulté, on y va en crew dans une instance à
-soi avec un kit fourni ; la réputation requise pour les difficultés hautes si elle est
-exigée.
+`missions`: a mission board, E, difficulty, you go in with your crew in your own instance
+with a kit provided; the reputation required for the higher difficulties, if it is
+required.
 
-- « Show me the contracts. » — Ouvre le panneau Activités, onglet Contrats
-- « What do they pay? » — FAQ missions.rewards
-- « Street cred? » — FAQ missions.tiers_gate ou missions.reputation (selon la config)
-- « Who are the fixers? » — FAQ missions.fixers
-- « What if I die? » — FAQ missions.death
-- « The Chimera Protocol? » — FAQ missions.chimera (si la ressource est là)
+- "Show me the contracts." — Opens the Activities panel, Contracts tab
+- "What do they pay?" — FAQ missions.rewards
+- "Street cred?" — FAQ missions.tiers_gate or missions.reputation (depending on the config)
+- "Who are the fixers?" — FAQ missions.fixers
+- "What if I die?" — FAQ missions.death
+- "The Chimera Protocol?" — FAQ missions.chimera (if the resource is there)
 
-`dogtown` (si activé) : pas de loi derrière les murs ; mise minimale en liquide ; à la
-mort, une part du liquide tombe dans un sac pour le tueur ; la banque est à l'abri.
+`dogtown` (if enabled): no law behind the walls; a minimum stake in cash; on
+death, part of your cash drops in a bag for the killer; the bank is safe.
 
-- « Mark Dogtown. » — GPS Dogtown
-- « What's in it for me? » — FAQ dogtown.bonus
-- « Crews in there? » — FAQ dogtown.crews
-- « Bounties? » — FAQ dogtown.bounty
-- « Give me the fine print. » — FAQ dogtown.what
+- "Mark Dogtown." — GPS Dogtown
+- "What's in it for me?" — FAQ dogtown.bonus
+- "Crews in there?" — FAQ dogtown.crews
+- "Bounties?" — FAQ dogtown.bounty
+- "Give me the fine print." — FAQ dogtown.what
 
-### Les véhicules (`wheels`)
+### Vehicles (`wheels`)
 
-Louer chez Rent-a-Ride (prix, durée) ou acheter chez Night City Motors (fourchette) ; pas
-de voiture de départ gratuite.
+Rent at Rent-a-Ride (price, duration) or buy at Night City Motors (price range); no
+free starter car.
 
-- « Mark the rental desk. » — GPS location
-- « Mark the dealership. » — GPS concession
-- « What's for sale? » — FAQ vehicles.prices
-- « Fuel? » → `fuel`
-- « Where do I keep it? » → `garage`
+- "Mark the rental desk." — GPS rental desk
+- "Mark the dealership." — GPS dealership
+- "What's for sale?" — FAQ vehicles.prices
+- "Fuel?" → `fuel`
+- "Where do I keep it?" → `garage`
 
-`fuel` : prix au litre, la marche à suivre à la pompe ; en panne sèche le moteur s'arrête,
-un jerrycan évite la marche.
+`fuel`: price per litre, the steps at the pump; when you run dry the engine stops,
+and a jerrycan saves you the walk.
 
-- « Mark a fuel station. » — GPS station
-- « Jerrycan? » — FAQ vehicles.jerrycan
-- « Step by step. » — FAQ vehicles.fuel
+- "Mark a fuel station." — GPS fuel station
+- "Jerrycan?" — FAQ vehicles.jerrycan
+- "Step by step." — FAQ vehicles.fuel
 
-`garage` : garer au garage public (E ou `/garage`), nombre de voitures par personnage ;
-fourrière et prix de sortie.
+`garage`: park at the public garage (E or `/garage`), number of cars per character;
+impound and release fee.
 
-- « Mark the garage. » — GPS garage
-- « Impound prices? » — FAQ vehicles.impound
-- « Keys and locks? » — FAQ vehicles.lock
-- « Can I paint it? » — FAQ vehicles.paint
+- "Mark the garage." — GPS garage
+- "Impound prices?" — FAQ vehicles.impound
+- "Keys and locks?" — FAQ vehicles.lock
+- "Can I paint it?" — FAQ vehicles.paint
 
-### Le chrome (`chrome`)
+### Chrome (`chrome`)
 
-Mise en garde de Johnny ; trouver un fauteuil de ripperdoc, E pour s'allonger, la clinique
-s'ouvre ; nombre d'implants, fourchette de prix, payé en banque. Tant qu'aucune clinique
-n'est configurée : « les cliniques ne sont pas sur la carte, ouvre l'œil ».
+Johnny's warning; find a ripperdoc chair, E to lie down, the clinic
+opens; number of implants, price range, paid from the bank. As long as no clinic
+is configured: "clinics aren't on the map, keep your eyes open".
 
-- « Mark the nearest clinic. » — GPS clinique la plus proche (caché tant que `clinics`
-  est vide)
-- « What's on the menu? » — FAQ cyberware.price
-- « Sandevistan or Berserk? » — FAQ cyberware.os
-- « How do I use them? » — FAQ cyberware.use
-- « Any limits? » → `limits`
+- "Mark the nearest clinic." — GPS nearest clinic (hidden as long as `clinics`
+  is empty)
+- "What's on the menu?" — FAQ cyberware.price
+- "Sandevistan or Berserk?" — FAQ cyberware.os
+- "How do I use them?" — FAQ cyberware.use
+- "Any limits?" → `limits`
 
-`limits` : rang des implants et réputation, capacité du corps ; ou « aucune, si ta banque
-paie, ça rentre » quand rien de cela n'est activé.
+`limits`: implant rank and reputation, body capacity; or "none, if your bank
+can pay, it fits" when none of that is enabled.
 
-- « Which rank needs what? » — FAQ cyberware.tiers
-- « How many points do I get? » — FAQ cyberware.capacity
-- « Swapping and taking them out? » — FAQ cyberware.install
-- « Iconic implants? » — FAQ cyberware.iconics
+- "Which rank needs what?" — FAQ cyberware.tiers
+- "How many points do I get?" — FAQ cyberware.capacity
+- "Swapping and taking them out?" — FAQ cyberware.install
+- "Iconic implants?" — FAQ cyberware.iconics
 
-### Le crew (`crew`)
+### The crew (`crew`)
 
-Personne ne s'en sort seul ; ALT + clic sur un joueur, « Invite to crew » ; taille max ;
-le chef lance les missions et la file d'attente des activités.
+Nobody makes it alone; ALT + click on a player, "Invite to crew"; maximum size;
+the leader starts missions and the activity queue.
 
-- « How do I accept an invite? » — FAQ crews.accept
-- « What can the leader do? » — FAQ crews.leader
-- « Matchmaking? » — FAQ crews.matchmaking
-- « What's that list at the bottom left? » — FAQ crews.frame
-- « How do I leave? » — FAQ crews.leave
+- "How do I accept an invite?" — FAQ crews.accept
+- "What can the leader do?" — FAQ crews.leader
+- "Matchmaking?" — FAQ crews.matchmaking
+- "What's that list at the bottom left?" — FAQ crews.frame
+- "How do I leave?" — FAQ crews.leave
 
-### Autre chose (`other`)
+### Something else (`other`)
 
-« Vas-y, ça ne peut pas être plus bizarre que la question du dernier. »
+"Shoot. Can't be weirder than the last guy's question."
 
-- « Got a place for me to crash? » — Sujet housing
-- « Food, health, getting shot. » — Sujet health
-- « Guns. » — Sujet weapons
-- « Clothes. » — Sujet appearance
-- « Controls, chat, my bag… » → `more`
-- « Let me type it. » — Ouvre la FAQ, curseur dans la recherche
+- "Got a place for me to crash?" — Topic housing
+- "Food, health, getting shot." — Topic health
+- "Guns." — Topic weapons
+- "Clothes." — Topic appearance
+- "Controls, chat, my bag…" → `more`
+- "Let me type it." — Opens the FAQ, cursor in the search box
 
-`more` : « Les petits trucs. Bon. Il faut bien que quelqu'un sache. »
+`more`: "The small stuff. Fine. Somebody's gotta know it."
 
-- « Controls and menus. » — Sujet controls
-- « Chat and voice. » — Sujet chat
-- « My inventory. » — Sujet inventory
-- « Animations. » — Sujet animations
-- « I need the staff. » — Sujet help
-- « Let me type it. » — Ouvre la FAQ, recherche
+- "Controls and menus." — Topic controls
+- "Chat and voice." — Topic chat
+- "My inventory." — Topic inventory
+- "Animations." — Topic animations
+- "I need the staff." — Topic help
+- "Let me type it." — Opens the FAQ, search
 
-Un sujet affiche la réplique de Johnny pour ce sujet, puis ses questions comme choix
-(chacune mène à la réponse en dialogue).
+A topic shows Johnny's line for that topic, then its questions as choices
+(each one leads to the answer in dialogue).
 
-### Au revoir
+### Goodbye
 
-Une phrase au hasard : « Don't die out there. Or do. Keeps things interesting. »,
-« See you around, choom. I'll be here. Not like I've got a choice. », « Go on. The city's
-not gonna burn itself down. ».
+A random line: "Don't die out there. Or do. Keeps things interesting.",
+"See you around, choom. I'll be here. Not like I've got a choice.", "Go on. The city's
+not gonna burn itself down.".
 
-## Ce que font les actions
+## What the actions do
 
-| Choix | Effet |
+| Choice | Effect |
 |---|---|
-| GPS (studio, Job Center, location, concession, station, garage, Dogtown, clinique) | itinéraire vers le lieu le plus proche de ce type (`guide.gps`, comme la FAQ) ; confirmation sous la réplique, le dialogue reste ouvert |
-| Activités / Contrats | ferme Johnny, ouvre le panneau Activités sur l'onglet voulu |
-| Guide du job | ferme Johnny, ouvre le guide du job actuel (choix caché sans job) |
-| Hall of Fame | nouvelle action serveur `guide.panel` : ouvre le Hall of Fame à 12 m de Johnny ou près du tableau ; sinon un message (« Walk up to the Hall of Fame board first. ») |
-| Write it down / Write them all down | ouvre la FAQ à la réponse, Retour ramène au dialogue |
-| Let me type it. | ouvre la FAQ, curseur dans la recherche |
+| GPS (studio, Job Center, rental desk, dealership, fuel station, garage, Dogtown, clinic) | route to the nearest place of that type (`guide.gps`, like the FAQ); confirmation under the line, the dialogue stays open |
+| Activities / Contracts | closes Johnny, opens the Activities panel on the right tab |
+| Job guide | closes Johnny, opens the guide for the current job (choice hidden without a job) |
+| Hall of Fame | new server action `guide.panel`: opens the Hall of Fame within 12 m of Johnny or near the board; otherwise a message ("Walk up to the Hall of Fame board first.") |
+| Write it down / Write them all down | opens the FAQ at the answer, Back returns to the dialogue |
+| Let me type it. | opens the FAQ, cursor in the search box |
 
-Un choix dont la cible est cachée (question filtrée par la config, type de lieu sans lieu,
-module absent) n'est pas proposé ; un nœud qui n'a plus rien à dire disparaît avec ses
-choix.
+A choice whose target is hidden (question filtered out by the config, place type with no place,
+module missing) is not offered; a node with nothing left to say disappears along with its
+choices.
 
 ## Transport
 
-Le nœud d'ouverture arrive avec le dialogue `guide` ; ses enfants suivent aussitôt (avant
-l'index de recherche). Ensuite la page demande chaque nœud par `guide.node` et reçoit le
-nœud **et ses enfants** : le clic suivant est déjà en cache. Chaque message reste sous
-800 valeurs et 32 Kio (le plus gros mesuré : 407 valeurs, 5,2 Kio). Une demande perdue
-sous la limite de 250 ms par action est retentée (quatre essais, 700 ms d'écart). Une
-révision du contenu (une fonction activée ou coupée) vide le cache de la page.
+The opening node arrives with the `guide` dialogue; its children follow right away (before
+the search index). After that the page requests each node with `guide.node` and receives the
+node **and its children**: the next click is already cached. Each message stays under
+800 values and 32 KiB (the largest measured: 407 values, 5.2 KiB). A request dropped
+by the 250 ms per-action limit is retried (four tries, 700 ms apart). A content
+revision (a feature turned on or off) clears the page's cache.
 
-## Limites (natives existantes)
+## Limits (existing natives)
 
-- **Cliniques** : aucune position de ripperdoc accessible n'existe côté Light RP (les
-  fauteuils d'op77_scenes sont du mobilier scanné, sans savoir lesquels sont entrables).
-  Le choix GPS est prêt mais caché tant que `clinics` est vide ; il faut relever des
-  cliniques en jeu.
-- **Menu F1** : la page ne peut pas ouvrir le menu F1 elle-même. « Show me my keys. » est
-  donc une réplique avec les touches du joueur, et « Write them all down for me. » ouvre la
-  FAQ à la liste complète.
-- **Hall of Fame** : l'action de page existante exige d'être à 10 m du tableau ; Johnny en
-  est à quelques mètres, d'où l'action serveur `guide.panel` (même ouverture, portée de
-  12 m autour de Johnny).
-- **Dogtown** : le GPS vise l'épingle de zone (`blip.position`), à vérifier en jeu.
-- **Voix** : pas de doublage ; le texte seul.
-- Trois réponses de la FAQ ne sont pas atteignables par le dialogue (activities.commands,
-  cyberware.where, dogtown.logout) ; elles restent dans la FAQ et la recherche.
+- **Clinics**: no reachable ripperdoc position exists on the Light RP side (the
+  chairs in op77_scenes are scanned furniture, with no way to know which ones can be entered).
+  The GPS choice is ready but hidden as long as `clinics` is empty; clinics have to be
+  surveyed in game.
+- **F1 menu**: the page can't open the F1 menu itself. "Show me my keys." is
+  therefore a line with the player's keys, and "Write them all down for me." opens the
+  FAQ at the full list.
+- **Hall of Fame**: the existing page action requires being within 10 m of the board; Johnny
+  is a few metres from it, hence the server action `guide.panel` (same opening, range of
+  12 m around Johnny).
+- **Dogtown**: the GPS targets the zone pin (`blip.position`); to be checked in game.
+- **Voice**: no voice acting; text only.
+- Three FAQ answers can't be reached through the dialogue (activities.commands,
+  cyberware.where, dogtown.logout); they stay in the FAQ and the search.
