@@ -232,7 +232,7 @@ assert(S.platform.calls[1] == false and S.platform.enabled == false)
 PM.sync()
 assert(#S.platform.calls == 1, "asked once")
 S.handlers.onClientResourceStop("op77_playermarks")
-assert(S.clears == 1, "stop: the overrides and the render request released")
+assert(S.clears == 1, "stop: the overrides dropped (the host releases the render request and the theme)")
 assert(S.platform.calls[2] == true and S.platform.enabled == true, "open77_nameplates given back")
 assert(PM.native.on == false)
 

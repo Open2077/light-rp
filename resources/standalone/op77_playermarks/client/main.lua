@@ -533,8 +533,8 @@ AddEventHandler("onClientResourceStop", function(name)
     if name == GetCurrentResourceName() then
         if Native.on then
             Native.on = false
-            -- clear() releases everything this resource asked of the drawer: its overrides
-            -- and its render request (the theme goes with the resource).
+            -- clear() drops this resource's overrides at once. Its render request and its
+            -- theme go with the resource: the host releases them when it stops.
             pcall(Open77.nameplates.clear)
         elseif anchorsOk then
             pcall(Open77.anchors.clear)
