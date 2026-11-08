@@ -566,6 +566,14 @@ end
 -- With `row` (a restore): a livery the record no longer offers (its pack stopped while the
 -- car was out) is kept dormant on the row, as at retrieval, and the car wears its factory
 -- scheme; refusing the whole restore would hold the lease forever.
+-- Only the confirmed livery may go dormant: a rollback restores `edit.shown`, whose livery
+-- can be an unpaid preview, and a preview parked on the row would be saved with it and come
+-- back for free once its pack runs again. A preview that cannot be worn fails the restore.
+local function confirmedProfile(row)
+    local saved = row.edit and row.edit.saved or row.props
+    local visual = type(saved) == "table" and type(saved.visual) == "table" and saved.visual or {}
+    return visual.profile
+end
 local function applyVisual(id, state, row)
     local V = Open77.vehicles
     if type(V.getVisual) ~= "function" then return true end
@@ -575,7 +583,8 @@ local function applyVisual(id, state, row)
     local ok, why = true, nil
     if have.profile ~= want.profile then
         ok, why = V.setPaintProfile(id, want.profile)
-        if not ok and why == "invalid_profile" and row and want.profile ~= nil and not offered(id, want.profile) then
+        if not ok and why == "invalid_profile" and row and want.profile ~= nil and want.profile == confirmedProfile(row)
+            and not offered(id, want.profile) then
             row.dormant = type(row.dormant) == "table" and row.dormant or {}
             row.dormant.profile = want.profile
             LightRP.log("garage: %s cannot wear its livery %s on this server right now; kept dormant", row.id, tostring(want.profile))

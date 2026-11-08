@@ -559,4 +559,23 @@ dbRows[hella].properties = json.encode(newer); boot()
 car = retrieve(hella)
 print("audit 11: keys this build does not know are skipped at spawn, never wiped by autosave, purchase or parking")
 
+-- 12. A rollback never parks an unpaid preview livery on the row ----------------------------
+-- A failed purchase restores edit.shown, whose livery may be a preview. Its pack stopped
+-- meanwhile and the car no longer wears it (the platform re-validated it against the record):
+-- the restore cannot put it back. It used to be parked in row.dormant, as at retrieval; the
+-- next save stored it over the factory scheme and it came back for free with its pack.
+t = studio(hella)
+assert(buy(t, { category = "livery", profile = "" }) and stored(hella).visual.profile == nil, "the factory scheme is the bought look")
+assert(preview(t, { category = "livery", profile = PACK_LIVERY }) and world[car].visual.profile == PACK_LIVERY)
+packRunning = false
+local dropped = choices(world[car].visual); dropped.profile = nil; publish(world[car], dropped)
+failDb = true; assert(not buy(t, { category = "neon", neon = { color = "#FFB000", intensity = 600, radius = 3 } })); failDb = false
+close(t); assert(not G.isBusy(1), "the lease is released")
+autosave()
+assert(stored(hella).visual.profile == nil, "the unpaid preview livery is never stored")
+packRunning = true
+store(hella); car = retrieve(hella)
+assert(world[car].visual.profile == nil, "nor comes back for free once its pack runs")
+print("audit 12: a rollback restores the bought look and never parks a preview livery on the row")
+
 print("vehicle persistence audit: purchase writes, preview masking, idle close, store/retrieve, restart, impound paths, characters, failures, transfer, dormant liveries, plate previews and unknown keys passed")
