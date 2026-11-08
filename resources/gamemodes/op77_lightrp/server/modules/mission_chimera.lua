@@ -523,6 +523,12 @@ end
 -- The mission script
 
 Missions.register(POINT, {
+    -- The boss lives in open77_chimera, an optional resource (open77-resources gamemodes/):
+    -- without it running, the board refuses to tag in rather than launch a raid with no boss.
+    available = function()
+        if type(GetResourceState) == "function" and GetResourceState(PROVIDER) == "running" then return true end
+        return false, "The Chimera is not deployed on this server."
+    end,
     -- the weapon wheel lists the kit and draws it back (Missions.kitOf / drawKit)
     kitOf = function(inst, id)
         local raid = raids[inst.id]

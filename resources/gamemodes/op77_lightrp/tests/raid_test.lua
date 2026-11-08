@@ -144,6 +144,9 @@ dofile("server/config/economy.lua")
 dofile("server/modules/mission_pay.lua")
 dofile("server/config/missions.lua")
 dofile("server/modules/parties.lua")
+-- open77_chimera runs: the raid board refuses to tag in without it
+local chimeraState = "running"
+GetResourceState = function(name) return name == "open77_chimera" and chimeraState or "missing" end
 dofile("server/modules/missions.lua")
 dofile("server/modules/mission_chimera.lua")
 local Missions = LightRP.missions
@@ -166,6 +169,16 @@ for i, id in ipairs({ 1, 2 }) do
     assert(Missions.open(id, "chimera_raid"))
 end
 assert(LightRP.parties.invite(1, 2) and LightRP.parties.accept(2), "a crew of two")
+-- without open77_chimera the board refuses to tag in, and says why
+chimeraState = "missing"
+local refused
+local keepResult = LightRP.result
+LightRP.result = function(id, ok, text) refused = { ok = ok, text = text } end
+actions["mission.tag"](1, { session = session[1], difficulty = "standard" })
+LightRP.result = keepResult
+assert(refused and refused.ok == false and tostring(refused.text):find("not deployed", 1, true), "no boss resource: no tag")
+assert(not Missions.instanceOf(1), "no boss resource: nothing launched")
+chimeraState = "running"
 clock = clock + 2000
 actions["mission.tag"](1, { session = session[1], difficulty = "standard" })
 assert(commands["missions.launch"](0, { "1" }))

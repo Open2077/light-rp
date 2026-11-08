@@ -146,6 +146,9 @@ dofile("server/config/economy.lua")
 dofile("server/modules/mission_pay.lua")
 dofile("server/config/missions.lua")
 dofile("server/modules/parties.lua")
+-- open77_chimera runs: the raid board refuses to tag in without it
+local chimeraState = "running"
+GetResourceState = function(name) return name == "open77_chimera" and chimeraState or "missing" end
 dofile("server/modules/missions.lua")
 dofile("server/modules/mission_chimera.lua")
 dofile("server/config/dailies.lua")

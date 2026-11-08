@@ -1,7 +1,8 @@
 # Open//77 Official Roleplay — Light RP starter
 
 Starter project for an OPEN//77 **Light Roleplay** server: the official server distribution
-(`2.31.13+op77.82`, Windows x64) already extracted here, a ready-to-use configuration, an ACL, and
+(Windows x64 or Linux x64, the latest is named in <https://cdn.open2077.net/server/latest.json>)
+extracted here, a ready-to-use configuration, an ACL, and
 the `op77_lightrp` framework (characters, proximity chat, needs, civilian vehicles, hospital, staff) with
 its global React + TypeScript WebUI, styled with the Open//77 RP design system.
 
@@ -92,6 +93,15 @@ Another player can stabilize them in **8 seconds** with a `trauma_kit`:
 walks through identity, appearance and arrival in the city. Normal chat is in-character speech within 20 m, `/ooc` for
 out-of-character, `/me` `/do` `/try` `/roll`, `/car <model>` and `/dv` for a vehicle, `/report` to
 open a private case followed by staff. Details and settings in `resources/gamemodes/op77_lightrp/README.md`.
+
+## Optional: the Chimera raid
+
+The "Chimera Protocol" raid needs the `open77_chimera` resource, which is not in the server
+distribution. Without it the server starts normally and the raid board answers "The Chimera is not
+deployed on this server." To turn the raid on, copy
+[`gamemodes/open77_chimera`](https://github.com/Open2077/open77-resources/tree/main/gamemodes/open77_chimera)
+from open77-resources into `resources/gamemodes/` and restart: the configurations already list it
+in `resources.load`.
 
 ## Updating the server
 

@@ -618,6 +618,12 @@ local function tag(id, pointId, diffId)
     local point = points[pointId]
     local d = point and diffOf(point, diffId)
     if not d then return false, "This board is closed." end
+    -- a mission script can depend on something the server may not run (the raid boss)
+    local script = scripts[pointId]
+    if script and type(script.available) == "function" then
+        local ok, open, why = pcall(script.available)
+        if not ok or not open then return false, (ok and why) or "This mission is not available on this server." end
+    end
     if lastTag[id] and now() - lastTag[id] < C.tagCooldownMs then return false, "One moment." end
     lastTag[id] = now()
     local crew = crewOf(id)
