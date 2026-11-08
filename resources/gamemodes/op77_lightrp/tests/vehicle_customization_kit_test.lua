@@ -5,8 +5,10 @@
 -- `visual` in setProperties, unknown property keys refused, repaints clear the livery.
 dofile("shared/config.lua"); dofile("shared/events.lua"); dofile("shared/items.lua")
 dofile("server/config/garages.lua"); dofile("server/config/dealerships.lua")
-dofile("server/config/vehicle_kit.lua");dofile("server/config/vehicle_kit_trims.lua")
-local KIT,TRIMS=LightRpVehicleKit,LightRpVehicleKitTrims
+dofile("server/config/vehicle_kit.lua");dofile("server/config/vehicle_kit_trims.lua");dofile("server/config/vehicle_kit_player_rims.lua")
+local KIT,TRIMS,PLAYER=LightRpVehicleKit,LightRpVehicleKitTrims,LightRpVehicleKitPlayerRims
+-- A rim fit as generated: the dealer table's, else the player vehicles' (vehicle_kit_player_rims.lua).
+local function rimSource(id,record) return KIT.rims.parts[id].fit[record] or PLAYER.fit[record] end
 local function noop() end
 local tick, uid = 1000, 0
 local failDb, yieldDb = false, false
@@ -245,6 +247,8 @@ local kitAt,garageAt=manifest:find('server/config/vehicle_kit.lua',1,true),manif
 assert(kitAt and garageAt and kitAt<garageAt,"the kit catalogue loads before the garage")
 local trimsAt,studioAt=manifest:find('server/config/vehicle_kit_trims.lua',1,true),manifest:find('server/modules/vehicle_customization.lua',1,true)
 assert(trimsAt and studioAt and kitAt<trimsAt and trimsAt<studioAt,"the trims' hide lists load before the studio registers the kit")
+local playerAt=manifest:find('server/config/vehicle_kit_player_rims.lua',1,true)
+assert(playerAt and kitAt<playerAt and playerAt<studioAt,"the player vehicles' rim fits load before the studio registers the kit")
 
 -- The generated catalogue honours the registerParts contract (VehiclePartCatalogue).
 -- Carried parts (contract section 5): wings and rear louvers ride the trunk lid's slot,
@@ -298,6 +302,56 @@ local merrimac,apollo=rim["Vehicle.v_standard25_thorton_merrimac_player"],rim["V
 assert(merrimac and #merrimac.wheels==6,"Merrimac: the middle axle is listed")
 assert(apollo and #apollo.wheels==2 and apollo.wheels[1].slot=="wheel_front_rot_set","Apollo: its own wheel slots")
 assert(KIT.rims.excluded["Vehicle.v_sportbike1_yaiba_kusanagi_player"] and not rim["Vehicle.v_sportbike1_yaiba_kusanagi_player"],"Kusanagi is excluded")
+-- The other vanilla player vehicles (generated vehicle_kit_player_rims.lua): never a dealer
+-- record, the same fit contract, `appearances` only with the platform's override keys.
+local function wheelsOk(list,label)
+    assert(#list>=1 and #list<=8,"wheels: "..label)
+    local seen={}
+    for _,w in ipairs(list)do
+        assert(type(w.slot)=="string" and #w.slot<=59 and w.slot:match("^[A-Za-z0-9_]+$") and not seen[w.slot],"wheel slot: "..label)
+        seen[w.slot]=true
+        assert(vecOk(w.offset,-10,10) and vecOk(w.rotation,-360,360) and vecOk(w.scale,.01,10),"wheel vectors: "..label)
+        for k in pairs(w)do assert(k=="slot" or k=="offset" or k=="rotation" or k=="scale","wheel key "..k..": "..label) end
+    end
+end
+local playerFits=0
+for record,fit in pairs(PLAYER.fit)do
+    playerFits=playerFits+1
+    assert(record:match("^Vehicle%.[%w_]+$") and record:find("player",1,true),"a vanilla player record: "..record)
+    assert(rim[record]==nil and not KIT.rims.excluded[record],"never a dealer record: "..record)
+    for k in pairs(fit)do assert(k=="offset" or k=="scale" or k=="wheels" or k=="hide" or k=="appearances","player fit key "..k..": "..record) end
+    assert(vecOk(fit.offset,-10,10) and vecOk(fit.scale,.01,10) and #fit.hide>=1 and #fit.hide<=64,"player fit: "..record)
+    for _,name in ipairs(fit.hide)do assert(type(name)=="string" and #name>0 and #name<=128,"hide name: "..record) end
+    if fit.wheels then wheelsOk(fit.wheels,record) end
+    local n=0
+    for app,o in pairs(fit.appearances or {})do
+        n=n+1
+        for k in pairs(o)do assert(APPEARANCE_FIT[k],"appearance field "..k..": "..record.." "..app) end
+        assert(vecOk(o.offset,-10,10) and vecOk(o.scale,.01,10) and type(o.hide)=="table" and #o.hide<=64,"appearance entry: "..app)
+        if fit.wheels then assert(o.wheels and #o.wheels==#fit.wheels,"a record with a wheels list: the entry lists every wheel ("..app..")") end
+        if o.wheels then wheelsOk(o.wheels,record.." "..app) end
+    end
+    assert(n<=32,"32 appearance entries per record at most: "..record)
+end
+assert(playerFits>=55,"the player vehicles are fitted ("..playerFits..")")
+for record in pairs(PLAYER.excluded)do assert(not PLAYER.fit[record],"excluded and fitted: "..record) end
+-- Quest variants (Vehicle.q<digits>_*) are out of the extension (owner, 2026-11-07): named nowhere.
+for _,t in ipairs({PLAYER.fit,PLAYER.excluded})do
+    for record in pairs(t)do assert(not record:match("^Vehicle%.q%d+_"),"a quest variant is out of the extension: "..record) end
+end
+assert(not PLAYER.fit["Vehicle.q000_hym_player_car"] and not PLAYER.fit["Vehicle.q304_songbird_escape_player"],"the two 2.50 quest variants take no rims")
+local TYPE66,SHION="Vehicle.v_sport2_quadra_type66_player","Vehicle.v_sport2_mizutani_shion_player"
+local ARCH,APOLLO_NOMAD="Vehicle.v_sportbike2_arch_player","Vehicle.v_sportbike3_brennan_apollo_nomad_player"
+assert(PLAYER.fit[TYPE66] and PLAYER.fit[SHION],"the staff-only Type-66 and Shion take rims")
+for _,record in ipairs({"Vehicle.v_sportbike1_yaiba_kusanagi_player_02","Vehicle.v_sportbike1_yaiba_kusanagi_tyger_player"})do
+    assert(PLAYER.excluded[record] and PLAYER.excluded[record]:find("hubless",1,true),"the Kusanagi body stays without rims: "..record)
+end
+do -- motorcycles: one wheel per stock slot, each on the slot its stock rim binds to
+    local arch,nomad=assert(PLAYER.fit[ARCH],"Arch Nemesis fitted"),assert(PLAYER.fit[APOLLO_NOMAD],"Apollo Nomad fitted")
+    assert(#arch.wheels==2 and arch.wheels[1].slot=="wheel_front" and arch.wheels[2].slot=="wheel_back","Arch Nemesis: front and back wheels")
+    assert(#nomad.wheels==2 and nomad.wheels[1].slot=="wheel_front_rot_set" and nomad.wheels[2].slot=="axle_back_wheel","Apollo Nomad: the dealer Apollo's wheel slots")
+    assert(arch.scale[1]~=arch.scale[2] and nomad.scale[1]~=nomad.scale[2],"motorcycle rims scale along the axle to the stock width")
+end
 for _,group in ipairs(KIT.body.groups)do for _,id in ipairs(group.parts)do assert(KIT.body.parts[id],"group part exists: "..id) end end
 do
     local body=KIT.body.parts
@@ -307,6 +361,30 @@ do
     assert(body.hood_scoop.carrier=="hood_a" and body.hood_vents.carrier=="hood_a","hood parts ride the hood")
     assert(body.wing_roof.carrier==nil and body.lip_splitter.carrier==nil and body.roof_rack.carrier==nil,"roof, lip and rack ride nothing")
     for _,part in pairs(body)do if not part.carrier then for _,fit in pairs(part.fit)do assert(fit.carrier==nil) end end end
+end
+-- Every vanilla player car body (scripts/vehicle-kit/docs/bodykit.md, 2026-11-07): the body kit
+-- reaches records beyond the dealership, a trim sibling wears its body's fit, hide lists come
+-- from every appearance, and quest variant records (Vehicle.q<digits>_*) are left out.
+do
+    local body=KIT.body.parts
+    local SHION,SHION_BASE="Vehicle.v_sport2_mizutani_shion_player","Vehicle.v_sport2_mizutani_shion_base_player"
+    local TYPE66,EMPEROR="Vehicle.v_sport2_quadra_type66_player","Vehicle.v_standard3_chevalier_emperor_player"
+    local wing,base=body.wing_street.fit[SHION],body.wing_street.fit[SHION_BASE]
+    assert(wing and base and wing.offset[2]==base.offset[2] and wing.offset[3]==base.offset[3],"Shion: the base trim wears the Shion's fit")
+    local hide=body.wing_gt.fit[TYPE66].hide
+    assert(hide and hide[1]=="deathrace_spoiler_01" and hide[2]=="deathrace_spoiler_01_shadow","Type-66: a kit wing hides the Deathrace spoiler")
+    local r7=body.wing_street.fit["Vehicle.v_sport1_quadra_sport_r7_player"].hide
+    assert(#r7==8 and r7[1]=="spoiler","Sport R-7: a kit wing hides every trim's factory spoiler")
+    assert(body.roof_rack.fit[EMPEROR] and body.wing_street.fit[EMPEROR]==nil and body.wing_duck.fit[EMPEROR],"Emperor: roof items and roof-edge wings, no pedestal wing on a box SUV")
+    assert(body.wing_street.fit["Vehicle.v_sport1_herrera_outlaw_player"].carrier=="hood_a","Outlaw: the wing rides the rear engine cover (hood_a)")
+    assert(body.hood_scoop.fit["Vehicle.v_sport1_quadra_turbo_player"]==nil and body.hood_vents.fit["Vehicle.v_sport1_quadra_turbo_player"],"Turbo: vents but no ram scoop on a mid-engine car's front trunk")
+    assert(body.bull_bar.fit["Vehicle.v_utility4_chevalier_legatus_player"] and body.roof_rack.fit["Vehicle.v_utility4_chevalier_legatus_player"]==nil,"Legatus: a push bar, nothing on the turret roof")
+    local records,n={},0
+    for _,part in pairs(body)do for record in pairs(part.fit)do
+        assert(not record:match("^Vehicle%.q%d+_"),"quest variant records are left out: "..record)
+        if not records[record] then records[record]=true;n=n+1 end
+    end end
+    assert(n==71,"every vanilla player car record has a body fit ("..n..")")
 end
 
 dofile("server/modules/inventory.lua");dofile("server/modules/economy.lua")
@@ -403,10 +481,14 @@ local function checkBodyHides()
     assert(catalogue[NS.."roof_rack"].fit["Vehicle.v_standard2_thorton_colby_player"]==nil,"E2b: the basket no longer fits the Colby")
 end
 for _,id in ipairs(KIT.rims.order)do
+    local players=0
     for record,fit in pairs(catalogue[NS..id].fit)do
-        assert(same(fit.hide,KIT.rims.parts[id].fit[record].hide),"the record fit keeps its own hide list: "..id.." "..record)
-        assert(same(fit.appearances,TRIMS.rims[record]),"the trims' overrides reach the server: "..id.." "..record)
+        local src=assert(rimSource(id,record),"a registered record is generated: "..id.." "..record)
+        assert(same(fit.hide,src.hide),"the record fit keeps its own hide list: "..id.." "..record)
+        assert(same(fit.appearances,TRIMS.rims[record] or src.appearances),"the trims' overrides reach the server: "..id.." "..record)
+        if not KIT.rims.parts[id].fit[record] then players=players+1;assert(same(fit,PLAYER.fit[record]),"a player vehicle's fit as generated: "..record) end
     end
+    assert(players==playerFits,"every rim fits every player vehicle: "..id)
 end
 checkBodyHides()
 local COLBY="Vehicle.v_standard2_thorton_colby_player"
@@ -449,10 +531,11 @@ local function worstBag(record,appearance)
     return bytes,values
 end
 local records={};for _,section in ipairs({"rims","body"})do for _,e in pairs(KIT[section].parts)do for record in pairs(e.fit)do records[record]=true end end end
+for record in pairs(PLAYER.fit)do records[record]=true end
 local function checkBags(label)
     local heaviest,heaviestValues,where=0,0,""
     for record in pairs(records)do
-        local appearances={""};for app in pairs(TRIMS.rims[record] or {})do appearances[#appearances+1]=app end
+        local appearances={""};for app in pairs(TRIMS.rims[record] or (PLAYER.fit[record] or {}).appearances or {})do appearances[#appearances+1]=app end
         for _,app in ipairs(appearances)do
             local b,v=worstBag(record,app)
             assert(b<=4096 and v<=256,("%s %s: the fullest kit overflows the visual bag (%d bytes, %d values)"):format(record,app,b,v))
@@ -826,6 +909,27 @@ assert(category(m,"livery").available==false and category(m,"livery").reason==C.
 assert(category(m,"performance").available and category(m,"plate").available)
 assert(category(m,"windows").available==false and category(m,"windows").reason==C.unsupported.windows,"a bike has no window to tint")
 close();store(kusanagi)
+-- The staff-only Type-66 and Shion are not dealer models: their rims come from the player
+-- vehicles' table. Rims and Plate are offered (not greyed), every rim fits, and a preview
+-- reaches the car.
+for _,key in ipairs({"type66","shion"})do
+    local _,row=G.grant(1,key);car=retrieve(row)
+    m=open(row)
+    local offered=category(m,"rims")
+    assert(offered.available and #offered.options==#KIT.rims.order and offered.options[1].id=="rim_classic",key..": every rim offered")
+    assert(category(m,"plate").available,key..": plate offered")
+    reply=issue("preview",{category="rims",rim="rim_dish",variant="black"})
+    assert(reply.ok and world[car].visual.wheels.rim==NS.."rim_dish",key..": a rim preview reaches the car")
+    close();store(row)
+end
+-- The two staff-only catalogue cars beyond the dealership: the body kit is offered, not greyed.
+for _,key in ipairs({"shion","type66"})do
+    local _,row=G.grant(1,key);car=retrieve(row);m=open(row)
+    local kit=category(m,"body")
+    assert(kit.available and kit.options[1].id=="spoiler" and #kit.options[1].parts>=5,key..": the body kit is offered")
+    close();store(row)
+end
+assert(#V.listParts("Vehicle.v_standard3_chevalier_emperor_player")>0,"listParts answers for a car outside the catalogue")
 -- A server without per-appearance fits refuses `appearances` once: every rim registers
 -- with the record fit alone and every trim's hide names merged into it (the default fit
 -- for every trim; the client skips the names an appearance lacks).
@@ -839,14 +943,16 @@ local function checkMerged(fits,label)
         assert(fit.appearances==nil,label..": no overrides on "..record)
         local seen={};for _,n in ipairs(fit.hide or {})do assert(not seen[n],label..": deduplicated "..n);seen[n]=true end
         assert(#fit.hide<=64,label..": hide cap")
-        for _,n in ipairs(KIT.rims.parts.rim_classic.fit[record].hide or {})do assert(seen[n],label..": default names kept on "..record) end
-        for app,o in pairs(TRIMS.rims[record] or {})do for _,n in ipairs(o.hide)do assert(seen[n],label..": "..app.." hides "..n) end end
+        local src=rimSource("rim_classic",record)
+        for _,n in ipairs(src.hide or {})do assert(seen[n],label..": default names kept on "..record) end
+        for app,o in pairs(TRIMS.rims[record] or src.appearances or {})do for _,n in ipairs(o.hide)do assert(seen[n],label..": "..app.." hides "..n) end end
     end
 end
 for _,id in ipairs(KIT.rims.order)do
     checkMerged(catalogue[NS..id].fit,"merged "..id)
     for record,fit in pairs(catalogue[NS..id].fit)do
-        assert(same(fit.wheels,KIT.rims.parts[id].fit[record].wheels) and same(fit.offset,KIT.rims.parts[id].fit[record].offset),"merged: the default fit")
+        local src=rimSource(id,record)
+        assert(same(fit.wheels,src.wheels) and same(fit.offset,src.offset),"merged: the default fit")
     end
 end
 local merged=catalogue[NS.."rim_dish"].fit[HELLA].hide

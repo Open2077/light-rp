@@ -198,6 +198,18 @@ staff-only Rayfield Caliburn (15 records). The Kusanagi is excluded because its 
 front ring leaves no room for a spoked rim. The Caliburn's fit (2026-11-06) is an offline
 estimate that has not been seen in game.
 
+Since 2026-11-07 the rims are also offered on **59 other vanilla player vehicles** (every
+`Vehicle.*_player*` record of game 2.50 the dealer table does not name, cars and
+motorcycles), among them the staff-only Quadra Type-66 and Mizutani Shion. Their fits come
+from `server/config/vehicle_kit_player_rims.lua` (generated, see
+[The vehicle kit catalogue](#the-vehicle-kit-catalogue)) and reuse the same 108 models.
+Eleven more are excluded: the Kusanagi body (Kusanagi `_02`, `_03`, Tyger Claws, and the Yaiba
+Muramasa, same hubless front ring) and seven cars whose tyre is not a separate component
+(Herrera Outlaw, Porsche 911 Turbo and cabriolet, four Type-66 variants), whose rim cannot be
+hidden without the tyre. Quest variants (`Vehicle.q<digits>_*`) are out of the customization
+extension by the owner's decision of 2026-11-07. These fits are offline estimates, not seen
+in game.
+
 - The fit is per wheel (B2) and per trim (`fit.appearances`): see
   [The vehicle kit catalogue](#the-vehicle-kit-catalogue).
 - The request names a rim and a finish that this vehicle's offer lists, and the server
@@ -208,19 +220,27 @@ estimate that has not been seen in game.
 #### Body kit
 
 The body kit is the 30 parts of E2 (then E2b), in 9 groups, with 82 variant models
-in the pack `lightrp_vk_body` and 251 fits on 14 records, all in the `Base` slot. The
-Thrax takes all 9 groups, the Merrimac 3; the Hella takes 25 parts in 7 groups (no
+in the pack `lightrp_vk_body`, all in the `Base` slot. Since 2026-11-07 the fit table
+covers every vanilla player car of the game (2.50): 996 fits on 71 records (69 bodies;
+the Caliburn `_02` and Shion `base` records wear their body's fit). Bikes and the quest
+variant records (`Vehicle.q<digits>_*`) are left out. The catalogue's cars:
+the Thrax takes all 9 groups, the Merrimac 3; the Hella takes 25 parts in 7 groups (no
 rear louvers, no side skirts). The staff-only Caliburn (added 2026-11-06, offline
 estimate, not seen in game) takes 13 parts in 6 groups: seven wings, which hide its
 active rear wing and stand in its housing, the louvers on the engine glass, two lips,
-the street diffuser, the hood vents and the roof scoop.
+the street diffuser, the hood vents and the roof scoop. The staff-only Type-66 takes 18
+parts in 5 groups (its wings hide the Deathrace spoiler `deathrace_spoiler_01`), the
+Shion 26 in 8 groups; neither is greyed any more. Each of the 71 records has at least one
+fit, so a car outside the catalogue opens the Body kit row too. Per-car coverage and
+every refusal: `scripts/vehicle-kit/docs/bodykit.md` in the Open77 repository.
 
 Parts on an opening panel follow it (contract section 5, "Carried parts"): the wings
 except `wing_roof` and the rear louvers name the trunk lid's slot as their `carrier`,
 the hood scoop and vents the hood's, so a wing rises with the trunk lid instead of
 staying in mid-air. On a car where the fit table's `evidence.lid` finds no lid under
 the part (the Bandit's, Quartz's, Semimaru's or Caliburn's wings, the Thrax's louvers), the fit
-says `carrier = false` and the part stays on the body.
+says `carrier = false` and the part stays on the body. On the Outlaw and the Riptide the
+rear engine cover is the component `hood_a`, so their wings carry `carriers.hood`.
 
 | Group | Parts |
 | --- | --- |
@@ -320,10 +340,15 @@ and shown in the studio header, the garage list and the ALT vehicle info
   (`A-Z`, `0-9`, space and `-`, 1 to 10 characters).
 - **What a client needs.** The text is drawn by the plate pack (`open77_vehicle_plates`,
   an ArchiveXL patch) and a script that ships with the Open77 client. A client without
-  the pack, or a model the pack does not cover, shows the factory plate. Coverage
-  per model is only known in the client's game (`plate:<record>:no_plate_widget`,
-  the Caliburn on 2026-11-06), so the server still sells the plate there as a
-  registration and the studio warns after the preview.
+  the pack, or a model the pack does not cover, shows the factory plate.
+- **Coverage.** The Plate row is never greyed per model: coverage is only known in the
+  client's game, so the server sells the plate there as a registration, and a model the
+  pack does not cover answers `plate:<record>:no_plate_widget` in the editor after a
+  preview (the studio warns). Pack revision `d4412f3b864f` (2026-11-07) covers the spawned
+  appearance of 66 of the 86 vanilla player vehicles, including every Light RP dealer model
+  and the three staff-only cars (Type-66, Shion, Caliburn); the 20 others have no plate on
+  their body (Nomad, Kurtz, NCU builds and the like, listed in the Open77 repository's
+  `scripts/vehicle-kit/plates/data/plates-dealer-2.50.md`). No Light RP data changes with it.
 - **The 9 m rebuild.** The engine only builds the plate's text widget when the car is
   born within about 10 m of the camera. A car born further away is rebuilt once by the
   client when it comes within 9 m, empty and stopped; it vanishes for about 0.4 s. A
@@ -816,11 +841,21 @@ The ids are local; the platform namespaces them as `op77_lightrp:<id>`.
   holds them; a rim's record fit carries them as `fit.appearances`, which the platform
   resolves from the car's current appearance. A body part merges its trims' extra hide
   names into the record fit.
+- **Other player vehicles.** `server/config/vehicle_kit_player_rims.lua` is **generated** by
+  `tools/build_vehicle_kit_player_rims.py` from the Open77 repository's
+  `scripts/vehicle-kit/specs/lightrp-rims-fit-player.json`; its header records that table's
+  sha256 and the dealer table's. `LightRpVehicleKitPlayerRims.fit` is a record -> fit table in
+  the shape of `rimFit`; the module merges it into every rim part under the dealer fits (a
+  record both name keeps the dealer fit). A record whose spawned appearance is not fixed
+  (the Mackinaw NCU) carries its own `appearances` entries; on a server without per-appearance
+  fits their hide names are merged into the record fit, as for the trims. The generator
+  refuses a quest variant and a dealer record, and a table over 2,200 marshaller values.
 
 **Budgets, checked by the tests.** The fullest kit on one car is 232 JSON values and at
 most 3,812 bytes of `open77.visual` (caps 256 and 4,096, on the Thrax; a carried part
 costs one value more). The largest
-`registerParts` call is 1,558 values (marshaller cap 4,096). The largest studio
+`registerParts` call is 3,586 values since the player vehicles' fits (1,990 of them) ride
+in every rim part (marshaller cap 4,096). The largest studio
 category sent to a client is 405 values (client event cap 1,024).
 
 **Why categories travel as JSON text.** The page message carries `categoriesJson`,

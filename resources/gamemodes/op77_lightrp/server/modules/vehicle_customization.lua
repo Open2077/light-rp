@@ -18,6 +18,22 @@ local removal = assert(LightRP.money.validAmount(P.performanceRemoval), "Invalid
 for model, list in pairs(P.performance or {}) do
     for stage = 1, C.stages.max do assert(LightRP.money.validAmount(list[stage]), "Invalid stage price: " .. model) end
 end
+-- Every vanilla player car and bike the stage pack stages, by record
+-- (server/config/vehicle_stage_catalogue.lua, generated with the pack): a catalogue key in
+-- P.performance keeps its curated prices, any other model is priced by its record.
+local STAGED = type(LightRpVehicleStageCatalogue) == "table" and type(LightRpVehicleStageCatalogue.models) == "table"
+    and LightRpVehicleStageCatalogue.models or {}
+for record, entry in pairs(STAGED) do
+    for stage = 1, C.stages.max do
+        assert(LightRP.money.validAmount(type(entry.prices) == "table" and entry.prices[stage]), "Invalid generated stage price: " .. record)
+    end
+end
+local function stagePrices(model, record)
+    local list = (P.performance or {})[model]
+    if type(list) == "table" then return list end
+    local entry = STAGED[LightRpConfig.baseRecord(record)]
+    return entry and entry.prices or nil
+end
 local SAVED = {
     paint = "Paint purchased and saved to your vehicle.",
     lights = "Light tint purchased and saved to your vehicle.",
@@ -130,6 +146,22 @@ local function mergeHides(fit, byAppearance, field)
     end
     fit.hide = hide
 end
+-- Player vehicles beyond the dealer table (server/config/vehicle_kit_player_rims.lua,
+-- generated): every other vanilla Vehicle.*_player* record whose rims were measured,
+-- merged into each rim part under the dealer fits (a record both name keeps the dealer
+-- fit and its trims). Some carry their own `appearances` entries (a record whose spawned
+-- appearance is not fixed); a server without per-appearance fits gets their hide names
+-- merged into the record fit instead, as for the trims.
+local PLAYER_RIMS = type(LightRpVehicleKitPlayerRims) == "table" and type(LightRpVehicleKitPlayerRims.fit) == "table"
+    and LightRpVehicleKitPlayerRims.fit or {}
+local function withPlayerRims(section, entry)
+    if section ~= "rims" then return entry end
+    entry.fit = entry.fit or {}
+    for record, fit in pairs(PLAYER_RIMS) do
+        if entry.fit[record] == nil then entry.fit[record] = copy(fit) end
+    end
+    return entry
+end
 -- The kit entry with its trims: per-appearance rim overrides, or (perAppearance false)
 -- the rims' trim hide names merged into the record fit.
 local function withTrims(section, id, entry, perAppearance)
@@ -138,6 +170,8 @@ local function withTrims(section, id, entry, perAppearance)
         local extra = section == "body" and type(TRIMS.body) == "table" and type(TRIMS.body[id]) == "table" and TRIMS.body[id][record]
         if type(trims) == "table" then
             if perAppearance then fit.appearances = copy(trims) else mergeHides(fit, trims, "hide") end
+        elseif type(fit.appearances) == "table" and not perAppearance then
+            mergeHides(fit, fit.appearances, "hide"); fit.appearances = nil
         end
         if type(extra) == "table" then mergeHides(fit, extra) end
     end
@@ -155,7 +189,7 @@ local function withoutCarrier(entry)
     return entry
 end
 local function kitEntry(section, id, source)
-    local entry = withTrims(section, id, copy(source), appearanceFits)
+    local entry = withTrims(section, id, withPlayerRims(section, copy(source)), appearanceFits)
     return carriers and entry or withoutCarrier(entry)
 end
 local function bodyOrder()
@@ -192,7 +226,7 @@ local function registerKit()
                 ok, why = Open77.vehicles.registerParts({ [id] = kitEntry(section, id, source) })
             end
             if not ok and section == "rims" and tostring(why):find("wheels", 1, true) then
-                ok, why = Open77.vehicles.registerParts({ [id] = legacyRim(withTrims(section, id, copy(source), false)) })
+                ok, why = Open77.vehicles.registerParts({ [id] = legacyRim(withTrims(section, id, withPlayerRims(section, copy(source)), false)) })
                 if ok then degraded = degraded + 1 end
             end
             registered[section][id] = ok and true or nil
@@ -237,6 +271,18 @@ local function stageRecord(base, stage)
 end
 G.setStageResolver(stageRecord)
 local function stageOf(state) return math.tointeger(tonumber(type(state.lightrp) == "table" and state.lightrp.stage or 0) or 0) or 0 end
+-- An engine sound is a record per model and stage, and the pack may lack one (a combination
+-- dropped for a TweakDBID collision, STAGES.md of the generator): true when the platform
+-- lists `sound` for `record` (a vehicle id or a record), or cannot tell.
+local STAGE_SOUND = "Your engine sound has no version for this stage: fit another engine sound first."
+local function soundFits(record, sound)
+    if type(sound) ~= "string" or sound == "" or record == nil then return true end
+    if type(Open77.vehicles.listEngineSounds) ~= "function" then return true end
+    local list = Open77.vehicles.listEngineSounds(record)
+    if type(list) ~= "table" then return true end -- the platform decides, and refuses by name
+    for _, s in ipairs(list) do if type(s) == "table" and s.id == sound then return true end end
+    return false
+end
 
 -- Registration plates ---------------------------------------------------------------
 -- A word is found in the plate as written, or in its "leet" reading (SH1T reads SHIT).
@@ -405,7 +451,10 @@ local EXTRA = {
     engineSound = { set = "setEngineSound", get = "getEngineSound", respawns = true,
         receipt = { "vehicle_engine_sound", "Engine sound for vehicle " }, refused = "The engine sound could not be fitted",
         unchanged = "This engine sound is already fitted.",
-        value = function(change) return change.sound or nil end },
+        value = function(change) return change.sound or nil end,
+        -- A stored sound the car's record has no version of (the pack dropped that stage and
+        -- sound for a TweakDBID collision, or is stopped) stays dormant at delivery.
+        fits = function(record, sound) return soundFits(record, sound) end },
 }
 -- What the car wears now: the native's getter, else its getProperties field.
 local function wearing(name, vehicleId)
@@ -428,7 +477,7 @@ if registry then
     for _, name in ipairs(EXTRA_ORDER) do
         local spec = EXTRA[name]
         G.registerCustomizationCategory(name, {
-            owns = ownField(name), receipt = spec.receipt, respawns = spec.respawns == true,
+            owns = ownField(name), receipt = spec.receipt, respawns = spec.respawns == true, fits = spec.fits,
             -- a build without the setter keeps a stored value dormant on the row
             available = function() return type(Open77.vehicles[spec.set]) == "function" end,
             apply = function(vehicleId, change) return put(name, vehicleId, spec.value(change)) end,
@@ -562,17 +611,21 @@ local OFFER = {
         return entry
     end,
     performance = function(entry, state)
-        local list = (P.performance or {})[state.model]
+        local list = stagePrices(state.model, state.record)
         if not native("respawnAs") then return entry, C.unsupported.native end
         if type(list) ~= "table" then return entry, C.unsupported.performance end
         if not running(C.stages.resource) then return entry, C.unsupported.stagesPack end
         entry.options = { current = stageOf(state), removal = removal, stages = {} }
+        -- a stage keeps the car's engine sound: one the pack has no record of at that stage
+        -- greys it (the platform would refuse it, engine_sound_not_for_stage)
+        local sound = state.vehicleId and wearing("engineSound", state.vehicleId) or nil
         local any = false
         for stage = 0, C.stages.max do
             local record = stageRecord(state.record, stage)
             any = any or (stage > 0 and record ~= nil)
+            local fits = record == nil or soundFits(record, sound)
             entry.options.stages[stage + 1] = { stage = stage, label = C.stages.labels[stage], price = list[stage],
-                record = record, available = record ~= nil }
+                record = record, available = record ~= nil and fits, reason = not fits and STAGE_SOUND or nil }
         end
         if not any then return entry, C.unsupported.performance end
         return entry
@@ -827,6 +880,10 @@ local validators = {
         if stage == stageOf(confirmed) and fittedStage(confirmed) ~= stage then
             return nil, "This stage is already paid for: park the car and take it out again to have it fitted."
         end
+        -- the sound the car wears now (bought or previewed) is the one the rebuild keeps
+        if not soundFits(entry.record, wearing("engineSound", s.vehicle)) then
+            return nil, STAGE_SOUND
+        end
         local last = stageAt[s.owned]
         if last and LightRP.nowMs() - last < C.stages.cooldownMs then
             return nil, string.format("This vehicle was tuned recently. Come back in %d min.",
@@ -972,10 +1029,11 @@ local function quote(change, s, confirmed)
         end
         return prices.body * math.max(1, changed)
     elseif change.category == "performance" then
-        local current, list = stageOf(confirmed), P.performance[s.model]
+        -- the stage prices this session offered (curated per catalogue key, else per record)
+        local current, offered = stageOf(confirmed), s.categories.performance.options.stages
         if change.stage <= current then return removal end
         local sum = 0
-        for stage = current + 1, change.stage do sum = sum + list[stage] end
+        for stage = current + 1, change.stage do sum = sum + offered[stage + 1].price end
         return sum
     end
     return prices[change.category]
