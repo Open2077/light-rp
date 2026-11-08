@@ -27,7 +27,7 @@
 -- more. A family is one native slot (arms, legs, dash, operating system...), so another model of
 -- it replaces the one installed; the one taken out goes to the character's implant storage.
 --
--- Capacity (docs/economy-balance.md, section 13): every implant costs `capacity` points and the
+-- Capacity (docs/economy-balance.md, section 14): every implant costs `capacity` points and the
 -- body holds `capacity.byTier[reputation tier]` of them (rank II 10, III 14, IV 18, V 22, V+ 26).
 -- The best implant of every family adds up to far more than 26: a build is a choice (tank,
 -- mobility, support, brawler). A character already over it keeps what is fitted but fits nothing
