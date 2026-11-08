@@ -4,7 +4,7 @@ local G, C = LightRP.garage, LightRpVehicleCustomization
 local Custom = LightRP.module("vehicleCustomization", {})
 local NET = LightRpEvents.net.customization
 local P, KIT = LightRpCustomizationPricing, LightRpVehicleKit
-local sessions, sequence, stageAt = {}, 0, {}
+local sessions, sequence, stageAt, stageTriedAt = {}, 0, {}, {}
 local NS = (type(GetCurrentResourceName) == "function" and GetCurrentResourceName() or "op77_lightrp") .. ":"
 -- Server quotes (server/config/vehicle_customization.lua): a flat price per category,
 -- per changed group for the body kit, per stage for performance.
@@ -581,7 +581,10 @@ local OFFER = {
         return entry
     end,
     plate = function(entry)
-        entry.options = { minLength = C.plate.minLength, maxLength = C.plate.maxLength, charset = C.plate.charset }
+        -- Sold only where `setPlate` draws it on the car: without it the plate was paid for and
+        -- never shown (garages.lua renderPlate keeps a stored plate's data side only).
+        if not native("setPlate") then return entry, C.unsupported.native end
+        entry.options ={ minLength = C.plate.minLength, maxLength = C.plate.maxLength, charset = C.plate.charset }
         return entry
     end,
     windows = function(entry)
@@ -695,12 +698,15 @@ local function fittedStage(state)
     return stage
 end
 -- The confirmed look as the page reads it (plus the phase-1 paint/lights/trim fields).
+-- `stage` is the stage the car runs on (the header, "fitted"); `storedStage` the one paid
+-- for and stored, which every quote and the unchanged check start from: they differ while a
+-- stored stage is dormant (records offline at retrieval), and the page prices from it.
 local function view(state)
     if not state then return nil end
     local visual = type(state.visual) == "table" and state.visual or {}
     local out = { paint = copy(state.paint), lightsHue = state.lightsHue, appearance = state.appearance,
         profile = visual.profile or "", plate = type(state.lightrp) == "table" and state.lightrp.plate or "",
-        stage = fittedStage(state), body = {}, windows = "" }
+        stage = fittedStage(state), storedStage = stageOf(state), body = {}, windows = "" }
     for _, level in ipairs(C.windows.levels) do if level.level == visual.tint then out.windows = level.id end end
     local neon = visual.neon
     if type(neon) == "table" and neon.enabled ~= false then
@@ -851,10 +857,18 @@ local validators = {
         for _, candidate in ipairs(s.categories.performance.options.stages) do if candidate.stage == stage then entry = candidate end end
         if not entry or not entry.record then return nil, "This stage is not offered for this vehicle." end
         if not running(C.stages.resource) then return nil, C.unsupported.stagesPack end
+        local confirmed = confirmedState(s)
+        if stage == stageOf(confirmed) and fittedStage(confirmed) ~= stage then
+            return nil, "This stage is already paid for: park the car and take it out again to have it fitted."
+        end
         local last = stageAt[s.owned]
         if last and LightRP.nowMs() - last < C.stages.cooldownMs then
             return nil, string.format("This vehicle was tuned recently. Come back in %d min.",
                 math.ceil((C.stages.cooldownMs - (LightRP.nowMs() - last)) / 60000))
+        end
+        local tried = stageTriedAt[s.owned]
+        if tried and LightRP.nowMs() - tried < (C.stages.retryMs or 0) then
+            return nil, "The car is still being rebuilt: wait a moment before the next stage."
         end
         return { category = "performance", stage = stage, record = entry.record }
     end,
@@ -1087,7 +1101,15 @@ RegisterNetEvent(NET, function(p)
     end
     local effects, failure = pcall(function()
         if not change then return end
-        if ok and p.operation == "save" and change.category == "performance" then stageAt[s.owned] = LightRP.nowMs() end
+        -- every stage purchase past the validators waits before the next one, a refused one too:
+        -- it may have rebuilt the car and rebuilt it back (UI-less spam = two rebuilds a try)
+        if p.operation == "save" and change.category == "performance" then
+            stageTriedAt[s.owned] = LightRP.nowMs()
+            if ok then stageAt[s.owned] = LightRP.nowMs() end
+        end
+        -- The studio may have closed during the payment's SQL write (closed, left, died):
+        -- close() already ran and would never undo an engine hold or lamps switched on now.
+        if sessions[id] ~= s then return end
         if change.category == "engineSound" then
             -- a change rebuilt the car (or tried to): the next one waits
             s.soundAt = LightRP.nowMs()

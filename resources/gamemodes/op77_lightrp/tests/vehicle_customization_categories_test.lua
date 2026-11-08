@@ -335,9 +335,14 @@ LightRP.inventory.onCharacterLoaded(1,owner);M.onCharacterLoaded(1,owner);G.onDa
 dofile("server/modules/vehicle_customization.lua");Custom=LightRP.vehicleCustomization
 car=retrieve(galena);m=open(galena)
 local sold={};for _,c in ipairs(m.categories)do if c.available then sold[#sold+1]=c.id end end
--- plate needs no native; every other phase-2 category is greyed with its reason on this build (no visual natives)
-assert(table.concat(sold,",")=="paint,lights,plate" and not category(m,"trim"),"unknown model: paint, lights and plate, no trim")
+-- every phase-2 category is greyed with its reason on this build (no visual natives), the
+-- plate too: without setPlate it would be paid for and never drawn on the car
+assert(table.concat(sold,",")=="paint,lights" and not category(m,"trim"),"unknown model: paint and lights, no trim")
 for _,c in ipairs(m.categories)do assert(c.available or (type(c.reason)=="string" and c.reason~=""),"greyed with a reason: "..c.id)end
+assert(category(m,"plate").available==false and category(m,"plate").reason==C.unsupported.native,"no setPlate: the plate is greyed")
+bank=M.get(1).bank
+reply=issue("save",{category="plate",plate="ABC1234"},"bank")
+assert(not reply.ok and reply.text==C.unsupported.native and M.get(1).bank==bank,"no setPlate: a plate purchase is refused, nothing charged")
 reply=issue("preview",{category="lights",stock=true});assert(reply.ok)
 close()
 print("customization categories: lights preview/autosave/close/save/replay/hue equality/DB failure, trim allowlist and restore, mixed-category masks, park+restart+retrieve, support table and unknown models passed")

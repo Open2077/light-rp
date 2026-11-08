@@ -210,6 +210,8 @@ V.clearNeon=function(id)local v=world[id];v.visual.neon=nil;bump(v);return true 
 V.setWindowTint=function(id,level)local v=world[id];if not v then return false,"vehicle_not_found" end
     if level~=nil and (math.type(level)~="integer" or level<0 or level>3) then return false,"invalid_tint" end
     v.visual.tint=level~=0 and level or nil;bump(v);return true end
+-- setPlate (contract section 7): without it the studio greys the plate (section 10).
+V.setPlate=function(id,text)local v=world[id];if not v then return false,"vehicle_not_found" end;v.plate=text;return true end
 local function dropRims(v) for pid in pairs(v.visual.parts)do if catalogue[pid] and catalogue[pid].kind=="rim" then v.visual.parts[pid]=nil end end end
 V.setWheels=function(id,w)
     local v=world[id];if not v then return false,"vehicle_not_found" end
@@ -790,16 +792,26 @@ assert(saved(hella).lightrp.stage==2 and reply.confirmed.stage==2)
 assert(world[car].visual.neon and world[car].visual.neon.color.r==255,"respawnAs keeps the look")
 reply=issue("save",{category="performance",stage=3},"bank");assert(not reply.ok and reply.text:find("tuned recently"),"one stage change per cooldown")
 close();tick=tick+C.stages.cooldownMs;m=open(hella) -- a studio session lasts 5 min: reopen
+-- A purchase the wallet cannot pay never rebuilds the car (before: a rebuild and its rollback,
+-- broadcast to every viewer, per try), and a refused stage purchase waits before the next.
+local wallet=M.get(1);local held,rebuilds=wallet.bank,calls.respawnAs;wallet.bank=10
+reply=issue("save",{category="performance",stage=3},"bank")
+assert(not reply.ok and reply.text=="Insufficient funds." and calls.respawnAs==rebuilds and world[car].record==HELLA.."_o77s2","a purchase the wallet cannot pay never rebuilds the car")
+wallet.bank=held
+reply=issue("save",{category="performance",stage=3},"bank")
+assert(not reply.ok and reply.text:find("still being rebuilt",1,true) and calls.respawnAs==rebuilds,"a refused stage purchase waits before the next")
+tick=tick+C.stages.retryMs
 failRespawn="vehicle_occupied";bank=M.get(1).bank
 reply=issue("save",{category="performance",stage=3},"bank");failRespawn=nil
 assert(not reply.ok and reply.text:find("step out") and M.get(1).bank==bank and world[car].record==HELLA.."_o77s2" and saved(hella).lightrp.stage==2,"an occupied car is refused, nothing charged")
+tick=tick+C.stages.retryMs
 reply=issue("save",{category="performance",stage=0},"bank")
 assert(reply.ok and world[car].record==HELLA and M.get(1).bank==bank-P.performanceRemoval and saved(hella).lightrp.stage==0,"back to stock costs the removal fee")
 close();tick=tick+C.stages.cooldownMs;m=open(hella);bank=M.get(1).bank
 stagesOnServer=false
 reply=issue("save",{category="performance",stage=1},"bank")
 assert(not reply.ok and M.get(1).bank==bank and world[car].record==HELLA,"a stage record absent on the server is refused")
-stagesOnServer=true
+stagesOnServer=true;tick=tick+C.stages.retryMs
 reply=issue("save",{category="performance",stage=1},"bank");assert(reply.ok and world[car].record==HELLA.."_o77s1")
 -- Buy back a livery, the bought rims and neon stay.
 reply=issue("save",{category="livery",profile="hella_tt_2"},"bank");assert(reply.ok)
@@ -847,6 +859,16 @@ assert(world[car].record==HELLA and logged("stage records offline") and saved(he
 m=open(hella);assert(m.confirmed.stage==0 and saved(hella).lightrp.stage==1,"the page shows the stock car, not the dormant stage")
 assert(category(m,"performance").available==false and category(m,"performance").reason==C.unsupported.stagesPack)
 reply=issue("save",{category="performance",stage=2},"bank");assert(not reply.ok and reply.text==C.unsupported.stagesPack)
+-- The records come back while the car is still out, stock: the page gets the stored stage
+-- every quote starts from (the page priced from the fitted one), and picking that stage is
+-- explained instead of "This stage is already fitted." on a page showing Stock.
+close();packs.lightrp_vehicle_stages="running"
+m=open(hella)
+assert(m.confirmed.stage==0 and m.confirmed.storedStage==1 and category(m,"performance").options.current==1,"fitted stock, stage 1 stored and sent")
+local paid,rebuilt=M.get(1).bank,calls.respawnAs
+reply=issue("save",{category="performance",stage=1},"bank")
+assert(not reply.ok and reply.text:find("already paid for",1,true) and M.get(1).bank==paid and calls.respawnAs==rebuilt,"the stored stage is never sold again")
+assert(reply.confirmed.stage==0 and reply.confirmed.storedStage==1)
 close();store(hella);packs.lightrp_vehicle_stages="running";reboot()
 car=retrieve(hella);assert(world[car].record==HELLA.."_o77s1","the stage is worn again once its records are back")
 m=open(hella);assert(m.confirmed.stage==1,"the page shows the stage the car wears again");close()
@@ -865,6 +887,11 @@ C.windows.enabled=false
 m=open(hella);assert(category(m,"windows").available==false and category(m,"windows").reason==C.unsupported.windowsSoon,"closed tint is greyed")
 reply=issue("preview",{category="windows",tint="limo"});assert(not reply.ok and reply.text==C.unsupported.windowsSoon,"the server refuses a closed tint")
 close();C.windows.enabled=true
+local setPlate=V.setPlate;V.setPlate=nil
+m=open(hella);assert(category(m,"plate").available==false and category(m,"plate").reason==C.unsupported.native,"no setPlate: the plate is greyed")
+local plateBank=M.get(1).bank
+reply=issue("save",{category="plate",plate="NEW7777"},"bank");assert(not reply.ok and M.get(1).bank==plateBank and saved(hella).lightrp.plate=="ZZZ9999","no setPlate: nothing sold")
+close();V.setPlate=setPlate
 local setTint=V.setWindowTint;V.setWindowTint=nil
 m=open(hella);assert(category(m,"windows").available==false and category(m,"windows").reason==C.unsupported.native);close()
 V.setWindowTint=setTint;packs.open77_vehicle_tint=nil
