@@ -669,7 +669,18 @@ local OFFER = {
                     group = type(sticker.group) == "string" and sticker.group or "", decals = math.max(1, math.tointeger(tonumber(sticker.decals) or 1) or 1) }
             end
         end
-        if #entry.options.stickers == 0 then return entry, C.unsupported.stickers end
+        if #entry.options.stickers == 0 then
+            -- A model the original sticker pack covers (server/config/vehicle_decals.lua,
+            -- generated from the pack) whose pack is stopped: not installed, rather than
+            -- "no sticker fits". The table never offers a sticker: the natives do.
+            local D = LightRpVehicleDecals
+            local covered = type(D) == "table" and type(D.models) == "table" and D.models[state.model]
+            if type(covered) == "table" and type(covered.stickers) == "table" and #covered.stickers > 0
+                and type(D.packs) == "table" and not running(D.packs.stickers) then
+                return entry, C.unsupported.stickersPack
+            end
+            return entry, C.unsupported.stickers
+        end
         entry.options.budget = stickerBudget(state.vehicleId, entry.options.stickers)
         if not entry.options.budget then return entry, C.unsupported.native end
         return entry

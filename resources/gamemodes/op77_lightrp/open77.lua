@@ -130,6 +130,7 @@ server_script "server/modules/medical_store.lua"
 server_script "server/modules/medical.lua"
 server_script "server/config/garages.lua"
 server_script "server/config/vehicle_kit.lua"      -- Auto Studio rims + body kit catalogue (tools/build_vehicle_kit.py)
+server_script "server/config/vehicle_decals.lua"    -- what the sticker and livery packs cover per catalogue key (tools/build_vehicle_decals.py)
 server_script "server/config/vehicle_kit_trims.lua" -- stock names each curated trim adds to the kit's hide lists
 server_script "server/config/vehicle_kit_player_rims.lua" -- rim fits of the other vanilla player vehicles (tools/build_vehicle_kit_player_rims.py)
 server_script "server/modules/garages.lua"

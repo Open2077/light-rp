@@ -167,10 +167,14 @@ them, then the ones a running resource registered with `registerPaintProfiles`.
 - **Labels.** A factory profile has no name, so it is labelled "Scheme N", counting
   factory profiles only. A pack profile keeps the `label` its resource registered.
 - **Pack liveries.** The Light RP livery pack is `lightrp_vk_liveries`, built in the
-  Open77 repository (`scripts/vehicle-kit/liveries`: 12 designs on the 11 dealer
-  models that take a TwinTone template, 132 records) and not committed here. It
-  needs TweakXL on every client. It registers its profiles at start; when it stops,
-  its profiles leave the list, and a car wearing one keeps the choice dormant.
+  Open77 repository (`scripts/vehicle-kit/liveries`: 12 designs on 21 vanilla
+  player bodies that take a CrystalCoat unique template, the 11 dealer ones and
+  10 more, 252 profile records,
+  revision `062aaf1f63a2`) and not committed here. It needs TweakXL on
+  every client. It registers its profiles at start; when it stops, its profiles leave
+  the list, and a car wearing one keeps the choice dormant. A body without such a
+  template (the Thrax, the Caliburn, the two bikes, and most of the others the catalogue
+  does not sell) shows its factory schemes only.
 - **12-decal cap.** A livery template with more than 12 `customDecals` crashes the
   client that spawns the car. The pack builder folds stripes into doors and refuses a
   template above 12; do not hand-edit its YAML past that.
@@ -537,6 +541,18 @@ Ledger kind `vehicle_stickers`.
   decals on A and B, and adding the Graffiti set was refused ("Too many decals: 18 of 12").
   The Circuit, Wave and sun and Pinstripe themes were not shown in game. The owner kept
   the five themes on 2026-11-07.
+- **Every player body.** Since revision `57df1c007bfd` (now `c63f2be126d8`, same content) the original pack covers every
+  vanilla player body of the game, not only the dealer stock: the staff-only Type-66 and
+  Shion and the 33 bodies the catalogue does not sell (quest variants such as
+  `Vehicle.q000_hym_player_car` excluded). A set that fits another record of the same
+  body lists it too, so `listStickers` offers it on that record. Nothing changes in the
+  module: a key added to the catalogue gets its sets from the pack.
+- **Coverage table.** `server/config/vehicle_decals.lua` is generated from the built
+  packs (`tools/build_vehicle_decals.py`, see
+  `resources/assets/models/lightrp_vehicle_kit/README.md`). The studio never offers from
+  it; it only tells a covered model whose sticker pack is stopped ("Stickers are not
+  installed on this server yet.") from a model no set fits ("No sticker fits this
+  model."), and lists the covered bodies with no catalogue key.
 
 #### Tag
 
@@ -753,7 +769,7 @@ and their editor shows the reason.
 | Neon › Animation | No native; the garage has no category registry |
 | Lamp colors | No native; no registry |
 | Engine sound | `listEngineSounds` gives nothing for the car; no native; no registry |
-| Stickers | `listStickers` gives nothing for the car; the decal budget cannot be read; no native; no registry |
+| Stickers | `listStickers` gives nothing for the car: "not installed" when `server/config/vehicle_decals.lua` says the pack covers the model and `lightrp_vehicle_original_stickers` is not running, "no sticker fits" otherwise; the decal budget cannot be read; no native; no registry |
 | Tag | Not listed at all without `setTag`; no registry |
 
 Two tables in `shared/vehicle_customization.lua` are keyed by the Light RP catalogue

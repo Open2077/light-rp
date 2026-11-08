@@ -10,16 +10,33 @@ from the same fit tables; it is Lua only and names the models as `asset:<pack>/<
 | --- | --- | --- | --- |
 | `lightrp_vk_rims` | E1, `scripts/vehicle-kit/build-pack.ps1` | `artifacts/vehicle-kit/lightrp_vk_rims/resource/lightrp_vk_rims/` | `auto_start false`, `client_script register.lua`, `preload_mod dist/LightRPVehicleKitRims_f721d6538465.zip`, `props.register` |
 | `lightrp_vk_body` | E2, same script | `artifacts/vehicle-kit/lightrp_vk_body/resource/lightrp_vk_body/` | `auto_start false`, `preload_mod dist/LightRPVehicleKitBody_ed9c4dea033d.zip`, `props.register` |
-| `lightrp_vk_liveries` | E3, `scripts/vehicle-kit/liveries/build-liveries.ps1` | `artifacts/vehicle-kit/liveries/resource/lightrp_vk_liveries/` | `auto_start true`, `dependency 'tweakxl >=1.12.0'`, `preload_mod dist/LightRPVehicleLiveries_490d5fb1f73b.zip`, `world.vehicles` + `world.vehicles.appearance`; its server script calls `registerPaintProfiles` |
+| `lightrp_vk_liveries` | E3, `scripts/vehicle-kit/liveries/build-liveries.ps1` | `artifacts/vehicle-kit/liveries/resource/lightrp_vk_liveries/` | `auto_start true`, `dependency 'tweakxl >=1.12.0'`, `preload_mod dist/LightRPVehicleLiveries_062aaf1f63a2.zip`, `world.vehicles` + `world.vehicles.appearance`; its server script calls `registerPaintProfiles` |
+| `lightrp_vehicle_original_stickers` | W2.4, `scripts/vehicle-kit/stickers/build-original-stickers.ps1` | `artifacts/vehicle-kit/original-stickers/resource/lightrp_vehicle_original_stickers/` | `auto_start true`, `dependency 'tweakxl >=1.12.0'`, `preload_mod dist/Open77LightRPOriginalStickers_c63f2be126d8.zip`; its server script calls `registerStickers` (five themes on every vanilla player body a theme fits, trims included) |
 | `lightrp_vehicle_stages` | E5, `scripts/vehicle-kit/stages/build-stages.ps1` | `artifacts/vehicle-kit/stages/resource/lightrp_vehicle_stages/` | `auto_start true`, `dependency 'tweakxl >=1.12.0'`, `preload_mod dist/LightRPVehicleStages_ce7fa4c98a7e.zip`, exports `stageRecord` / `stageOf` |
 
 Revisions: rims `f721d6538465` and body `ed9c4dea033d` are the packs checked frame by frame
 in game, liveries `490d5fb1f73b` the pack seen without a crash (all on one client,
-2026-11-06). The stage revision was not re-checked in this pass.
+2026-11-06). Liveries `062aaf1f63a2` (21 bodies, the 11 dealer cars and 10 more) and the
+original stickers `c63f2be126d8` on every player body were built offline only (2026-11-08,
+the content of `98ed7f188e77` and `57df1c007bfd` under new depot prefixes), not seen in game. The stage revision was not re-checked in this pass.
 
 The resource names are load-bearing: `KIT.rims.pack`, `KIT.body.pack` and
 `stages.resource` in `shared/vehicle_customization.lua` must match them, and the
 server and every client check `GetResourceState(<name>) == "running"`.
+
+**Decal coverage table.** `server/config/vehicle_decals.lua` says which sticker sets and how
+many pack liveries each catalogue key gets, and which covered vanilla bodies the catalogue
+does not sell. The studio offers stickers and liveries from the natives only; the table lets a
+covered model whose sticker pack is stopped read "Stickers are not installed on this server
+yet." Regenerate it with the packs, from the same build:
+
+```text
+python resources/gamemodes/op77_lightrp/tools/build_vehicle_decals.py \
+    --stickers <built>/lightrp_vehicle_original_stickers/catalogue.json \
+    --liveries <built>/lightrp_vk_liveries/profiles.json
+```
+
+Its header records the sha256 of both inputs and the pack revisions.
 
 ## Lead steps (combining the packs)
 
