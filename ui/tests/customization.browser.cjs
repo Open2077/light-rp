@@ -365,6 +365,21 @@ const state={kind:'open',session:'custom:browser',nextRequest:1,price:1000,money
    await p.screenshot({path:path.join(output,`vehicle-customization-wave2-${width}.png`)});
   }
   await p.keyboard.press('Escape');assert.equal(await ui.count(),0);
-  assert.deepEqual(errors,[]);console.log('PASS: automatic/coalesced palette and HEX previews, quoted bank payment, balances, unchanged paint and insufficient cash guards, DB errors, stale acknowledgements, camera and restored left-panel layout and cinematic HUD cleanup; lights (presets, grey refusal, per-category drafts and purchase, factory lights), factory trim options and unsupported categories; full studio: compact grid, selectable locked categories, framing presets, rims and finish, exclusive body groups priced per group, neon presets/brightness/dark refusal, plate format and availability, stages without preview and removal fee, linked livery, client warnings, camera state and ten-category layout; wave 2: sub-panels, neon animation modes, lamp colors without emergency looks, engine sound on request, stickers within the decal budget, tag, thirteen-category layout');
+  // A stored stage the car does not run (its records were offline when it came out): the page
+  // prices from the stored stage, as the server quotes, and never offers it again.
+  const dormant={...full,session:'custom:dormant',confirmed:{...full.confirmed,stage:0,storedStage:1},
+   categories:full.categories.map(c=>c.id==='performance'?{...c,options:{...c.options,current:1}}:c)};
+  await fire(dormant);await ui.waitFor();
+  await nav.getByRole('button',{name:/^Performance/}).click();
+  const dormantStages=p.getByRole('group',{name:'Performance stages'});
+  assert((await dormantStages.getByRole('button',{name:/^Stock/}).innerText()).includes('fitted'),'the car runs stock');
+  assert((await dormantStages.getByRole('button',{name:/^Stage 1/}).innerText()).includes('paid, park the car to fit it'),'the stored stage is named');
+  assert.equal(await dormantStages.getByRole('button',{name:/^Stage 1/}).getAttribute('aria-pressed'),'true','the stored stage is the confirmed choice');
+  await dormantStages.getByRole('button',{name:/^Stage 3/}).click();
+  await p.getByRole('button',{name:'Fit stage · €$ 8,500',exact:true}).waitFor(); // 3,500 + 5,000 from the stored Stage 1
+  await dormantStages.getByRole('button',{name:/^Stage 1/}).click();
+  assert(await p.getByRole('button',{name:/^Fit stage/}).isDisabled(),'the stored stage is not sold again');
+  await p.keyboard.press('Escape');assert.equal(await ui.count(),0);
+  assert.deepEqual(errors,[]);console.log('PASS: automatic/coalesced palette and HEX previews, quoted bank payment, balances, unchanged paint and insufficient cash guards, DB errors, stale acknowledgements, camera and restored left-panel layout and cinematic HUD cleanup; lights (presets, grey refusal, per-category drafts and purchase, factory lights), factory trim options and unsupported categories; full studio: compact grid, selectable locked categories, framing presets, rims and finish, exclusive body groups priced per group, neon presets/brightness/dark refusal, plate format and availability, stages without preview and removal fee, linked livery, client warnings, camera state and ten-category layout; wave 2: sub-panels, neon animation modes, lamp colors without emergency looks, engine sound on request, stickers within the decal budget, tag, thirteen-category layout; a dormant stored stage priced from like the server');
  }finally{await b.close()}
 })().catch(e=>{console.error(e);process.exit(1)});

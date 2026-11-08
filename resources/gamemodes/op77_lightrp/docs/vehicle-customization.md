@@ -387,7 +387,11 @@ rebuild the car twice (the stage, then the rollback) for every viewer.
 **Persistence.** The stage is stored in the row (`lightrp.stage`), and retrieval
 spawns the stage record. If the stage record is missing on the server (resource
 stopped, TweakXL absent), retrieval spawns the dealer record and the stage stays
-stored.
+stored. If the records come back while that car is still out, the studio sends both
+stages: `confirmed.stage` is the one the car runs on (the header, "fitted"),
+`confirmed.storedStage` the one paid for. The page prices from the stored stage, as
+the server quotes, and names it "paid, park the car to fit it"; a purchase of that
+stage is refused with the same advice instead of "This stage is already fitted.".
 
 **What the server greys:**
 

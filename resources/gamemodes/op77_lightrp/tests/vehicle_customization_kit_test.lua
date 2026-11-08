@@ -776,6 +776,16 @@ assert(world[car].record==HELLA and logged("stage records offline") and saved(he
 m=open(hella);assert(m.confirmed.stage==0 and saved(hella).lightrp.stage==1,"the page shows the stock car, not the dormant stage")
 assert(category(m,"performance").available==false and category(m,"performance").reason==C.unsupported.stagesPack)
 reply=issue("save",{category="performance",stage=2},"bank");assert(not reply.ok and reply.text==C.unsupported.stagesPack)
+-- The records come back while the car is still out, stock: the page gets the stored stage
+-- every quote starts from (the page priced from the fitted one), and picking that stage is
+-- explained instead of "This stage is already fitted." on a page showing Stock.
+close();packs.lightrp_vehicle_stages="running"
+m=open(hella)
+assert(m.confirmed.stage==0 and m.confirmed.storedStage==1 and category(m,"performance").options.current==1,"fitted stock, stage 1 stored and sent")
+local paid,rebuilt=M.get(1).bank,calls.respawnAs
+reply=issue("save",{category="performance",stage=1},"bank")
+assert(not reply.ok and reply.text:find("already paid for",1,true) and M.get(1).bank==paid and calls.respawnAs==rebuilt,"the stored stage is never sold again")
+assert(reply.confirmed.stage==0 and reply.confirmed.storedStage==1)
 close();store(hella);packs.lightrp_vehicle_stages="running";reboot()
 car=retrieve(hella);assert(world[car].record==HELLA.."_o77s1","the stage is worn again once its records are back")
 m=open(hella);assert(m.confirmed.stage==1,"the page shows the stage the car wears again");close()

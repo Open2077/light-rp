@@ -664,12 +664,15 @@ local function fittedStage(state)
     return stage
 end
 -- The confirmed look as the page reads it (plus the phase-1 paint/lights/trim fields).
+-- `stage` is the stage the car runs on (the header, "fitted"); `storedStage` the one paid
+-- for and stored, which every quote and the unchanged check start from: they differ while a
+-- stored stage is dormant (records offline at retrieval), and the page prices from it.
 local function view(state)
     if not state then return nil end
     local visual = type(state.visual) == "table" and state.visual or {}
     local out = { paint = copy(state.paint), lightsHue = state.lightsHue, appearance = state.appearance,
         profile = visual.profile or "", plate = type(state.lightrp) == "table" and state.lightrp.plate or "",
-        stage = fittedStage(state), body = {}, windows = "" }
+        stage = fittedStage(state), storedStage = stageOf(state), body = {}, windows = "" }
     for _, level in ipairs(C.windows.levels) do if level.level == visual.tint then out.windows = level.id end end
     local neon = visual.neon
     if type(neon) == "table" and neon.enabled ~= false then
@@ -820,6 +823,10 @@ local validators = {
         for _, candidate in ipairs(s.categories.performance.options.stages) do if candidate.stage == stage then entry = candidate end end
         if not entry or not entry.record then return nil, "This stage is not offered for this vehicle." end
         if not running(C.stages.resource) then return nil, C.unsupported.stagesPack end
+        local confirmed = confirmedState(s)
+        if stage == stageOf(confirmed) and fittedStage(confirmed) ~= stage then
+            return nil, "This stage is already paid for: park the car and take it out again to have it fitted."
+        end
         local last = stageAt[s.owned]
         if last and LightRP.nowMs() - last < C.stages.cooldownMs then
             return nil, string.format("This vehicle was tuned recently. Come back in %d min.",
