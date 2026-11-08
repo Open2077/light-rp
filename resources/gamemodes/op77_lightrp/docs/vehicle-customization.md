@@ -170,7 +170,7 @@ them, then the ones a running resource registered with `registerPaintProfiles`.
   Open77 repository (`scripts/vehicle-kit/liveries`: 12 designs on 21 vanilla
   player bodies that take a CrystalCoat unique template, the 11 dealer ones and
   10 more, 252 profile records,
-  revision `98ed7f188e77`) and not committed here. It needs TweakXL on
+  revision `062aaf1f63a2`) and not committed here. It needs TweakXL on
   every client. It registers its profiles at start; when it stops, its profiles leave
   the list, and a car wearing one keeps the choice dormant. A body without such a
   template (the Thrax, the Caliburn, the two bikes, and most of the others the catalogue
@@ -516,7 +516,7 @@ Ledger kind `vehicle_stickers`.
   decals on A and B, and adding the Graffiti set was refused ("Too many decals: 18 of 12").
   The Circuit, Wave and sun and Pinstripe themes were not shown in game. The owner kept
   the five themes on 2026-11-07.
-- **Every player body.** Since revision `57df1c007bfd` the original pack covers every
+- **Every player body.** Since revision `57df1c007bfd` (now `c63f2be126d8`, same content) the original pack covers every
   vanilla player body of the game, not only the dealer stock: the staff-only Type-66 and
   Shion and the 33 bodies the catalogue does not sell (quest variants such as
   `Vehicle.q000_hym_player_car` excluded). A set that fits another record of the same
