@@ -1,0 +1,3692 @@
+{
+  "schema": "open77.prop-package/1",
+  "resource": "lightrp_vk_rims",
+  "revision": "f721d6538465b24c5a4a87e584300f15aab9fc8cc4c8247f48c6118f6799f71e",
+  "models": {
+    "rim_classic_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_chrome_visual.ent"
+    },
+    "rim_classic_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_black_visual.ent"
+    },
+    "rim_classic_white": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_white.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_white_visual.ent"
+    },
+    "rim_classic_alu": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_alu.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_alu_visual.ent"
+    },
+    "rim_classic_gold": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_gold.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_gold_visual.ent"
+    },
+    "rim_classic_black_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_black_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_black_chrome_visual.ent"
+    },
+    "rim_lattice_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_chrome_visual.ent"
+    },
+    "rim_lattice_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_black_visual.ent"
+    },
+    "rim_lattice_bronze": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_bronze.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_bronze_visual.ent"
+    },
+    "rim_lattice_gold": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_gold.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_gold_visual.ent"
+    },
+    "rim_lattice_alu": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_alu.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_alu_visual.ent"
+    },
+    "rim_lattice_matte": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_matte.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_matte_visual.ent"
+    },
+    "rim_dish_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_chrome_visual.ent"
+    },
+    "rim_dish_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_black_visual.ent"
+    },
+    "rim_dish_gunmetal": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_gunmetal.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_gunmetal_visual.ent"
+    },
+    "rim_dish_black_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_black_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_black_chrome_visual.ent"
+    },
+    "rim_dish_gold": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_gold.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_gold_visual.ent"
+    },
+    "rim_dish_white": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_white.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_white_visual.ent"
+    },
+    "rim_fork_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_chrome_visual.ent"
+    },
+    "rim_fork_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_black_visual.ent"
+    },
+    "rim_fork_bronze": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_bronze.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_bronze_visual.ent"
+    },
+    "rim_fork_alu": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_alu.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_alu_visual.ent"
+    },
+    "rim_fork_matte": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_matte.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_matte_visual.ent"
+    },
+    "rim_fork_gunmetal": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_gunmetal.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_gunmetal_visual.ent"
+    },
+    "rim_blade_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_chrome_visual.ent"
+    },
+    "rim_blade_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_black_visual.ent"
+    },
+    "rim_blade_white": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_white.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_white_visual.ent"
+    },
+    "rim_blade_gunmetal": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_gunmetal.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_gunmetal_visual.ent"
+    },
+    "rim_blade_matte": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_matte.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_matte_visual.ent"
+    },
+    "rim_blade_gold": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_gold.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_gold_visual.ent"
+    },
+    "rim_beadlock_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_chrome_visual.ent"
+    },
+    "rim_beadlock_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_black_visual.ent"
+    },
+    "rim_beadlock_gunmetal": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_gunmetal.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_gunmetal_visual.ent"
+    },
+    "rim_beadlock_matte": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_matte.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_matte_visual.ent"
+    },
+    "rim_beadlock_bronze": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_bronze.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_bronze_visual.ent"
+    },
+    "rim_beadlock_white": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_white.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_white_visual.ent"
+    },
+    "rim_aero_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_chrome_visual.ent"
+    },
+    "rim_aero_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_black_visual.ent"
+    },
+    "rim_aero_white": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_white.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_white_visual.ent"
+    },
+    "rim_aero_alu": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_alu.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_alu_visual.ent"
+    },
+    "rim_aero_gold": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_gold.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_gold_visual.ent"
+    },
+    "rim_aero_black_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_black_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_black_chrome_visual.ent"
+    },
+    "rim_tech_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_chrome_visual.ent"
+    },
+    "rim_tech_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_black_visual.ent"
+    },
+    "rim_tech_gunmetal": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_gunmetal.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_gunmetal_visual.ent"
+    },
+    "rim_tech_matte": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_matte.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_matte_visual.ent"
+    },
+    "rim_tech_white": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_white.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_white_visual.ent"
+    },
+    "rim_tech_gold": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_gold.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_gold_visual.ent"
+    },
+    "rim_star_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_chrome_visual.ent"
+    },
+    "rim_star_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_black_visual.ent"
+    },
+    "rim_star_alu": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_alu.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_alu_visual.ent"
+    },
+    "rim_star_gunmetal": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_gunmetal.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_gunmetal_visual.ent"
+    },
+    "rim_star_bronze": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_bronze.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_bronze_visual.ent"
+    },
+    "rim_star_black_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_black_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_black_chrome_visual.ent"
+    },
+    "rim_twin_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_chrome_visual.ent"
+    },
+    "rim_twin_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_black_visual.ent"
+    },
+    "rim_twin_alu": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_alu.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_alu_visual.ent"
+    },
+    "rim_twin_gunmetal": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_gunmetal.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_gunmetal_visual.ent"
+    },
+    "rim_twin_white": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_white.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_white_visual.ent"
+    },
+    "rim_twin_gold": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_gold.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_gold_visual.ent"
+    },
+    "rim_yspoke_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_chrome_visual.ent"
+    },
+    "rim_yspoke_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_black_visual.ent"
+    },
+    "rim_yspoke_alu": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_alu.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_alu_visual.ent"
+    },
+    "rim_yspoke_matte": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_matte.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_matte_visual.ent"
+    },
+    "rim_yspoke_bronze": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_bronze.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_bronze_visual.ent"
+    },
+    "rim_yspoke_black_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_black_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_black_chrome_visual.ent"
+    },
+    "rim_vortex_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_chrome_visual.ent"
+    },
+    "rim_vortex_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_black_visual.ent"
+    },
+    "rim_vortex_gunmetal": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_gunmetal.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_gunmetal_visual.ent"
+    },
+    "rim_vortex_matte": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_matte.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_matte_visual.ent"
+    },
+    "rim_vortex_red": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_red.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_red_visual.ent"
+    },
+    "rim_vortex_gold": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_gold.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_gold_visual.ent"
+    },
+    "rim_threepiece_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_chrome_visual.ent"
+    },
+    "rim_threepiece_black_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_black_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_black_chrome_visual.ent"
+    },
+    "rim_threepiece_gold": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_gold.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_gold_visual.ent"
+    },
+    "rim_threepiece_bronze": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_bronze.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_bronze_visual.ent"
+    },
+    "rim_threepiece_white": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_white.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_white_visual.ent"
+    },
+    "rim_threepiece_red": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_red.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_red_visual.ent"
+    },
+    "rim_wire_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_chrome_visual.ent"
+    },
+    "rim_wire_gold": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_gold.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_gold_visual.ent"
+    },
+    "rim_wire_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_black_visual.ent"
+    },
+    "rim_wire_red": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_red.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_red_visual.ent"
+    },
+    "rim_wire_white": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_white.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_white_visual.ent"
+    },
+    "rim_wire_gunmetal": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_gunmetal.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_gunmetal_visual.ent"
+    },
+    "rim_turbofan_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_chrome_visual.ent"
+    },
+    "rim_turbofan_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_black_visual.ent"
+    },
+    "rim_turbofan_white": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_white.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_white_visual.ent"
+    },
+    "rim_turbofan_alu": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_alu.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_alu_visual.ent"
+    },
+    "rim_turbofan_gunmetal": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_gunmetal.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_gunmetal_visual.ent"
+    },
+    "rim_turbofan_red": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_red.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_red_visual.ent"
+    },
+    "rim_steelie_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_black_visual.ent"
+    },
+    "rim_steelie_white": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_white.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_white_visual.ent"
+    },
+    "rim_steelie_red": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_red.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_red_visual.ent"
+    },
+    "rim_steelie_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_chrome_visual.ent"
+    },
+    "rim_steelie_matte": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_matte.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_matte_visual.ent"
+    },
+    "rim_steelie_alu": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_alu.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_alu_visual.ent"
+    },
+    "rim_offroad_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_black_visual.ent"
+    },
+    "rim_offroad_matte": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_matte.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_matte_visual.ent"
+    },
+    "rim_offroad_gunmetal": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_gunmetal.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_gunmetal_visual.ent"
+    },
+    "rim_offroad_alu": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_alu.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_alu_visual.ent"
+    },
+    "rim_offroad_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_chrome_visual.ent"
+    },
+    "rim_offroad_bronze": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_bronze.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_bronze_visual.ent"
+    },
+    "rim_hex_chrome": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_chrome.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_chrome_visual.ent"
+    },
+    "rim_hex_black": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_black.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_black_visual.ent"
+    },
+    "rim_hex_gunmetal": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_gunmetal.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_gunmetal_visual.ent"
+    },
+    "rim_hex_matte": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_matte.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_matte_visual.ent"
+    },
+    "rim_hex_white": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_white.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_white_visual.ent"
+    },
+    "rim_hex_red": {
+      "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_red.mesh",
+      "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_red_visual.ent"
+    }
+  },
+  "nativeValidated": true,
+  "runtimeValidated": false,
+  "vehicleKit": {
+    "parts": {
+      "rim_classic": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_classic_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "black": {
+            "model": "rim_classic_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "white": {
+            "model": "rim_classic_white",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_white.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_white_visual.ent",
+            "materials": [
+              "gloss_white",
+              "chrome"
+            ]
+          },
+          "alu": {
+            "model": "rim_classic_alu",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_alu.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_alu_visual.ent",
+            "materials": [
+              "silver",
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "gold": {
+            "model": "rim_classic_gold",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_gold.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_gold_visual.ent",
+            "materials": [
+              "gold",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "black_chrome": {
+            "model": "rim_classic_black_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_black_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_black_chrome_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 3660
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "classic",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.118
+        },
+        "surfaceAreaPerAxis": [
+          0.393001,
+          0.683697,
+          0.684594
+        ],
+        "geometryHash": "8111985193285910483",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 3939
+        }
+      },
+      "rim_lattice": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_lattice_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "black": {
+            "model": "rim_lattice_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "bronze": {
+            "model": "rim_lattice_bronze",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_bronze.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_bronze_visual.ent",
+            "materials": [
+              "satin_bronze",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "gold": {
+            "model": "rim_lattice_gold",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_gold.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_gold_visual.ent",
+            "materials": [
+              "gold",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "alu": {
+            "model": "rim_lattice_alu",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_alu.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_alu_visual.ent",
+            "materials": [
+              "silver",
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "matte": {
+            "model": "rim_lattice_matte",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_matte.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_matte_visual.ent",
+            "materials": [
+              "satin_black",
+              "chrome"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 5276
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "lattice",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.126
+        },
+        "surfaceAreaPerAxis": [
+          0.432582,
+          0.723394,
+          0.723775
+        ],
+        "geometryHash": "6211138320873652575",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 6106
+        }
+      },
+      "rim_dish": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_dish_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "black": {
+            "model": "rim_dish_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "gunmetal": {
+            "model": "rim_dish_gunmetal",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_gunmetal.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_gunmetal_visual.ent",
+            "materials": [
+              "gunmetal",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "black_chrome": {
+            "model": "rim_dish_black_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_black_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_black_chrome_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "gold": {
+            "model": "rim_dish_gold",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_gold.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_gold_visual.ent",
+            "materials": [
+              "gold",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "white": {
+            "model": "rim_dish_white",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_white.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_white_visual.ent",
+            "materials": [
+              "gloss_white",
+              "chrome"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 3604
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "dish",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.058
+        },
+        "surfaceAreaPerAxis": [
+          0.488975,
+          0.73368,
+          0.733992
+        ],
+        "geometryHash": "5264298223405854742",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 3790
+        }
+      },
+      "rim_fork": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_fork_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "black": {
+            "model": "rim_fork_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "bronze": {
+            "model": "rim_fork_bronze",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_bronze.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_bronze_visual.ent",
+            "materials": [
+              "satin_bronze",
+              "gloss_black"
+            ]
+          },
+          "alu": {
+            "model": "rim_fork_alu",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_alu.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_alu_visual.ent",
+            "materials": [
+              "silver",
+              "dark_metal"
+            ]
+          },
+          "matte": {
+            "model": "rim_fork_matte",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_matte.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_matte_visual.ent",
+            "materials": [
+              "satin_black",
+              "dark_metal"
+            ]
+          },
+          "gunmetal": {
+            "model": "rim_fork_gunmetal",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_gunmetal.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_gunmetal_visual.ent",
+            "materials": [
+              "gunmetal",
+              "chrome",
+              "gloss_black"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 3880
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "fork",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.113
+        },
+        "surfaceAreaPerAxis": [
+          0.365822,
+          0.681147,
+          0.681514
+        ],
+        "geometryHash": "4595817983619571881",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 4039
+        }
+      },
+      "rim_blade": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_blade_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "black": {
+            "model": "rim_blade_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "white": {
+            "model": "rim_blade_white",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_white.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_white_visual.ent",
+            "materials": [
+              "gloss_white",
+              "gloss_black"
+            ]
+          },
+          "gunmetal": {
+            "model": "rim_blade_gunmetal",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_gunmetal.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_gunmetal_visual.ent",
+            "materials": [
+              "gunmetal",
+              "chrome"
+            ]
+          },
+          "matte": {
+            "model": "rim_blade_matte",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_matte.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_matte_visual.ent",
+            "materials": [
+              "satin_black",
+              "gunmetal"
+            ]
+          },
+          "gold": {
+            "model": "rim_blade_gold",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_gold.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_gold_visual.ent",
+            "materials": [
+              "gold",
+              "gloss_black"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 3844
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "blade",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.128
+        },
+        "surfaceAreaPerAxis": [
+          0.433897,
+          0.707929,
+          0.708118
+        ],
+        "geometryHash": "15223186474412531530",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 4059
+        }
+      },
+      "rim_beadlock": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_beadlock_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "black": {
+            "model": "rim_beadlock_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "gunmetal": {
+            "model": "rim_beadlock_gunmetal",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_gunmetal.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_gunmetal_visual.ent",
+            "materials": [
+              "gunmetal",
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "matte": {
+            "model": "rim_beadlock_matte",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_matte.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_matte_visual.ent",
+            "materials": [
+              "satin_black",
+              "chrome"
+            ]
+          },
+          "bronze": {
+            "model": "rim_beadlock_bronze",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_bronze.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_bronze_visual.ent",
+            "materials": [
+              "satin_bronze",
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "white": {
+            "model": "rim_beadlock_white",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_white.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_white_visual.ent",
+            "materials": [
+              "gloss_white",
+              "gloss_black",
+              "chrome"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 4256
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "beadlock",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.094
+        },
+        "surfaceAreaPerAxis": [
+          0.515118,
+          0.754987,
+          0.75651
+        ],
+        "geometryHash": "1562327967341901739",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 5671
+        }
+      },
+      "rim_aero": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_aero_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "black": {
+            "model": "rim_aero_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "white": {
+            "model": "rim_aero_white",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_white.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_white_visual.ent",
+            "materials": [
+              "gloss_white",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "alu": {
+            "model": "rim_aero_alu",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_alu.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_alu_visual.ent",
+            "materials": [
+              "silver",
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "gold": {
+            "model": "rim_aero_gold",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_gold.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_gold_visual.ent",
+            "materials": [
+              "gold",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "black_chrome": {
+            "model": "rim_aero_black_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_black_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_black_chrome_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 4224
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "aero",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.144
+        },
+        "surfaceAreaPerAxis": [
+          0.646593,
+          0.671556,
+          0.671556
+        ],
+        "geometryHash": "16528760978481651290",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 3883
+        }
+      },
+      "rim_tech": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_tech_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "black": {
+            "model": "rim_tech_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "gunmetal": {
+            "model": "rim_tech_gunmetal",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_gunmetal.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_gunmetal_visual.ent",
+            "materials": [
+              "gunmetal",
+              "chrome",
+              "satin_bronze"
+            ]
+          },
+          "matte": {
+            "model": "rim_tech_matte",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_matte.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_matte_visual.ent",
+            "materials": [
+              "satin_black",
+              "candy_red"
+            ]
+          },
+          "white": {
+            "model": "rim_tech_white",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_white.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_white_visual.ent",
+            "materials": [
+              "gloss_white",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "gold": {
+            "model": "rim_tech_gold",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_gold.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_gold_visual.ent",
+            "materials": [
+              "gold",
+              "gloss_black"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 4428
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "tech",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.106
+        },
+        "surfaceAreaPerAxis": [
+          0.457929,
+          0.701077,
+          0.702463
+        ],
+        "geometryHash": "6497620806677502562",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 4622
+        }
+      },
+      "rim_star": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_star_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "black": {
+            "model": "rim_star_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "alu": {
+            "model": "rim_star_alu",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_alu.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_alu_visual.ent",
+            "materials": [
+              "silver",
+              "dark_metal"
+            ]
+          },
+          "gunmetal": {
+            "model": "rim_star_gunmetal",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_gunmetal.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_gunmetal_visual.ent",
+            "materials": [
+              "gunmetal",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "bronze": {
+            "model": "rim_star_bronze",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_bronze.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_bronze_visual.ent",
+            "materials": [
+              "satin_bronze",
+              "gloss_black"
+            ]
+          },
+          "black_chrome": {
+            "model": "rim_star_black_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_black_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_black_chrome_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 4904
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "star",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.115
+        },
+        "surfaceAreaPerAxis": [
+          0.435736,
+          0.729388,
+          0.730858
+        ],
+        "geometryHash": "336578524962632242",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 5388
+        }
+      },
+      "rim_twin": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_twin_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "black": {
+            "model": "rim_twin_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "alu": {
+            "model": "rim_twin_alu",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_alu.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_alu_visual.ent",
+            "materials": [
+              "silver",
+              "dark_metal"
+            ]
+          },
+          "gunmetal": {
+            "model": "rim_twin_gunmetal",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_gunmetal.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_gunmetal_visual.ent",
+            "materials": [
+              "gunmetal",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "white": {
+            "model": "rim_twin_white",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_white.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_white_visual.ent",
+            "materials": [
+              "gloss_white",
+              "chrome"
+            ]
+          },
+          "gold": {
+            "model": "rim_twin_gold",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_gold.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_gold_visual.ent",
+            "materials": [
+              "gold",
+              "chrome",
+              "gloss_black"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 5894
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "twin",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.119
+        },
+        "surfaceAreaPerAxis": [
+          0.451049,
+          0.770941,
+          0.776516
+        ],
+        "geometryHash": "10657835708870765515",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 6480
+        }
+      },
+      "rim_yspoke": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_yspoke_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "black": {
+            "model": "rim_yspoke_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "alu": {
+            "model": "rim_yspoke_alu",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_alu.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_alu_visual.ent",
+            "materials": [
+              "silver",
+              "dark_metal"
+            ]
+          },
+          "matte": {
+            "model": "rim_yspoke_matte",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_matte.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_matte_visual.ent",
+            "materials": [
+              "satin_black",
+              "dark_metal"
+            ]
+          },
+          "bronze": {
+            "model": "rim_yspoke_bronze",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_bronze.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_bronze_visual.ent",
+            "materials": [
+              "satin_bronze",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "black_chrome": {
+            "model": "rim_yspoke_black_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_black_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_black_chrome_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 5774
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "yspoke",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.115
+        },
+        "surfaceAreaPerAxis": [
+          0.456455,
+          0.766887,
+          0.765323
+        ],
+        "geometryHash": "3103079518117680910",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 6348
+        }
+      },
+      "rim_vortex": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_vortex_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "black": {
+            "model": "rim_vortex_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "gunmetal": {
+            "model": "rim_vortex_gunmetal",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_gunmetal.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_gunmetal_visual.ent",
+            "materials": [
+              "gunmetal",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "matte": {
+            "model": "rim_vortex_matte",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_matte.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_matte_visual.ent",
+            "materials": [
+              "satin_black",
+              "dark_metal"
+            ]
+          },
+          "red": {
+            "model": "rim_vortex_red",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_red.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_red_visual.ent",
+            "materials": [
+              "candy_red",
+              "chrome"
+            ]
+          },
+          "gold": {
+            "model": "rim_vortex_gold",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_gold.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_gold_visual.ent",
+            "materials": [
+              "gold",
+              "gloss_black"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 5960
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "vortex",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.119
+        },
+        "surfaceAreaPerAxis": [
+          0.42811,
+          0.746748,
+          0.747405
+        ],
+        "geometryHash": "8434674296897420289",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 6636
+        }
+      },
+      "rim_threepiece": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_threepiece_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "gunmetal"
+            ]
+          },
+          "black_chrome": {
+            "model": "rim_threepiece_black_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_black_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_black_chrome_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "gold": {
+            "model": "rim_threepiece_gold",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_gold.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_gold_visual.ent",
+            "materials": [
+              "gold",
+              "chrome"
+            ]
+          },
+          "bronze": {
+            "model": "rim_threepiece_bronze",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_bronze.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_bronze_visual.ent",
+            "materials": [
+              "satin_bronze",
+              "chrome"
+            ]
+          },
+          "white": {
+            "model": "rim_threepiece_white",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_white.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_white_visual.ent",
+            "materials": [
+              "gloss_white",
+              "chrome"
+            ]
+          },
+          "red": {
+            "model": "rim_threepiece_red",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_red.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_red_visual.ent",
+            "materials": [
+              "candy_red",
+              "chrome"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 5972
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "threepiece",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.085
+        },
+        "surfaceAreaPerAxis": [
+          0.61936,
+          0.74751,
+          0.750248
+        ],
+        "geometryHash": "15498479184724107012",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 7335
+        }
+      },
+      "rim_wire": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_wire_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_chrome_visual.ent",
+            "materials": [
+              "chrome"
+            ]
+          },
+          "gold": {
+            "model": "rim_wire_gold",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_gold.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_gold_visual.ent",
+            "materials": [
+              "gold",
+              "chrome"
+            ]
+          },
+          "black": {
+            "model": "rim_wire_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "red": {
+            "model": "rim_wire_red",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_red.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_red_visual.ent",
+            "materials": [
+              "candy_red",
+              "chrome"
+            ]
+          },
+          "white": {
+            "model": "rim_wire_white",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_white.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_white_visual.ent",
+            "materials": [
+              "gloss_white",
+              "chrome"
+            ]
+          },
+          "gunmetal": {
+            "model": "rim_wire_gunmetal",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_gunmetal.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_gunmetal_visual.ent",
+            "materials": [
+              "gunmetal",
+              "chrome"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 3668
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "wire",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.084
+        },
+        "surfaceAreaPerAxis": [
+          0.385241,
+          0.731299,
+          0.732461
+        ],
+        "geometryHash": "4743035384201117148",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 4493
+        }
+      },
+      "rim_turbofan": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_turbofan_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "black": {
+            "model": "rim_turbofan_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome",
+              "gunmetal"
+            ]
+          },
+          "white": {
+            "model": "rim_turbofan_white",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_white.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_white_visual.ent",
+            "materials": [
+              "gloss_white",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "alu": {
+            "model": "rim_turbofan_alu",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_alu.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_alu_visual.ent",
+            "materials": [
+              "silver",
+              "gloss_black"
+            ]
+          },
+          "gunmetal": {
+            "model": "rim_turbofan_gunmetal",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_gunmetal.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_gunmetal_visual.ent",
+            "materials": [
+              "gunmetal",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "red": {
+            "model": "rim_turbofan_red",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_red.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_red_visual.ent",
+            "materials": [
+              "candy_red",
+              "chrome",
+              "gloss_black"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 4212
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "turbofan",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.146
+        },
+        "surfaceAreaPerAxis": [
+          0.92148,
+          0.756456,
+          0.756468
+        ],
+        "geometryHash": "9628250822721647727",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 4204
+        }
+      },
+      "rim_steelie": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "black": {
+            "model": "rim_steelie_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "white": {
+            "model": "rim_steelie_white",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_white.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_white_visual.ent",
+            "materials": [
+              "gloss_white",
+              "chrome"
+            ]
+          },
+          "red": {
+            "model": "rim_steelie_red",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_red.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_red_visual.ent",
+            "materials": [
+              "candy_red",
+              "chrome"
+            ]
+          },
+          "chrome": {
+            "model": "rim_steelie_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "matte": {
+            "model": "rim_steelie_matte",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_matte.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_matte_visual.ent",
+            "materials": [
+              "satin_black",
+              "dark_metal"
+            ]
+          },
+          "alu": {
+            "model": "rim_steelie_alu",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_alu.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_alu_visual.ent",
+            "materials": [
+              "silver",
+              "chrome"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 5472
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "steelie",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.124
+        },
+        "surfaceAreaPerAxis": [
+          0.624674,
+          0.673472,
+          0.673823
+        ],
+        "geometryHash": "9000112382873224443",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 5438
+        }
+      },
+      "rim_offroad": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "black": {
+            "model": "rim_offroad_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "matte": {
+            "model": "rim_offroad_matte",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_matte.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_matte_visual.ent",
+            "materials": [
+              "satin_black",
+              "dark_metal"
+            ]
+          },
+          "gunmetal": {
+            "model": "rim_offroad_gunmetal",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_gunmetal.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_gunmetal_visual.ent",
+            "materials": [
+              "gunmetal",
+              "gloss_black"
+            ]
+          },
+          "alu": {
+            "model": "rim_offroad_alu",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_alu.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_alu_visual.ent",
+            "materials": [
+              "silver",
+              "dark_metal"
+            ]
+          },
+          "chrome": {
+            "model": "rim_offroad_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "dark_metal"
+            ]
+          },
+          "bronze": {
+            "model": "rim_offroad_bronze",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_bronze.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_bronze_visual.ent",
+            "materials": [
+              "satin_bronze",
+              "gloss_black"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 5856
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "offroad",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.094
+        },
+        "surfaceAreaPerAxis": [
+          0.638243,
+          0.762552,
+          0.763483
+        ],
+        "geometryHash": "14570683617764106799",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 5646
+        }
+      },
+      "rim_hex": {
+        "kind": "rim",
+        "materials": "local",
+        "finishes": {
+          "chrome": {
+            "model": "rim_hex_chrome",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_chrome.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_chrome_visual.ent",
+            "materials": [
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "black": {
+            "model": "rim_hex_black",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_black.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_black_visual.ent",
+            "materials": [
+              "gloss_black",
+              "chrome"
+            ]
+          },
+          "gunmetal": {
+            "model": "rim_hex_gunmetal",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_gunmetal.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_gunmetal_visual.ent",
+            "materials": [
+              "gunmetal",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "matte": {
+            "model": "rim_hex_matte",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_matte.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_matte_visual.ent",
+            "materials": [
+              "satin_black",
+              "candy_red"
+            ]
+          },
+          "white": {
+            "model": "rim_hex_white",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_white.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_white_visual.ent",
+            "materials": [
+              "gloss_white",
+              "chrome",
+              "gloss_black"
+            ]
+          },
+          "red": {
+            "model": "rim_hex_red",
+            "mesh": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_red.mesh",
+            "appearance": "default",
+            "visualEntity": "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_red_visual.ent",
+            "materials": [
+              "candy_red",
+              "gloss_black"
+            ]
+          }
+        },
+        "lodDistances": [
+          0
+        ],
+        "triangles": {
+          "1": 5650
+        },
+        "bounds": [
+          [
+            -0.208,
+            -0.28,
+            -0.28
+          ],
+          [
+            0.092,
+            0.28,
+            0.28
+          ]
+        ],
+        "mount": {
+          "axis": "X",
+          "outboard": "-X",
+          "pivot": "wheel centre",
+          "radius": 0.28,
+          "face_x": -0.208,
+          "width": 0.3,
+          "style": "hex",
+          "measuredFaceX": -0.208,
+          "measuredRadius": 0.28,
+          "centreBackX": -0.124
+        },
+        "surfaceAreaPerAxis": [
+          0.571582,
+          0.809037,
+          0.804228
+        ],
+        "geometryHash": "11883377586777652880",
+        "vertexColor": {
+          "rgba": "ffffffff",
+          "verticesChecked": 6964
+        }
+      }
+    }
+  },
+  "files": [
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_alu.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_alu_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_black_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_black_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_gold.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_gold_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_white.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_aero_white_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_bronze.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_bronze_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_gunmetal.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_gunmetal_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_matte.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_matte_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_white.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_beadlock_white_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_gold.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_gold_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_gunmetal.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_gunmetal_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_matte.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_matte_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_white.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_blade_white_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_alu.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_alu_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_black_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_black_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_gold.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_gold_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_white.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_classic_white_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_black_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_black_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_gold.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_gold_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_gunmetal.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_gunmetal_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_white.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_dish_white_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_alu.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_alu_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_bronze.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_bronze_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_gunmetal.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_gunmetal_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_matte.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_fork_matte_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_gunmetal.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_gunmetal_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_matte.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_matte_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_red.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_red_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_white.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_hex_white_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_alu.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_alu_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_bronze.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_bronze_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_gold.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_gold_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_matte.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_lattice_matte_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_alu.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_alu_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_bronze.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_bronze_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_gunmetal.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_gunmetal_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_matte.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_offroad_matte_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_alu.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_alu_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_black_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_black_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_bronze.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_bronze_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_gunmetal.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_star_gunmetal_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_alu.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_alu_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_matte.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_matte_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_red.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_red_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_white.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_steelie_white_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_gold.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_gold_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_gunmetal.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_gunmetal_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_matte.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_matte_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_white.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_tech_white_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_black_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_black_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_bronze.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_bronze_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_gold.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_gold_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_red.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_red_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_white.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_threepiece_white_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_alu.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_alu_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_gunmetal.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_gunmetal_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_red.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_red_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_white.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_turbofan_white_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_alu.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_alu_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_gold.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_gold_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_gunmetal.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_gunmetal_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_white.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_twin_white_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_gold.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_gold_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_gunmetal.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_gunmetal_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_matte.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_matte_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_red.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_vortex_red_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_gold.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_gold_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_gunmetal.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_gunmetal_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_red.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_red_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_white.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_wire_white_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_alu.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_alu_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_black.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_black_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_black_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_black_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_bronze.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_bronze_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_chrome.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_chrome_visual.ent",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_matte.mesh",
+    "open77\\assets\\lightrp_vk_rims\\f721d6538465\\rim_yspoke_matte_visual.ent"
+  ],
+  "assets": [
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_aero_alu_visual.ent",
+      "sha256": "b517803b92161361fd3f0b7e0fa8d5c9c4a16c89bb748a9021e2316e7a2c3718",
+      "bytes": 996
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_aero_alu.mesh",
+      "sha256": "13d8a1b74ebe937def30341c4642e88cc040eb212dad36a39fb6064f0ac093ec",
+      "bytes": 41509
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_aero_black_chrome_visual.ent",
+      "sha256": "33a3a26cb0504c191dcfb36d231f48e81deb595fa44b8160f137aee9dbfc7868",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_aero_black_chrome.mesh",
+      "sha256": "a5fa97e6e238ec2340875937757865dcc334f8e44d7a34677c741a342d6e52ee",
+      "bytes": 41407
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_aero_black_visual.ent",
+      "sha256": "c30576c399bf1d67839853c74fa6ce5cd169d2d7859f4a11e201aaa2041dcff3",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_aero_black.mesh",
+      "sha256": "c75f0d767a0ec44555ca2acaccbab5d1e5543563854d5ccd91b9f5d4d67853ac",
+      "bytes": 41407
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_aero_chrome_visual.ent",
+      "sha256": "4380f7a0326ea82f4fadf3e10e7ab4c48dee425daab3d5ed7cbd32ccdddfa13f",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_aero_chrome.mesh",
+      "sha256": "fb948cc26d0cafb72d7be799862b17789fdace56db67ec7875e2b2e51f03733e",
+      "bytes": 41410
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_aero_gold_visual.ent",
+      "sha256": "683689a1e6b6a7a3256bca8d5513c9803580d93c2536a2836f1d9c74f9adf780",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_aero_gold.mesh",
+      "sha256": "b87eb8d64221e8162f76c94c3ba058f6ca26d3899cd409908e8d03df9c19280b",
+      "bytes": 41507
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_aero_white_visual.ent",
+      "sha256": "784859c1f5a856137150d64b5834346e3f6c418f193faa4d2f4dea6471d3d490",
+      "bytes": 996
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_aero_white.mesh",
+      "sha256": "e09ba2716cc07838e886e8404ceb6e560c827c4065ef65b08d9a1f8a44c0fe26",
+      "bytes": 41509
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_beadlock_black_visual.ent",
+      "sha256": "38f15c074a3b9ca2c39c5f8f042f34a3ccf619ae31fb5c419efe5d16dfc3ce7c",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_beadlock_black.mesh",
+      "sha256": "ace3fc7b210cdc39b195edc5cf7404b6ea73c30875c8ab1120dc8016c6c41f2e",
+      "bytes": 39510
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_beadlock_bronze_visual.ent",
+      "sha256": "e0610ff90252517c4995571905fe23928cc8d4a4b63e017ea841d898867151e0",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_beadlock_bronze.mesh",
+      "sha256": "02d5c7c3f690e612d7998a91c87144eb93f704d7b927d8d4822f1c4442f999a6",
+      "bytes": 39624
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_beadlock_chrome_visual.ent",
+      "sha256": "21cd70595906d21b27df10f9689645da5ba48bce58b35963861238b9341e564c",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_beadlock_chrome.mesh",
+      "sha256": "c8b5d1c4290cb8734b273f07f90aedf191035ef72cb1a819ff59244684664382",
+      "bytes": 39513
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_beadlock_gunmetal_visual.ent",
+      "sha256": "ed0f7b3da1d4d0ca98f00294577de5cfeb7272a458881b437df9b2748bcb2c7b",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_beadlock_gunmetal.mesh",
+      "sha256": "944be172994c96b7f7440bd76960453b27f8bc4ca330d66e71a999912a9e2e52",
+      "bytes": 39621
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_beadlock_matte_visual.ent",
+      "sha256": "8acd38a08eb71d8a1a35111f38d953afa3fb5911c0719abd784b9b7e727f64b3",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_beadlock_matte.mesh",
+      "sha256": "51bb387085f7391421a6ce337f1ec6610973082bd9fd443c47318538c0131de7",
+      "bytes": 39507
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_beadlock_white_visual.ent",
+      "sha256": "79fb1e677664d9fd2f2985b35ae659a32b7ebe630f418aeb3b33c5623b90832e",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_beadlock_white.mesh",
+      "sha256": "8dfea3a83641e2b192b27703e5a4a185cecb83027763051c777ee773bc6e2e35",
+      "bytes": 39610
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_blade_black_visual.ent",
+      "sha256": "0dcf8aab43a1b64d0b383a64041c20704c384558ca7f76150d91d58b425d4aad",
+      "bytes": 998
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_blade_black.mesh",
+      "sha256": "6ba6ec0b0023a11e696076b81295bede90db08cad6791ac8c388fa9103da97ec",
+      "bytes": 46982
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_blade_chrome_visual.ent",
+      "sha256": "fd31f3e51b431902f7e905edc5afb850281cc1681916063af10b3fa611f545b7",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_blade_chrome.mesh",
+      "sha256": "b5ae88805edb3694954d753a5a012fa9ae169cfca839d4cf6f026a6ca11ae866",
+      "bytes": 46985
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_blade_gold_visual.ent",
+      "sha256": "0844023f170f0f34b321f878dd4e69c430d85cd9915f2354b17a1c10093bab4e",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_blade_gold.mesh",
+      "sha256": "4d3e5e970d587c67978365e03290cff0a0ac2555d7981edb38415cbac6ef6b6a",
+      "bytes": 46982
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_blade_gunmetal_visual.ent",
+      "sha256": "cc03ffb6f1190a9bbbf12304392059b422c90fd1be46c555fe01115e315c9728",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_blade_gunmetal.mesh",
+      "sha256": "04d9edcee13872fa70a81a068f212061cc6c864778ba7dbe31bdac2208981d6f",
+      "bytes": 46984
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_blade_matte_visual.ent",
+      "sha256": "6c61fdc00cc0dad5f34f494c54b8388cd23d2209d07be87ed63dbb2e194a1da0",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_blade_matte.mesh",
+      "sha256": "390a94a7ad647e5aa7c0f91992cb8674b073d560b88c5bc77d1773cda0562b97",
+      "bytes": 46981
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_blade_white_visual.ent",
+      "sha256": "0359da855d52c3caf7523a1063bed9c0e9bb0aa306ac0e2e3f0e7b34649a613c",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_blade_white.mesh",
+      "sha256": "87ae7317a2fa9cd8c37dba05971f769bfd59a42170ffea021ebae66ca74b42ce",
+      "bytes": 46978
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_classic_alu_visual.ent",
+      "sha256": "afd384b22134500e57aea79b213d2f3f9db51f54231d412a1f45b73c7e4d14bf",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_classic_alu.mesh",
+      "sha256": "68965ae6b8d5eb12f97ffafcc10cfa6d159a29f7233f571a6e81c28dec50ebff",
+      "bytes": 39963
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_classic_black_chrome_visual.ent",
+      "sha256": "5ce306c26a2670e3e2bf233ff101d6c42332ba0e504adb0ba1932b4507109751",
+      "bytes": 1003
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_classic_black_chrome.mesh",
+      "sha256": "dfa4eb4fe8693012cf8598beb8eb53f9ad49a43a45fce0dcd8038e9a9d4039be",
+      "bytes": 39861
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_classic_black_visual.ent",
+      "sha256": "712af260c0b81738e2600f53e620086eed47115709326720c26bab3810caebbc",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_classic_black.mesh",
+      "sha256": "3d71232bd4a85427aca47de5913c2118854f39789dfc8d2a26c42be4d40d7f48",
+      "bytes": 39861
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_classic_chrome_visual.ent",
+      "sha256": "1a5b560b152af27aa1eefe8d3bd400b6dd5421d2849f73f2c126effc3a3f6a45",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_classic_chrome.mesh",
+      "sha256": "8e666813441c8ec379f277edec9745890ddb8fa791acd9c0e7641228707eef43",
+      "bytes": 39864
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_classic_gold_visual.ent",
+      "sha256": "7a80d624f4ca691d170029f72d977872d8bb23663ae07a9303ae7e1cd4b50f08",
+      "bytes": 998
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_classic_gold.mesh",
+      "sha256": "8aa18b83e97c87aa148bbe276abd491110539c51eec304251d2dd9bd6cb3c4d0",
+      "bytes": 39961
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_classic_white_visual.ent",
+      "sha256": "71f7aa248dc4bc21e318a46071cbeea5bf999f27cc91f29d8baef90fb6ca18f0",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_classic_white.mesh",
+      "sha256": "759a0418b5ddf9e6158f7af7957dbdf12637098f23c5ff6f4c6b48ebc8d4a8b5",
+      "bytes": 39855
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_dish_black_chrome_visual.ent",
+      "sha256": "b3d4825dfbc39eacc789e5ea6e107036053db8885413c5e3f65de8b50c7a01cc",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_dish_black_chrome.mesh",
+      "sha256": "fe43263e025b8fd9b1587b96507e2b239ad2d4003e9708e01bc668328a0ae7f4",
+      "bytes": 38952
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_dish_black_visual.ent",
+      "sha256": "70388064d02f4cb8d40df4abb0add66d939251a5d678df20a8553668f18fcab6",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_dish_black.mesh",
+      "sha256": "49ef37676d12a49e26c88f912cdea2f0aad7333076a62da7dd371db5d7d7d212",
+      "bytes": 38952
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_dish_chrome_visual.ent",
+      "sha256": "434356ef56055fee3e6d9ad602a83921db14212add1a755528f53a39a28bd2d0",
+      "bytes": 998
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_dish_chrome.mesh",
+      "sha256": "9bd80991e4e4510775baa10e50aa636018b2aeffd4ad4400e0c9b5026e386ed5",
+      "bytes": 38955
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_dish_gold_visual.ent",
+      "sha256": "2f41a286a128091bdbf0dec5c6fe36e70ac2f7354d3a7e4adeede4bf7163e548",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_dish_gold.mesh",
+      "sha256": "2e19a8d943f962910213a04b4aba57c3209d35e9e58f5da3b2e0da2ec6c4432c",
+      "bytes": 39052
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_dish_gunmetal_visual.ent",
+      "sha256": "6313c2e19a17d8646c8a0d6145c59980dabd9926923e8456d01eb03e6974ce9d",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_dish_gunmetal.mesh",
+      "sha256": "6a6d1167143211b43e6aaf4942a48b177f7616ddf35562540934c4e684537c9b",
+      "bytes": 39062
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_dish_white_visual.ent",
+      "sha256": "6228bc45f8165bfda47af807ae806626afa69003b9947402f7ea38c9b0412d20",
+      "bytes": 996
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_dish_white.mesh",
+      "sha256": "ab0c2dd473becb8789d24cdcb7789cbbfaf5fcd424f221d7dd00bf9ddafd3e39",
+      "bytes": 38946
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_fork_alu_visual.ent",
+      "sha256": "59e667e46adf24a3348d38a5c125bee95b25f14bd03b5de562cdae1fd2f5f579",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_fork_alu.mesh",
+      "sha256": "a6065a3d966de3e5967a0298b72d711b6c0c280c930d532560830c4deb49b301",
+      "bytes": 44752
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_fork_black_visual.ent",
+      "sha256": "ed22ea679d83eaa8763700a334b6ae97de26ec22e8ecad490e4a3433547fa31b",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_fork_black.mesh",
+      "sha256": "4a93c00aa33473d548d72c0163116e41e604f8d60e2f36c51136c14ce74ce9a0",
+      "bytes": 44749
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_fork_bronze_visual.ent",
+      "sha256": "3da924b19cc80fd5e28ffb2110cb2e5f201a5ac05196097f0654460f69af763f",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_fork_bronze.mesh",
+      "sha256": "84e7f88f43d833ef03e0e66fa10b675dcd762ee7a7dd64c3cbc403d079440607",
+      "bytes": 44757
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_fork_chrome_visual.ent",
+      "sha256": "1ecd04206b0accba9560e8d91ca054dc75eb392d48f63a6ea37e5eafc0bec188",
+      "bytes": 998
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_fork_chrome.mesh",
+      "sha256": "fd75984ad0761af2c2dff382ccec9a7b0083849917360498a8f14fae47c7419d",
+      "bytes": 44752
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_fork_gunmetal_visual.ent",
+      "sha256": "4c4c20c7abaf7eeac4166c9e4d335a7ac41f9d9ba2b8a2cc7410413c07e97db1",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_fork_gunmetal.mesh",
+      "sha256": "1d31e2eea8ddb022b4ab682e755e1d878ec42811c15d2196078eb9cf55a0594d",
+      "bytes": 44859
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_fork_matte_visual.ent",
+      "sha256": "1d02a4cfb3bf7c48ead83c14b678c111acb1252b3216318871fcfe2eeecec59c",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_fork_matte.mesh",
+      "sha256": "97082aeb4407a072178ba81d0cd2e8e962f43fb50b278cf2235692c09ec2aa3f",
+      "bytes": 44750
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_hex_black_visual.ent",
+      "sha256": "86da901274daa700b2b6fa5c66f116773d40a6d6c52b356c5027226556387eb4",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_hex_black.mesh",
+      "sha256": "967992e0d94e6289433f2fe82395d5377dff9c073dcfb4585ca671de5dc5b07a",
+      "bytes": 67166
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_hex_chrome_visual.ent",
+      "sha256": "92cb52eb75f920337e4f7e9adea72e6bb8cae437a9afecf7a58b39ab92cf7821",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_hex_chrome.mesh",
+      "sha256": "e42e838ff01e6a2e279fabe72688f054039858fb82a48059108f308105949d20",
+      "bytes": 67168
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_hex_gunmetal_visual.ent",
+      "sha256": "b41ce38756799ea633d59ab196a957349eb79c52adf0243e059935dafa71dc5c",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_hex_gunmetal.mesh",
+      "sha256": "376043ae9c7d225f101d2ccaf24c1e8f3d8676f0aeebe5d1cc9124b9102dda11",
+      "bytes": 67276
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_hex_matte_visual.ent",
+      "sha256": "3911c90b0c1533fcbe34e90b0e1b539155dc37ab1bbc986d4645d5c42abe6aec",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_hex_matte.mesh",
+      "sha256": "7402cd3b3b89ea548164cc46ca3e6c51eedd4810a6d743fa7688e939b054592a",
+      "bytes": 67160
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_hex_red_visual.ent",
+      "sha256": "007528783c4d788df75d640aba00740d45db693cca77da83020333db40f16a8e",
+      "bytes": 996
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_hex_red.mesh",
+      "sha256": "38d28293a3c73283196820efa271cecb82e952182ec02b9c686d686de6dea013",
+      "bytes": 67163
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_hex_white_visual.ent",
+      "sha256": "86de921c6fd5901199a59aaa8bf0a77187382efd9bb02a4db04b76ee03faaaa8",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_hex_white.mesh",
+      "sha256": "0304fd7a0b040d9b6885edf6c4484d05b24909be51e4f5dea3e2a2b81306e700",
+      "bytes": 67268
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_lattice_alu_visual.ent",
+      "sha256": "3e28144a6cd751c2da536add4014335af6c06f2cf8efabfd1b8ffe14a238aa30",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_lattice_alu.mesh",
+      "sha256": "5281c269015e0bcbba61efc4dd5a117116796791f2239d59d01e6c6353157cc4",
+      "bytes": 56422
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_lattice_black_visual.ent",
+      "sha256": "aac5094601d47fd74d598b3e03b06c3fe33f1d826a46b9d21223d76b786001d3",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_lattice_black.mesh",
+      "sha256": "f3959527cb3f007c0f327efb6ddd67b7e6c5e15690704b32e08b794eb0763001",
+      "bytes": 56320
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_lattice_bronze_visual.ent",
+      "sha256": "961610626a23c3935093b805031657e188d479615ed4d3aead541e1d610f813a",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_lattice_bronze.mesh",
+      "sha256": "41ad519a9cce300bbff0374ace7eb19c7b8dd80cc1fd28a9d66afe188b1b9905",
+      "bytes": 56430
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_lattice_chrome_visual.ent",
+      "sha256": "b4fc55e4186a729a9d7cc2d9a5f7623c7c7b020025d53b5e7d0aa109edf2a8c7",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_lattice_chrome.mesh",
+      "sha256": "c14b4b2e4b5c43c582667d726d4038b9c53b25f9eaa021a2fc1e5dc1293d4fb1",
+      "bytes": 56323
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_lattice_gold_visual.ent",
+      "sha256": "99e0fddd661ac5f3ea059aa65cbf0b2393144e32f969d85368f977738dd3a299",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_lattice_gold.mesh",
+      "sha256": "92197085a70d5814bea071aede8604ff9a08e9957c24624ce4f6a29a3d67ff76",
+      "bytes": 56420
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_lattice_matte_visual.ent",
+      "sha256": "c79292389ba0bb04c7e9a8827a18de2580e1003f3404308652df23a32a775186",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_lattice_matte.mesh",
+      "sha256": "cc211e09d69ef411344463dedd5131f490ba6d50cbdfd420764639321a284203",
+      "bytes": 56317
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_offroad_alu_visual.ent",
+      "sha256": "f3b27ae06e78acb8b03fdab6a69c77cde82329682aa2a92bb5d6e533ba5fe246",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_offroad_alu.mesh",
+      "sha256": "3d4fea74660fdd5da3e91bc7415908d2b7eada8789c454744741159b66b4c877",
+      "bytes": 62387
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_offroad_black_visual.ent",
+      "sha256": "073d8733972b1bbe9eb1795cb6297b86117c4fafc5fccef0cf5cb6424627927e",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_offroad_black.mesh",
+      "sha256": "8ea3e8f055f2422d080147b209d11c371bf525b95f06840b108365eab79c5ff7",
+      "bytes": 62384
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_offroad_bronze_visual.ent",
+      "sha256": "71edc4d40b2a081f2213e936f65a50175dcc572930eea8d970f79073e39fba3b",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_offroad_bronze.mesh",
+      "sha256": "9abf7ffbedc75bd3050d79bfd2fd44ded83ffd14ffdf57e97f5b6cd01f8c3dbd",
+      "bytes": 62392
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_offroad_chrome_visual.ent",
+      "sha256": "168700305bca9d797526fbcb33f6a8bf8622c65f6d494706e6034a7ae47d6c25",
+      "bytes": 1002
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_offroad_chrome.mesh",
+      "sha256": "1dbc8d7336e9963d99898e622b35437bccc6699b2c723d8cfdc6b07268504d4a",
+      "bytes": 62387
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_offroad_gunmetal_visual.ent",
+      "sha256": "39f1d4d525a3c02e293147465961aa886b45ccbfc9c8c3f8b3ce2b2122687fac",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_offroad_gunmetal.mesh",
+      "sha256": "9cf7c017817818a8acba0d76693bb93333ea416a986d57dea88554a3fb61de7f",
+      "bytes": 62389
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_offroad_matte_visual.ent",
+      "sha256": "bfeb6b595f5997003049361d26f5f228f75b86031e6e0430de2652fb6e85c055",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_offroad_matte.mesh",
+      "sha256": "f7b0b46416769a20e4a51aefb1fdef56d93e1c6dce73f1d5591c3ace78d2647a",
+      "bytes": 62385
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_star_alu_visual.ent",
+      "sha256": "65ec5735a0564c75c9dc20c1fb76b44385fa2638e40e73ef8fdfad59719c02c6",
+      "bytes": 996
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_star_alu.mesh",
+      "sha256": "6f66b98cb09dc519170b1d20ac5bb2bcc624e77cd347cd4435b86278eec70847",
+      "bytes": 58674
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_star_black_chrome_visual.ent",
+      "sha256": "9b37878209f46925da61bff659c193650274c7d8800cec82eee34c58667c1f71",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_star_black_chrome.mesh",
+      "sha256": "5bc8b0667e0d357937db4c3649a7cf51ef1858792d0f191474b1cf19f97f3555",
+      "bytes": 58671
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_star_black_visual.ent",
+      "sha256": "a778e54f6e7e1d236c66ff35deddf46d881e64b242bcdef1ae29a4c0149fb788",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_star_black.mesh",
+      "sha256": "30f1d689a1620d7daea35d287e2eae7be7ad4866754287c7ea002dbcaf69d990",
+      "bytes": 58671
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_star_bronze_visual.ent",
+      "sha256": "eb7ae9b61f93b2134e5f9725791271daa5c889067989bfa510be42bf77faacda",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_star_bronze.mesh",
+      "sha256": "11b18214cc871a5dc80d2fad2a65813bba451383a1aa59fa75fd1de5e6951dac",
+      "bytes": 58679
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_star_chrome_visual.ent",
+      "sha256": "bb164b80ac4e19f986ad5c15bb850b444d0725fd0eb0c916ad05c15c0f30ccf6",
+      "bytes": 998
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_star_chrome.mesh",
+      "sha256": "45d6213136d074cb5bb7809f0d4c7e555ce79eba4d856d2e56f6d1e52862b4ff",
+      "bytes": 58674
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_star_gunmetal_visual.ent",
+      "sha256": "5cb791d45abff0eb15459decb746177f56144b223916447fbfef71404ab6ec09",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_star_gunmetal.mesh",
+      "sha256": "5c10c37d0f32e1a55c6f760ed1021f30d8072b4b01b7add4c334ebf259d0f0ad",
+      "bytes": 58781
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_steelie_alu_visual.ent",
+      "sha256": "3f369fcb761e3b0e4f2b8ac72fa0a7155cc851f351076898807469754190717b",
+      "bytes": 998
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_steelie_alu.mesh",
+      "sha256": "535ec112b0246195df130f424d1f8fb49fa5f82cbb99b1e988c488befe13f716",
+      "bytes": 54466
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_steelie_black_visual.ent",
+      "sha256": "7b7a3d13edde3e388517cac1f50b31b7ce84d1ccc4429b0765dd374d69ee6831",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_steelie_black.mesh",
+      "sha256": "54df24592a31b05f8928081466c96784a654751b0ccb11ce5f28c593c5ac0208",
+      "bytes": 54472
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_steelie_chrome_visual.ent",
+      "sha256": "6e6952c307ad47ca7a8a3472e05174a4901efe9884d026d32d11bb27a0204761",
+      "bytes": 998
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_steelie_chrome.mesh",
+      "sha256": "ad778a7cc042e405801028e681669f5169a6dd29e4fd045eea83c399c50b8d8b",
+      "bytes": 54475
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_steelie_matte_visual.ent",
+      "sha256": "68af6b21c34708b8980ec85a85b12aef6e2c8cbadabebe5b3e080c3b5a1629f6",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_steelie_matte.mesh",
+      "sha256": "7ef4e3f4ecb5cd973292900a285a7b3b7914f415ae25a2a4b1553ee598efed99",
+      "bytes": 54473
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_steelie_red_visual.ent",
+      "sha256": "fd7542043a3467cbe3f789053e2310b69add6d5db490b5eea92f435e4766758f",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_steelie_red.mesh",
+      "sha256": "0310b1096b57f1224c60727c87e7dc39a101828d7544ae1d83c2c0816118f644",
+      "bytes": 54475
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_steelie_white_visual.ent",
+      "sha256": "044be432773d6b96c17d4d78a69c7a304c952198bae278c460b8c602bdc5ed17",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_steelie_white.mesh",
+      "sha256": "e9fb6e149258e8d7b30639ff1964356b3d0bf2bcf825be4d56f32bece43281ab",
+      "bytes": 54466
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_tech_black_visual.ent",
+      "sha256": "d4dd514690a5e74c78a8f625f7ed113f9a7a021618ed195e2af2416ccfe33194",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_tech_black.mesh",
+      "sha256": "7c177149de892c5feb817b1955c2b8ffc4252c0ea9421e11f3fe0ca0ea03758b",
+      "bytes": 37384
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_tech_chrome_visual.ent",
+      "sha256": "c570064bb563d05afea80c55b5ab6cd88d0ba7c682659c922973572a8089f4f0",
+      "bytes": 998
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_tech_chrome.mesh",
+      "sha256": "3305fc7070825b49c4272832f1783d859f51df974834981dfb3b0ea658f25599",
+      "bytes": 37387
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_tech_gold_visual.ent",
+      "sha256": "d2d655196137206f18020cd918365c945f76e629602605cee305a451c024c7b9",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_tech_gold.mesh",
+      "sha256": "15d6c22005cfa9bfb4234cc4fc0464045983a79d52dc8c006f9cc1cd5551dd41",
+      "bytes": 37384
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_tech_gunmetal_visual.ent",
+      "sha256": "e90a8f990f4f59e645b4554a0ba8a5b37826450210da0f7fc83bea9f92643aae",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_tech_gunmetal.mesh",
+      "sha256": "be933a2b2f9c28db5ccf2e475711bb0f9171ce8e05d391edbbf126c0e7067cb5",
+      "bytes": 37495
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_tech_matte_visual.ent",
+      "sha256": "5ace3eb513c9e973e46733c7014f36e642fffbf03a22f668e0649c13ff388bba",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_tech_matte.mesh",
+      "sha256": "1650762568f7261f687f1655640a7ce6e2926ba014c7321054746596a288b33e",
+      "bytes": 37378
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_tech_white_visual.ent",
+      "sha256": "147938bc9c622fe3c9c9966ce5c3ca9e58a39ac859580f709ad2f9776e98477b",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_tech_white.mesh",
+      "sha256": "a090da9fc6f270a4d656f6cca0688c8130ad5dc06863eb042123b4c75b5dadb7",
+      "bytes": 37486
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_threepiece_black_chrome_visual.ent",
+      "sha256": "1f20d81e5df26daba7f9cbc718c07fffa81ff882135df5a403489a3f9f238fac",
+      "bytes": 1006
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_threepiece_black_chrome.mesh",
+      "sha256": "e9810ac4aed7d62c7456a41fde3b5bd2d318385d864a40fac5bb4cb128760d2f",
+      "bytes": 64967
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_threepiece_bronze_visual.ent",
+      "sha256": "72510c1e05bea265b352988b7cb9fe1041522ffd5b84da807c60b4c869e9dd63",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_threepiece_bronze.mesh",
+      "sha256": "0ed548a16cab5180f73744b090d5b4ea6dd190ea3fac4f76366ab4c3cd3a17c1",
+      "bytes": 64970
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_threepiece_chrome_visual.ent",
+      "sha256": "b1d70fe17d39fe558dbf87c1c99e0fc86d841d6d925a1561f097b2dfa301baf0",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_threepiece_chrome.mesh",
+      "sha256": "8fc3c67443cb6cde29e64d8bd6ca84bc42ff2579e6485f9309384e577221036d",
+      "bytes": 64971
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_threepiece_gold_visual.ent",
+      "sha256": "4581695ab8b31a7217e1d8ae8aa45877b907a57208cbafc8dc3a8385bb377f87",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_threepiece_gold.mesh",
+      "sha256": "8100edc1c2e45a93675a85116bbe6fcbe4b74122546934f87bb98efc14b22a09",
+      "bytes": 64960
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_threepiece_red_visual.ent",
+      "sha256": "ed6555438523fc1d8b5cb100508182112c87cf564614083cd6ea42fb580715ac",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_threepiece_red.mesh",
+      "sha256": "4bd58d6eb72335d792769e2c68bcda1af94c04d2b6bd585f40823e48fa570f1a",
+      "bytes": 64970
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_threepiece_white_visual.ent",
+      "sha256": "247ef8a290b0c87cc233dfa3dce8f4536ae04e41d081e0e3e61df606de464767",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_threepiece_white.mesh",
+      "sha256": "445ad8b28bbdd208dabc353e9dde56e3e750637741aadebef70a42a9c8ea6f94",
+      "bytes": 64961
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_turbofan_alu_visual.ent",
+      "sha256": "8f11d1592264649962ea73cacaacaac1f3ae4fbfbdd754dd58f2089ce75cf768",
+      "bytes": 998
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_turbofan_alu.mesh",
+      "sha256": "431e4f9dfb5c807250de3a31dbe5b8323aceac9a5093d4626fe05620351e35c3",
+      "bytes": 46064
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_turbofan_black_visual.ent",
+      "sha256": "c19f5cb8a2a0c9a7a54f7ba038965db8b3a3f827990274aca174bb5d3fcbf707",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_turbofan_black.mesh",
+      "sha256": "5b3e1df4e713e50ff863401afe732a15fa23f0e7fff003558807efde50c812bf",
+      "bytes": 46172
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_turbofan_chrome_visual.ent",
+      "sha256": "74f633a8c1a501f50051087504b1fb453e10e6f15d5cd548ad2d6a554ce42213",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_turbofan_chrome.mesh",
+      "sha256": "26284d78dcea0b8873993f0251b58eeb65fd55b239beba9558902d663f5e1e8d",
+      "bytes": 46064
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_turbofan_gunmetal_visual.ent",
+      "sha256": "3db88a2f3dc8d8ef0236a9f8c845a7a6b7375fbb6a2f8034192152c800dff1e9",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_turbofan_gunmetal.mesh",
+      "sha256": "ee13ed4ec26f8ee490b5b0bd2e5158a33a8d931e934bdd43bd65133c4efb3842",
+      "bytes": 46172
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_turbofan_red_visual.ent",
+      "sha256": "fc24f37430fcb5ed9d959cde1f55c06a71be0d68a706a23f3aeb7cc61320f874",
+      "bytes": 998
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_turbofan_red.mesh",
+      "sha256": "c88cf9b1c18dcb3241c904d692960222962ccc34a904ec19ed3c60042198d88e",
+      "bytes": 46166
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_turbofan_white_visual.ent",
+      "sha256": "d1c5762487bd67831d1e8f4bbb792288a8d1bd7e92a10b5ef1ebf52433660ab3",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_turbofan_white.mesh",
+      "sha256": "a6b04c73cc6949ee244656afdccd3c658381dc04e6b64efc971464c7aa7c5dc7",
+      "bytes": 46164
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_twin_alu_visual.ent",
+      "sha256": "5867c6b9d5ae57ec5a3cafb351850f23dfba3aaddc5d8e411ff4739f835c37f7",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_twin_alu.mesh",
+      "sha256": "a1bf24533fd51a04ad99e093f7949729c8467fcf94bfb8f6511f5f0dce2a981f",
+      "bytes": 74606
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_twin_black_visual.ent",
+      "sha256": "d456785f4a26c3f85316cbe91e9b563702c6e9a4c129df7190cc1d06f6c87adb",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_twin_black.mesh",
+      "sha256": "904a853e6a6a93310153137b3620c6d1bdd1c0b7f893c20e233daae946c70198",
+      "bytes": 74603
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_twin_chrome_visual.ent",
+      "sha256": "32350b9ee492f30b00988208caceb651ec6999868b567c02c1e8be9a3fd0a0da",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_twin_chrome.mesh",
+      "sha256": "f9d75c6442e115d5013ffdd15c39f81126288208ef03d77e9a2f26258ba9bab2",
+      "bytes": 74606
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_twin_gold_visual.ent",
+      "sha256": "d2aaf054c7de0fd0328d3fe3ba6b712b3cb577a66eca8a412159a4538d22fbaf",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_twin_gold.mesh",
+      "sha256": "06b582c5f7b210b62aa7e0dc633c61bcb88066e2fcd4fdc9eeba48ecd38cb8f2",
+      "bytes": 74703
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_twin_gunmetal_visual.ent",
+      "sha256": "f344e28a3056f4229e637cb4fac5d802f83c5469ab55975d4791746532976d63",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_twin_gunmetal.mesh",
+      "sha256": "002103a8d9a57f029aa7ada020c46fad326491ec5ce10067ce137165d4d20156",
+      "bytes": 74713
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_twin_white_visual.ent",
+      "sha256": "d493116657d5b5000ee0a4455de2c2d64dccd309f334f1785338a1afbf662070",
+      "bytes": 998
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_twin_white.mesh",
+      "sha256": "ba2d57ca7e09e5f7a6ce26b66a21c169d2daa70ada648bcd73d40ea0e6aeb551",
+      "bytes": 74597
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_vortex_black_visual.ent",
+      "sha256": "95612686f9adc05d76f3a4dd28a14125607979099a6bf6544611b8278733e356",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_vortex_black.mesh",
+      "sha256": "3b724d285a78c13c46f21fa0b4e003932ca36cdfc1ca9de93381c0e55549c37f",
+      "bytes": 73337
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_vortex_chrome_visual.ent",
+      "sha256": "adff7e1e17c618b6ddc145ffd685dd11fe99c69717e6ad2b26e83939135e7b34",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_vortex_chrome.mesh",
+      "sha256": "248d74611ded42e7c6cb2752fe49f5016169cd16006c2a0cebd1adf6a333d2bb",
+      "bytes": 73340
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_vortex_gold_visual.ent",
+      "sha256": "a6524e6109db832e89a15ee720239d929e52448e9ba1d8c90ceea17bc8a75fc7",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_vortex_gold.mesh",
+      "sha256": "217d8d709471baa7af0168795ccdd0b3327aa65fbc700a8a4506576f16ff9c8f",
+      "bytes": 73337
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_vortex_gunmetal_visual.ent",
+      "sha256": "fe2426dfb97ce7398b0e34d3b0d8cf0cda8d8f57f9fa1826eb7b0fa93ce28df9",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_vortex_gunmetal.mesh",
+      "sha256": "445b3ffd9b8538cd4a4bbf07c2298068a44b0a54c3f509fe2a161dff426c85a4",
+      "bytes": 73447
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_vortex_matte_visual.ent",
+      "sha256": "4d8cfa9ac5e28cc352f6ed80915880584e2fa91e88cd619aa1e7c75adfa62d21",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_vortex_matte.mesh",
+      "sha256": "6908fe21296ad91cc3bc35a28148c6859d870a8ed8ad663353609476b0b4b495",
+      "bytes": 73338
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_vortex_red_visual.ent",
+      "sha256": "fd68117018852063379a62c1c98817b0ce95e68d27e9f0e6dc3df6fe169767e5",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_vortex_red.mesh",
+      "sha256": "ddc9fdbb0d87c5e3bd34c06026f980f78026032c25cd8771759b8590605e16f4",
+      "bytes": 73340
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_wire_black_visual.ent",
+      "sha256": "98d469b86d38a613d4b4e23542cf96e271b10410ef83cdcd60f11046d75b2ea6",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_wire_black.mesh",
+      "sha256": "0f181134230c4ee5039f7aedfcb64a8b0f7522c7568bf5ccb4f695e437c6f02d",
+      "bytes": 39239
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_wire_chrome_visual.ent",
+      "sha256": "f7ea3aaf87029ab310a1032ec702f4a66c1dbc2e2bfc00c263f168cd2cadfe08",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_wire_chrome.mesh",
+      "sha256": "6ebaca815f5b59e6fd389825b0ada6674c1cbc7c61bd78cc528411634dbdb5ff",
+      "bytes": 39101
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_wire_gold_visual.ent",
+      "sha256": "57a65c233872e6b006cfe805627449ca29bfd6121147d914bb8d92275a78815d",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_wire_gold.mesh",
+      "sha256": "82524fc96a9f00ca34189e8633d335c7fd924334a112feadb0c38303f27eaa5b",
+      "bytes": 39232
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_wire_gunmetal_visual.ent",
+      "sha256": "0e59f61232a0a033012938a30b4a78ace07eb80098641390aa1e36c5775b6e76",
+      "bytes": 1000
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_wire_gunmetal.mesh",
+      "sha256": "4ac6c1b8e11510943d38fed88b70632d4fd038ca7241e3cc60365decfddd2e8a",
+      "bytes": 39241
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_wire_red_visual.ent",
+      "sha256": "e7e2ed0b221805a918cafb2f8025d5a60edaa7c61a9d531a895815e85598e74f",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_wire_red.mesh",
+      "sha256": "d11f02c52df19902a7b9bc07f321d1e4824ae7fb9123c4fb41f395e85aacc7a8",
+      "bytes": 39242
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_wire_white_visual.ent",
+      "sha256": "a359e056d5e810108a1e441f9fb3ef210396f555c79d40fc65cf715ce5f703be",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_wire_white.mesh",
+      "sha256": "e0722f484c66686e56c2266880b092ce677517c97816f4d31a12f77e0b9add5a",
+      "bytes": 39233
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_yspoke_alu_visual.ent",
+      "sha256": "c79a0411659b923017dbc871a49d59fa09ebcb564242dfb63d79cc77c64a7a88",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_yspoke_alu.mesh",
+      "sha256": "54b7c555e1273cadf8ab02f1504d3569513df184c7df72c6c0aaffdf2d95f8f8",
+      "bytes": 65842
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_yspoke_black_chrome_visual.ent",
+      "sha256": "71a2648528e068dd7a3730a3683f9e397addbc4c4573794a8f36e1b1c3980874",
+      "bytes": 1002
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_yspoke_black_chrome.mesh",
+      "sha256": "9700fd0d42864c3d13c5cfe670adf155ba2ff47d09ecce745299b261bead08f7",
+      "bytes": 65839
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_yspoke_black_visual.ent",
+      "sha256": "73941d46c5d655fbd47a1e61d67a259dd866192be6a7bf9407b5228f2180444f",
+      "bytes": 999
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_yspoke_black.mesh",
+      "sha256": "756812fc2dcb006749de624f10dcfd17414ebc1258a4b46eb56b72fb467eda04",
+      "bytes": 65839
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_yspoke_bronze_visual.ent",
+      "sha256": "d598307e74aad329744de342c0b9ebb210a3d73f54c81bc831e1714e7641e120",
+      "bytes": 1001
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_yspoke_bronze.mesh",
+      "sha256": "490ded905aaaad74dc23eba63be7af64d35f50ae55c7027b7a7750d052227267",
+      "bytes": 65949
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_yspoke_chrome_visual.ent",
+      "sha256": "9851b6124c64a809697c7545f051cf608bea06faa362991604910c359e87b863",
+      "bytes": 1002
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_yspoke_chrome.mesh",
+      "sha256": "fc7b438dda92d72f956c929996c87bec11fc52db142415596bfa7e70d6ead957",
+      "bytes": 65842
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_yspoke_matte_visual.ent",
+      "sha256": "1a203ee2e9627b474ff9d2ca45ef6cd107cc3e7783b702c369dbd6c1470464af",
+      "bytes": 997
+    },
+    {
+      "path": "open77/assets/lightrp_vk_rims/f721d6538465/rim_yspoke_matte.mesh",
+      "sha256": "69b02a073e879ce24095eeb7251a352c8ccbc4b4593fffea74506cf79148f050",
+      "bytes": 65840
+    }
+  ],
+  "archive": {
+    "name": "LightRPVehicleKitRims.archive",
+    "sha256": "f7fa04403a0a9b648247b58e3591f791075d064d817eb0f968a688cb138dc684",
+    "bytes": 5521408
+  },
+  "zip": {
+    "name": "LightRPVehicleKitRims_f721d6538465.zip",
+    "sha256": "4d0ffef3a6d445fbb938bc1302f590a23a80648dbefb283462c589e6af50c2ff",
+    "bytes": 5367672,
+    "entries": [
+      "archive/pc/mod/LightRPVehicleKitRims.archive"
+    ]
+  }
+}

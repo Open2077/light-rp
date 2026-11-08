@@ -1,0 +1,1270 @@
+{
+ "schema": "open77.vehicle-stickers.catalogue/1",
+ "revision": "d8ade1ca81c2",
+ "depotPrefix": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2",
+ "note": "registerStickers rows (contract: id, label, group, model, decals) plus, per sticker, its holder record and its decals: route A needs component + decal (.ent depot path), route B the decal records.",
+ "maxDecalsPerCar": 12,
+ "maxDecalsPerSticker": 6,
+ "stickers": [
+  {
+   "id": "st.maimai.racing_01",
+   "label": "Racing 1",
+   "group": "Racing",
+   "model": "Vehicle.v_standard2_makigai_maimai_player",
+   "decals": 5,
+   "record": "Vehicle.o77_sticker_st_maimai_racing_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_maimai_7c32044e",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\maimai\\7c32044e.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_maimai_df843fe4",
+     "component": "bumper_f_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\maimai\\df843fe4.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_maimai_8ff09ca0",
+     "component": "hood_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\maimai\\8ff09ca0.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_maimai_9ba12bca",
+     "component": "bumper_b_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\maimai\\9ba12bca.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_maimai_3d46d5ca",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\maimai\\3d46d5ca.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.galena.maelstrom_01a",
+   "label": "Maelstrom 1: body + left",
+   "group": "Maelstrom",
+   "model": "Vehicle.v_standard2_thorton_galena_player",
+   "decals": 4,
+   "record": "Vehicle.o77_sticker_st_galena_maelstrom_01a",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_galena_04f3bc8c",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\04f3bc8c.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_9f9799ff",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\9f9799ff.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_8f94ffac",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\8f94ffac.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_d62a2ad1",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\d62a2ad1.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.galena.maelstrom_01b",
+   "label": "Maelstrom 1: right + rear",
+   "group": "Maelstrom",
+   "model": "Vehicle.v_standard2_thorton_galena_player",
+   "decals": 5,
+   "record": "Vehicle.o77_sticker_st_galena_maelstrom_01b",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_galena_ebe4281e",
+     "component": "door_br_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\ebe4281e.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_81344f41",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\81344f41.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_f09f14f3",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\f09f14f3.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_8be3465f",
+     "component": "fuel_cap",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\8be3465f.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_c24a4aec",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\c24a4aec.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.galena.street_01",
+   "label": "Street 1",
+   "group": "Street",
+   "model": "Vehicle.v_standard2_thorton_galena_player",
+   "decals": 3,
+   "record": "Vehicle.o77_sticker_st_galena_street_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_galena_68e8f8b2",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\68e8f8b2.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_7d6b16a8",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\7d6b16a8.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_1e65ea5a",
+     "component": "door_br_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\1e65ea5a.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.galena.maelstrom_02a",
+   "label": "Maelstrom 2: body + left",
+   "group": "Maelstrom",
+   "model": "Vehicle.v_standard2_thorton_galena_player",
+   "decals": 4,
+   "record": "Vehicle.o77_sticker_st_galena_maelstrom_02a",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_galena_04f3bc8c",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\04f3bc8c.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_9f9799ff",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\9f9799ff.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_eb9b255b",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\eb9b255b.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_df49eac3",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\df49eac3.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.galena.maelstrom_02b",
+   "label": "Maelstrom 2: right + rear",
+   "group": "Maelstrom",
+   "model": "Vehicle.v_standard2_thorton_galena_player",
+   "decals": 5,
+   "record": "Vehicle.o77_sticker_st_galena_maelstrom_02b",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_galena_4782952f",
+     "component": "door_br_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\4782952f.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_81344f41",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\81344f41.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_f09f14f3",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\f09f14f3.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_8be3465f",
+     "component": "fuel_cap",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\8be3465f.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_48cf94b8",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\48cf94b8.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.galena.street_02",
+   "label": "Street 2",
+   "group": "Street",
+   "model": "Vehicle.v_standard2_thorton_galena_player",
+   "decals": 4,
+   "record": "Vehicle.o77_sticker_st_galena_street_02",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_galena_3c29d649",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\3c29d649.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_6c5bc6a1",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\6c5bc6a1.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_49d5e43d",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\49d5e43d.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_galena_8686384a",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\galena\\8686384a.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.apollo.street_01",
+   "label": "Street 1",
+   "group": "Street",
+   "model": "Vehicle.v_sportbike3_brennan_apollo_player",
+   "decals": 1,
+   "record": "Vehicle.o77_sticker_st_apollo_street_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_apollo_cf853dbc",
+     "component": "v_sportbike3_brennan_apollo__ext01_body_a_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\apollo\\cf853dbc.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.apollo.aldecaldos_01",
+   "label": "Aldecaldos 1",
+   "group": "Aldecaldos",
+   "model": "Vehicle.v_sportbike3_brennan_apollo_player",
+   "decals": 1,
+   "record": "Vehicle.o77_sticker_st_apollo_aldecaldos_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_apollo_8cd11d8d",
+     "component": "v_sportbike3_brennan_apollo__ext01_body_a_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\apollo\\8cd11d8d.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.apollo.street_02",
+   "label": "Street 2",
+   "group": "Street",
+   "model": "Vehicle.v_sportbike3_brennan_apollo_player",
+   "decals": 1,
+   "record": "Vehicle.o77_sticker_st_apollo_street_02",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_apollo_b262eeb8",
+     "component": "v_sportbike3_brennan_apollo__ext01_body_a_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\apollo\\b262eeb8.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.apollo.street_03",
+   "label": "Street 3",
+   "group": "Street",
+   "model": "Vehicle.v_sportbike3_brennan_apollo_player",
+   "decals": 1,
+   "record": "Vehicle.o77_sticker_st_apollo_street_03",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_apollo_3b859947",
+     "component": "v_sportbike3_brennan_apollo__ext01_body_a_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\apollo\\3b859947.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.apollo.aldecaldos_02",
+   "label": "Aldecaldos 2",
+   "group": "Aldecaldos",
+   "model": "Vehicle.v_sportbike3_brennan_apollo_player",
+   "decals": 2,
+   "record": "Vehicle.o77_sticker_st_apollo_aldecaldos_02",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_apollo_7c44d221",
+     "component": "v_sportbike3_brennan_apollo__ext01_body_a_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\apollo\\7c44d221.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_apollo_aea030d3",
+     "component": "v_sportbike3_brennan_apollo__ext01_body_a_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\apollo\\aea030d3.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.hella.6th_street_01",
+   "label": "6th Street 1",
+   "group": "6th Street",
+   "model": "Vehicle.v_standard2_archer_hella_player",
+   "decals": 5,
+   "record": "Vehicle.o77_sticker_st_hella_6th_street_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_hella_372dae7b",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\hella\\372dae7b.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_hella_6f2a8667",
+     "component": "hood_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\hella\\6f2a8667.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_hella_e25aa37b",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\hella\\e25aa37b.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_hella_22d69dc0",
+     "component": "door_br_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\hella\\22d69dc0.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_hella_776d955b",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\hella\\776d955b.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.colby.street_01",
+   "label": "Street 1",
+   "group": "Street",
+   "model": "Vehicle.v_standard2_thorton_colby_player",
+   "decals": 1,
+   "record": "Vehicle.o77_sticker_st_colby_street_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_colby_c027e3a9",
+     "component": "bumper_b_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\colby\\c027e3a9.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.colby.valentinos_01a",
+   "label": "Valentinos 1: body + front + left",
+   "group": "Valentinos",
+   "model": "Vehicle.v_standard2_thorton_colby_player",
+   "decals": 5,
+   "record": "Vehicle.o77_sticker_st_colby_valentinos_01a",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_colby_051d52fa",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\colby\\051d52fa.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_colby_e860d39b",
+     "component": "hood_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\colby\\e860d39b.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_colby_116dc29d",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\colby\\116dc29d.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_colby_4ada9c63",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\colby\\4ada9c63.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_colby_6b978645",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\colby\\6b978645.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.colby.valentinos_01b",
+   "label": "Valentinos 1: right + rear",
+   "group": "Valentinos",
+   "model": "Vehicle.v_standard2_thorton_colby_player",
+   "decals": 5,
+   "record": "Vehicle.o77_sticker_st_colby_valentinos_01b",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_colby_292c9522",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\colby\\292c9522.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_colby_5f4099b5",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\colby\\5f4099b5.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_colby_dedbf6eb",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\colby\\dedbf6eb.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_colby_f0c7735f",
+     "component": "bumper_b_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\colby\\f0c7735f.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_colby_2302262b",
+     "component": "fuel_cap",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\colby\\2302262b.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.quartz.tyger_claws_01",
+   "label": "Tyger Claws 1",
+   "group": "Tyger Claws",
+   "model": "Vehicle.v_standard2_archer_quartz_player",
+   "decals": 1,
+   "record": "Vehicle.o77_sticker_st_quartz_tyger_claws_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_quartz_cec40b6a",
+     "component": "body_03",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\quartz\\cec40b6a.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.quartz.tyger_claws_02",
+   "label": "Tyger Claws 2",
+   "group": "Tyger Claws",
+   "model": "Vehicle.v_standard2_archer_quartz_player",
+   "decals": 3,
+   "record": "Vehicle.o77_sticker_st_quartz_tyger_claws_02",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_quartz_af232538",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\quartz\\af232538.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_quartz_cec40b6a",
+     "component": "body_03",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\quartz\\cec40b6a.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_quartz_f841f7ab",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\quartz\\f841f7ab.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.quartz.tyger_claws_03",
+   "label": "Tyger Claws 3",
+   "group": "Tyger Claws",
+   "model": "Vehicle.v_standard2_archer_quartz_player",
+   "decals": 3,
+   "record": "Vehicle.o77_sticker_st_quartz_tyger_claws_03",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_quartz_1744aba9",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\quartz\\1744aba9.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_quartz_a5539ad4",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\quartz\\a5539ad4.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_quartz_cec40b6a",
+     "component": "body_03",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\quartz\\cec40b6a.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.supron.aldecaldos_01",
+   "label": "Aldecaldos 1",
+   "group": "Aldecaldos",
+   "model": "Vehicle.v_standard25_mahir_supron_player",
+   "decals": 3,
+   "record": "Vehicle.o77_sticker_st_supron_aldecaldos_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_supron_914129ef",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\supron\\914129ef.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_supron_cb1df091",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\supron\\cb1df091.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_supron_bc8c3c76",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\supron\\bc8c3c76.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.supron.street_01a",
+   "label": "Street 1: body + front + left + right",
+   "group": "Street",
+   "model": "Vehicle.v_standard25_mahir_supron_player",
+   "decals": 6,
+   "record": "Vehicle.o77_sticker_st_supron_street_01a",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_supron_208284ad",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\supron\\208284ad.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_supron_fdfe04fa",
+     "component": "bumper_f_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\supron\\fdfe04fa.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_supron_558a216a",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\supron\\558a216a.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_supron_506a841c",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\supron\\506a841c.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_supron_772e250a",
+     "component": "door_br_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\supron\\772e250a.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_supron_5d4aab3d",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\supron\\5d4aab3d.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.supron.street_01b",
+   "label": "Street 1: rear",
+   "group": "Street",
+   "model": "Vehicle.v_standard25_mahir_supron_player",
+   "decals": 2,
+   "record": "Vehicle.o77_sticker_st_supron_street_01b",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_supron_f0c2f235",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\supron\\f0c2f235.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_supron_fee0dd0e",
+     "component": "trunk_b",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\supron\\fee0dd0e.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.columbus.6th_street_01",
+   "label": "6th Street 1",
+   "group": "6th Street",
+   "model": "Vehicle.v_standard25_villefort_columbus_player",
+   "decals": 5,
+   "record": "Vehicle.o77_sticker_st_columbus_6th_street_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_columbus_4bae604a",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\4bae604a.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_92e5a746",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\92e5a746.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_77e0be7f",
+     "component": "door_br_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\77e0be7f.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_4d376a52",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\4d376a52.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_002ea8c8",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\002ea8c8.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.columbus.aldecaldos_01",
+   "label": "Aldecaldos 1",
+   "group": "Aldecaldos",
+   "model": "Vehicle.v_standard25_villefort_columbus_player",
+   "decals": 3,
+   "record": "Vehicle.o77_sticker_st_columbus_aldecaldos_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_columbus_f22c6488",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\f22c6488.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_0fe75c7d",
+     "component": "door_br_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\0fe75c7d.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_e52f3413",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\e52f3413.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.columbus.street_01",
+   "label": "Street 1",
+   "group": "Street",
+   "model": "Vehicle.v_standard25_villefort_columbus_player",
+   "decals": 2,
+   "record": "Vehicle.o77_sticker_st_columbus_street_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_columbus_2c6fd6e0",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\2c6fd6e0.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_d6a2f882",
+     "component": "door_br_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\d6a2f882.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.columbus.street_02",
+   "label": "Street 2",
+   "group": "Street",
+   "model": "Vehicle.v_standard25_villefort_columbus_player",
+   "decals": 4,
+   "record": "Vehicle.o77_sticker_st_columbus_street_02",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_columbus_6e853bb2",
+     "component": "hood_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\6e853bb2.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_ae0424bc",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\ae0424bc.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_04880fcf",
+     "component": "door_br_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\04880fcf.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_d2655d01",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\d2655d01.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.columbus.street_03",
+   "label": "Street 3",
+   "group": "Street",
+   "model": "Vehicle.v_standard25_villefort_columbus_player",
+   "decals": 5,
+   "record": "Vehicle.o77_sticker_st_columbus_street_03",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_columbus_e9468df7",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\e9468df7.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_a166773b",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\a166773b.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_09621172",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\09621172.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_cf407216",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\cf407216.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_a8db0927",
+     "component": "trunk_b",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\a8db0927.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.columbus.street_04",
+   "label": "Street 4",
+   "group": "Street",
+   "model": "Vehicle.v_standard25_villefort_columbus_player",
+   "decals": 5,
+   "record": "Vehicle.o77_sticker_st_columbus_street_04",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_columbus_a58e5201",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\a58e5201.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_2a1dadec",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\2a1dadec.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_42e65d5d",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\42e65d5d.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_e6732654",
+     "component": "door_br_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\e6732654.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_67db242a",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\67db242a.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.columbus.tyger_claws_01",
+   "label": "Tyger Claws 1",
+   "group": "Tyger Claws",
+   "model": "Vehicle.v_standard25_villefort_columbus_player",
+   "decals": 2,
+   "record": "Vehicle.o77_sticker_st_columbus_tyger_claws_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_columbus_20c080c8",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\20c080c8.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_columbus_911f501e",
+     "component": "trunk_b",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\columbus\\911f501e.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.cortes.aldecaldos_01a",
+   "label": "Aldecaldos 1: body + front",
+   "group": "Aldecaldos",
+   "model": "Vehicle.v_standard2_villefort_cortes_player",
+   "decals": 5,
+   "record": "Vehicle.o77_sticker_st_cortes_aldecaldos_01a",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_cortes_3e438fc0",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\cortes\\3e438fc0.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_cortes_c0b48c2e",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\cortes\\c0b48c2e.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_cortes_dddb2ff9",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\cortes\\dddb2ff9.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_cortes_220bbdfb",
+     "component": "hood_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\cortes\\220bbdfb.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_cortes_ea13187c",
+     "component": "hood_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\cortes\\ea13187c.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.cortes.aldecaldos_01b",
+   "label": "Aldecaldos 1: left",
+   "group": "Aldecaldos",
+   "model": "Vehicle.v_standard2_villefort_cortes_player",
+   "decals": 4,
+   "record": "Vehicle.o77_sticker_st_cortes_aldecaldos_01b",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_cortes_91ea9fc8",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\cortes\\91ea9fc8.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_cortes_93d2ecea",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\cortes\\93d2ecea.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_cortes_a0756d92",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\cortes\\a0756d92.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_cortes_c3ed61f9",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\cortes\\c3ed61f9.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.cortes.aldecaldos_01c",
+   "label": "Aldecaldos 1: right + rear",
+   "group": "Aldecaldos",
+   "model": "Vehicle.v_standard2_villefort_cortes_player",
+   "decals": 4,
+   "record": "Vehicle.o77_sticker_st_cortes_aldecaldos_01c",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_cortes_86c1acb9",
+     "component": "door_br_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\cortes\\86c1acb9.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_cortes_2d6ae4ad",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\cortes\\2d6ae4ad.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_cortes_3dcb7ca8",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\cortes\\3dcb7ca8.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_cortes_86cbed1a",
+     "component": "fuel_cap",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\cortes\\86cbed1a.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.thrax.6th_street_01",
+   "label": "6th Street 1",
+   "group": "6th Street",
+   "model": "Vehicle.v_standard2_chevalier_thrax_player",
+   "decals": 4,
+   "record": "Vehicle.o77_sticker_st_thrax_6th_street_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_thrax_e203e8f7",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\e203e8f7.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_85eff81b",
+     "component": "hood_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\85eff81b.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_5b3840cd",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\5b3840cd.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_d3bf909e",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\d3bf909e.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.thrax.racing_01",
+   "label": "Racing 1",
+   "group": "Racing",
+   "model": "Vehicle.v_standard2_chevalier_thrax_player",
+   "decals": 4,
+   "record": "Vehicle.o77_sticker_st_thrax_racing_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_thrax_e203e8f7",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\e203e8f7.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_85eff81b",
+     "component": "hood_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\85eff81b.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_5b3840cd",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\5b3840cd.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_1ea796a8",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\1ea796a8.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.thrax.maelstrom_01a",
+   "label": "Maelstrom 1: body + front + left + right",
+   "group": "Maelstrom",
+   "model": "Vehicle.v_standard2_chevalier_thrax_player",
+   "decals": 6,
+   "record": "Vehicle.o77_sticker_st_thrax_maelstrom_01a",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_thrax_df6b84dd",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\df6b84dd.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_82f39a98",
+     "component": "hood_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\82f39a98.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_9a90b751",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\9a90b751.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_e240294e",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\e240294e.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_12224d66",
+     "component": "door_br_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\12224d66.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_6a6e284d",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\6a6e284d.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.thrax.maelstrom_01b",
+   "label": "Maelstrom 1: rear",
+   "group": "Maelstrom",
+   "model": "Vehicle.v_standard2_chevalier_thrax_player",
+   "decals": 1,
+   "record": "Vehicle.o77_sticker_st_thrax_maelstrom_01b",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_thrax_a3b431e2",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\a3b431e2.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.thrax.valentinos_01",
+   "label": "Valentinos 1",
+   "group": "Valentinos",
+   "model": "Vehicle.v_standard2_chevalier_thrax_player",
+   "decals": 6,
+   "record": "Vehicle.o77_sticker_st_thrax_valentinos_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_thrax_2c1ebaac",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\2c1ebaac.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_e8997370",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\e8997370.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_dca5e210",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\dca5e210.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_21a669c2",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\21a669c2.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_32d226bc",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\32d226bc.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_7efc10dd",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\7efc10dd.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.thrax.valentinos_02a",
+   "label": "Valentinos 2: body + front + left",
+   "group": "Valentinos",
+   "model": "Vehicle.v_standard2_chevalier_thrax_player",
+   "decals": 5,
+   "record": "Vehicle.o77_sticker_st_thrax_valentinos_02a",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_thrax_14474613",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\14474613.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_8ce5c8e5",
+     "component": "body_01",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\8ce5c8e5.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_b9780f65",
+     "component": "hood_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\b9780f65.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_e8997370",
+     "component": "door_bl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\e8997370.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_dca5e210",
+     "component": "door_fl_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\dca5e210.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.thrax.valentinos_02b",
+   "label": "Valentinos 2: right + rear",
+   "group": "Valentinos",
+   "model": "Vehicle.v_standard2_chevalier_thrax_player",
+   "decals": 4,
+   "record": "Vehicle.o77_sticker_st_thrax_valentinos_02b",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_thrax_8c149480",
+     "component": "door_br_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\8c149480.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_00cb2eba",
+     "component": "door_fr_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\00cb2eba.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_5b30f61a",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\5b30f61a.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_thrax_c47ade46",
+     "component": "trunk_a",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\thrax\\c47ade46.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.kusanagi.street_01",
+   "label": "Street 1",
+   "group": "Street",
+   "model": "Vehicle.v_sportbike1_yaiba_kusanagi_player",
+   "decals": 2,
+   "record": "Vehicle.o77_sticker_st_kusanagi_street_01",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_kusanagi_6c55159d",
+     "component": "v_sportbike1_yaiba_kusanagi__ext01_body_011080",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\kusanagi\\6c55159d.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_kusanagi_cfa5bdd6",
+     "component": "v_sportbike1_yaiba_kusanagi__ext01_body_011080",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\kusanagi\\cfa5bdd6.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.kusanagi.street_02",
+   "label": "Street 2",
+   "group": "Street",
+   "model": "Vehicle.v_sportbike1_yaiba_kusanagi_player",
+   "decals": 2,
+   "record": "Vehicle.o77_sticker_st_kusanagi_street_02",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_kusanagi_3093c46b",
+     "component": "v_sportbike1_yaiba_kusanagi__ext01_body_011080",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\kusanagi\\3093c46b.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_kusanagi_551aa788",
+     "component": "v_sportbike1_yaiba_kusanagi__ext01_body_011080",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\kusanagi\\551aa788.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.kusanagi.street_03",
+   "label": "Street 3",
+   "group": "Street",
+   "model": "Vehicle.v_sportbike1_yaiba_kusanagi_player",
+   "decals": 2,
+   "record": "Vehicle.o77_sticker_st_kusanagi_street_03",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_kusanagi_1dcf9228",
+     "component": "v_sportbike1_yaiba_kusanagi__ext01_body_011080",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\kusanagi\\1dcf9228.ent"
+    },
+    {
+     "record": "Vehicle.o77_st_kusanagi_3093c46b",
+     "component": "v_sportbike1_yaiba_kusanagi__ext01_body_011080",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\kusanagi\\3093c46b.ent"
+    }
+   ]
+  },
+  {
+   "id": "st.kusanagi.street_04",
+   "label": "Street 4",
+   "group": "Street",
+   "model": "Vehicle.v_sportbike1_yaiba_kusanagi_player",
+   "decals": 1,
+   "record": "Vehicle.o77_sticker_st_kusanagi_street_04",
+   "parts": [
+    {
+     "record": "Vehicle.o77_st_kusanagi_daeb0487",
+     "component": "v_sportbike1_yaiba_kusanagi__ext01_body_011080",
+     "decal": "open77\\assets\\lightrp_vehicle_stickers\\d8ade1ca81c2\\decals\\kusanagi\\daeb0487.ent"
+    }
+   ]
+  }
+ ],
+ "models": {
+  "Vehicle.v_standard2_makigai_maimai_player": {
+   "key": "maimai",
+   "stickers": [
+    "st.maimai.racing_01"
+   ]
+  },
+  "Vehicle.v_standard2_thorton_galena_player": {
+   "key": "galena",
+   "stickers": [
+    "st.galena.maelstrom_01a",
+    "st.galena.maelstrom_01b",
+    "st.galena.street_01",
+    "st.galena.maelstrom_02a",
+    "st.galena.maelstrom_02b",
+    "st.galena.street_02"
+   ]
+  },
+  "Vehicle.v_sportbike3_brennan_apollo_player": {
+   "key": "apollo",
+   "stickers": [
+    "st.apollo.street_01",
+    "st.apollo.aldecaldos_01",
+    "st.apollo.street_02",
+    "st.apollo.street_03",
+    "st.apollo.aldecaldos_02"
+   ]
+  },
+  "Vehicle.v_standard2_archer_hella_player": {
+   "key": "hella",
+   "stickers": [
+    "st.hella.6th_street_01"
+   ]
+  },
+  "Vehicle.v_standard2_thorton_colby_player": {
+   "key": "colby",
+   "stickers": [
+    "st.colby.street_01",
+    "st.colby.valentinos_01a",
+    "st.colby.valentinos_01b"
+   ]
+  },
+  "Vehicle.v_standard2_archer_quartz_player": {
+   "key": "quartz",
+   "stickers": [
+    "st.quartz.tyger_claws_01",
+    "st.quartz.tyger_claws_02",
+    "st.quartz.tyger_claws_03"
+   ]
+  },
+  "Vehicle.v_standard25_mahir_supron_player": {
+   "key": "supron",
+   "stickers": [
+    "st.supron.aldecaldos_01",
+    "st.supron.street_01a",
+    "st.supron.street_01b"
+   ]
+  },
+  "Vehicle.v_standard25_villefort_columbus_player": {
+   "key": "columbus",
+   "stickers": [
+    "st.columbus.6th_street_01",
+    "st.columbus.aldecaldos_01",
+    "st.columbus.street_01",
+    "st.columbus.street_02",
+    "st.columbus.street_03",
+    "st.columbus.street_04",
+    "st.columbus.tyger_claws_01"
+   ]
+  },
+  "Vehicle.v_standard2_villefort_cortes_player": {
+   "key": "cortes",
+   "stickers": [
+    "st.cortes.aldecaldos_01a",
+    "st.cortes.aldecaldos_01b",
+    "st.cortes.aldecaldos_01c"
+   ]
+  },
+  "Vehicle.v_standard2_chevalier_thrax_player": {
+   "key": "thrax",
+   "stickers": [
+    "st.thrax.6th_street_01",
+    "st.thrax.racing_01",
+    "st.thrax.maelstrom_01a",
+    "st.thrax.maelstrom_01b",
+    "st.thrax.valentinos_01",
+    "st.thrax.valentinos_02a",
+    "st.thrax.valentinos_02b"
+   ]
+  },
+  "Vehicle.v_sportbike1_yaiba_kusanagi_player": {
+   "key": "kusanagi",
+   "stickers": [
+    "st.kusanagi.street_01",
+    "st.kusanagi.street_02",
+    "st.kusanagi.street_03",
+    "st.kusanagi.street_04"
+   ]
+  }
+ }
+}
