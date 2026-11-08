@@ -1,0 +1,4469 @@
+{
+ "schema": "open77.vehicle-liveries.profiles/1",
+ "revision": "062aaf1f63a2",
+ "note": "Rows in the shape of the server catalogue column `profiles` (vehicle-customization-2.50.tsv); the server must learn them before setPaintProfile accepts them (docs/liveries.md).",
+ "records": {
+  "Vehicle.v_standard2_archer_hella_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_hella",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_hella",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_hella",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_hella",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_hella",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_hella",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_hella",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_hella",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_hella",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_hella",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_hella",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_hella",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard2_thorton_galena_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_galena",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_galena",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_galena",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_galena",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_galena",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_galena",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_galena",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_galena",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_galena",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_galena",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_galena",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_galena",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard2_thorton_colby_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_colby",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_colby",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_colby",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_colby",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_colby",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_colby",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_colby",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_colby",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_colby",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_colby",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_colby",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_colby",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard2_archer_quartz_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_quartz",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_quartz",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_quartz",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_quartz",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_quartz",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_quartz",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_quartz",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_quartz",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_quartz",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_quartz",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_quartz",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_quartz",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard2_mizutani_hozuki_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_hozuki",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_hozuki",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_hozuki",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_hozuki",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_hozuki",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_hozuki",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_hozuki",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_hozuki",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_hozuki",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_hozuki",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_hozuki",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_hozuki",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard25_mahir_supron_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_supron",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_supron",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_supron",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_supron",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_supron",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_supron",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_supron",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_supron",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_supron",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_supron",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_supron",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_supron",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard25_villefort_columbus_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_columbus",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_columbus",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_columbus",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_columbus",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_columbus",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_columbus",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_columbus",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_columbus",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_columbus",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_columbus",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_columbus",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_columbus",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard2_villefort_cortes_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_cortes",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_cortes",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_cortes",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_cortes",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_cortes",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_cortes",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_cortes",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_cortes",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_cortes",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_cortes",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_cortes",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_cortes",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard25_thorton_merrimac_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_merrimac",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_merrimac",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_merrimac",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_merrimac",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_merrimac",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_merrimac",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_merrimac",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_merrimac",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_merrimac",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_merrimac",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_merrimac",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_merrimac",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_sport1_yaiba_semimaru_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_semimaru",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_semimaru",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_semimaru",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_semimaru",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_semimaru",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_semimaru",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_semimaru",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_semimaru",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_semimaru",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_semimaru",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_semimaru",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_semimaru",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard2_makigai_maimai_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_maimai",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_maimai",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_maimai",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_maimai",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_maimai",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_maimai",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_maimai",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_maimai",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_maimai",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_maimai",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_maimai",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_maimai",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_sport2_mizutani_shion_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_shion",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_shion",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_shion",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_shion",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_shion",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_shion",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_shion",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_shion",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_shion",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_shion",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_shion",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_shion",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_sport2_mizutani_shion_base_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_shion",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_shion",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_shion",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_shion",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_shion",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_shion",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_shion",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_shion",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_shion",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_shion",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_shion",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_shion",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_sport2_quadra_type66_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_type66",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_type66",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_type66",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_type66",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_type66",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_type66",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_type66",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_type66",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_type66",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_type66",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_type66",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_type66",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_sport2_villefort_alvarado_hearse_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_alvarado_hearse",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_alvarado_hearse",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_alvarado_hearse",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_alvarado_hearse",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_alvarado_hearse",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_alvarado_hearse",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_alvarado_hearse",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_alvarado_hearse",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_alvarado_hearse",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_alvarado_hearse",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_alvarado_hearse",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_alvarado_hearse",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_sport2_villefort_alvarado_valentinos_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_alvarado_valentinos",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_alvarado_valentinos",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_alvarado_valentinos",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_alvarado_valentinos",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_alvarado_valentinos",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_alvarado_valentinos",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_alvarado_valentinos",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_alvarado_valentinos",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_alvarado_valentinos",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_alvarado_valentinos",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_alvarado_valentinos",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_alvarado_valentinos",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard25_thorton_colby_pickup_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_colby_pickup",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_colby_pickup",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_colby_pickup",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_colby_pickup",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_colby_pickup",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_colby_pickup",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_colby_pickup",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_colby_pickup",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_colby_pickup",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_colby_pickup",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_colby_pickup",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_colby_pickup",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard25_thorton_colby_pickup_02_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_colby_pickup",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_colby_pickup",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_colby_pickup",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_colby_pickup",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_colby_pickup",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_colby_pickup",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_colby_pickup",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_colby_pickup",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_colby_pickup",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_colby_pickup",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_colby_pickup",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_colby_pickup",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard3_thorton_mackinaw_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_mackinaw",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_mackinaw",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_mackinaw",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_mackinaw",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_mackinaw",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_mackinaw",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_mackinaw",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_mackinaw",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_mackinaw",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_mackinaw",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_mackinaw",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_mackinaw",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_sport1_quadra_sport_r7_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_sport_r7",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_sport_r7",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_sport_r7",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_sport_r7",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_sport_r7",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_sport_r7",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_sport_r7",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_sport_r7",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_sport_r7",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_sport_r7",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_sport_r7",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_sport_r7",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard3_makigai_tanishi_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_tanishi",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_tanishi",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_tanishi",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_tanishi",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_tanishi",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_tanishi",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_tanishi",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_tanishi",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_tanishi",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_tanishi",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_tanishi",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_tanishi",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_standard3_makigai_tanishi_player_mr_hands": [
+   {
+    "id": "Vehicle.o77_livery_taxi_tanishi_mr_hands",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_tanishi_mr_hands",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_tanishi_mr_hands",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_tanishi_mr_hands",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_tanishi_mr_hands",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_tanishi_mr_hands",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_tanishi_mr_hands",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_tanishi_mr_hands",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_tanishi_mr_hands",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_tanishi_mr_hands",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_tanishi_mr_hands",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_tanishi_mr_hands",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ],
+  "Vehicle.v_sport1_quadra_turbo_player": [
+   {
+    "id": "Vehicle.o77_livery_taxi_turbo",
+    "label": "City Taxi",
+    "main": [
+     242,
+     194,
+     27
+    ],
+    "sec": [
+     20,
+     20,
+     20
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncmotors_turbo",
+    "label": "Night City Motors",
+    "main": [
+     217,
+     221,
+     226
+    ],
+    "sec": [
+     34,
+     38,
+     43
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_courier_turbo",
+    "label": "Food & Parcel Delivery",
+    "main": [
+     239,
+     108,
+     26
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_sanitation_turbo",
+    "label": "City Services",
+    "main": [
+     47,
+     125,
+     74
+    ],
+    "sec": [
+     242,
+     242,
+     242
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_scrapper_turbo",
+    "label": "Salvage & Recycling",
+    "main": [
+     91,
+     95,
+     58
+    ],
+    "sec": [
+     201,
+     178,
+     124
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_rooftop_turbo",
+    "label": "Rooftop Maintenance",
+    "main": [
+     61,
+     143,
+     209
+    ],
+    "sec": [
+     255,
+     255,
+     255
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_mechanic_turbo",
+    "label": "Rust & Chrome Garage",
+    "main": [
+     43,
+     46,
+     51
+    ],
+    "sec": [
+     184,
+     35,
+     31
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_medic_turbo",
+    "label": "Street Medic",
+    "main": [
+     244,
+     244,
+     242
+    ],
+    "sec": [
+     23,
+     163,
+     74
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_ncpd_turbo",
+    "label": "NCPD Patrol",
+    "main": [
+     242,
+     243,
+     245
+    ],
+    "sec": [
+     16,
+     20,
+     24
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_racing_turbo",
+    "label": "Twin Stripe 77",
+    "main": [
+     31,
+     79,
+     191
+    ],
+    "sec": [
+     245,
+     245,
+     245
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_neon_turbo",
+    "label": "Neon Slash",
+    "main": [
+     17,
+     18,
+     22
+    ],
+    "sec": [
+     17,
+     18,
+     22
+    ],
+    "match": [],
+    "pattern": true
+   },
+   {
+    "id": "Vehicle.o77_livery_urban_turbo",
+    "label": "Urban Grid Camo",
+    "main": [
+     138,
+     143,
+     148
+    ],
+    "sec": [
+     74,
+     79,
+     85
+    ],
+    "match": [],
+    "pattern": true
+   }
+  ]
+ }
+}

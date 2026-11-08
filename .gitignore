@@ -36,9 +36,24 @@
 !resources/assets/models/open77_casino_fortune/**
 !resources/assets/models/open77_maneki/
 !resources/assets/models/open77_maneki/**
-# Light RP vehicle kit: only the lead's install note; the packs are not committed yet.
+# Light RP vehicle kit: the install note and the built packs the Auto Studio uses (original
+# content, built by the Open77 vehicle kit pipeline; see lightrp_vehicle_kit/README.md).
 !resources/assets/models/lightrp_vehicle_kit/
 !resources/assets/models/lightrp_vehicle_kit/README.md
+!resources/assets/models/lightrp_vk_rims/
+!resources/assets/models/lightrp_vk_rims/**
+!resources/assets/models/lightrp_vk_body/
+!resources/assets/models/lightrp_vk_body/**
+!resources/assets/models/lightrp_vk_liveries/
+!resources/assets/models/lightrp_vk_liveries/**
+!resources/assets/models/lightrp_vehicle_original_stickers/
+!resources/assets/models/lightrp_vehicle_original_stickers/**
+!resources/assets/models/lightrp_vehicle_stickers/
+!resources/assets/models/lightrp_vehicle_stickers/**
+!resources/assets/models/lightrp_vehicle_stages/
+!resources/assets/models/lightrp_vehicle_stages/**
+!resources/assets/models/open77_vehicle_plates/
+!resources/assets/models/open77_vehicle_plates/**
 !resources/assets/maps/lobby/
 !resources/assets/maps/lobby/**
 !resources/assets/maps/open77_lobby_cubes/
