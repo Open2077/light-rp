@@ -113,6 +113,10 @@ end
 function RegisterNetEvent(name,fn) handlers[name]=fn end
 function AddEventHandler(name,fn) handlers[name]=fn end
 function Wait(ms) return coroutine.yield(ms) end
+-- board_games.lua coalesces viewer pushes with SetTimeout(100) since 7c3c8549; every mock request moves the
+-- clock 200 ms on, past that window, so the timer runs at once here, before the next request. It runs in its
+-- own coroutine, as on the host: its Wait(0) slices never suspend the caller, and they take no time here.
+function SetTimeout(ms,fn) local co=coroutine.create(fn);repeat local ok,why=coroutine.resume(co);assert(ok,why) until coroutine.status(co)=='dead';return 0 end
 local function resumeTask(t)
  local ok,delay=coroutine.resume(t.co);assert(ok,delay)
  t.delay=delay

@@ -201,7 +201,8 @@ assert(W.runtime[1].quarantine,"not before the recovery delay")
 tick(4000)
 assert(not W.runtime[1].quarantine and W.view(1).ready,"lifted and resynchronized without a reconnect")
 -- A client that keeps timing out: each recovery's own synchronization times out again;
--- three recoveries in two minutes, then the quarantine stays until a reconnect.
+-- three recoveries in two minutes, then it keeps trying every 30 s (e9b45670, 2026-11-05: it used to
+-- wait for a reconnect, weapons dead for the whole session).
 suppressNative=true
 assert(W.synchronize(1))
 for _=1,6 do
@@ -213,9 +214,10 @@ for _=1,6 do
   end
   tick(4000)
 end
-assert(W.runtime[1].quarantine and not W.runtime[1].recovering and #W.runtime[1].recoveries==3,"bounded: past three recoveries the quarantine stays")
--- (a reconnect is a new incarnation; this harness just clears it to go on)
-W.runtime[1].quarantine=nil;W.runtime[1].recoveries=nil
+assert(W.runtime[1].quarantine and W.runtime[1].recovering and #W.runtime[1].recoveries>3,"bounded: past three recoveries it retries, slower")
+suppressNative=false;tick(25000);assert(W.runtime[1].quarantine,"the slow retry waits 30 s")
+tick(5000);assert(not W.runtime[1].quarantine and W.view(1).ready,"then lifts and resynchronizes without a reconnect")
+W.runtime[1].recoveries=nil
 suppressNative=false;clock=clock+200000;tick(100);assert(W.synchronize(1));tick(1800);assert(W.view(1).ready)
 -- A synchronization in progress does not make the target invincible: the projected
 -- firearm still hits; a refusal names its reason in the log.
@@ -281,7 +283,8 @@ for _,w in ipairs(W.view(1).arsenal)do if w.instanceId==rightItem.metadata.insta
 reply=request({operation="select",instanceId="not-a-serial-1",baseRevision=W.view(1).revision,mutation="test:wheel:missing"})
 assert(reply and not reply.ok,"a weapon that left the pockets cannot be selected")
 reply=request({operation="select",unarmed=true,baseRevision=W.view(1).revision,mutation="test:wheel:unarmed"});assert(reply and reply.ok);tick(1800)
-assert(not W.view(1).right and not W.view(1).left and next(nativeRows)==nil,"unarmed: both hands empty")
+-- empty hands = one holster since e9b45670 (2026-11-05): the hands are empty, the weapon stays equipped
+assert(W.view(1).right and W.view(1).right.instanceId==rightItem.metadata.instanceId and not W.view(1).left and W.view(1).holstered==true and next(nativeRows)~=nil,"unarmed: holstered, still equipped")
 -- Back in the world (reconnect, respawn): the weapon stays equipped but comes back holstered.
 reply=request({operation="select",instanceId=rightItem.metadata.instanceId,baseRevision=W.view(1).revision,mutation="test:wheel:again"});assert(reply and reply.ok);tick(1800)
 local holstersBefore=holsterCount or 0

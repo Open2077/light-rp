@@ -83,7 +83,7 @@ const DEMOS = ['courier-route', 'courier-dispatch', 'courier-hud', 'courier-pick
     };
     const rows = () => page.locator('.o77-rage__row .o77-rage__text').allTextContents();
     await menu('My job');
-    assert.deepEqual(await rows(), ['Job guide', 'Start a run', 'Paycheck']);
+    assert.deepEqual(await rows(), ['Job guide', 'Start a run', 'Paycheck', 'Resign']);
     await page.keyboard.press('ArrowDown'); await page.waitForTimeout(150); await shot('menu-job');
     await page.keyboard.press('ArrowUp');
     await page.keyboard.press('Enter');
@@ -99,7 +99,7 @@ const DEMOS = ['courier-route', 'courier-dispatch', 'courier-hud', 'courier-pick
     await fire('state', { jobRun: { active: true, id: 'r', job: 'delivery', label: 'Delivery run', reward: 342, index: 2, total: 6, icon: 'package', orders: 3, carried: 1, distanceKm: 2.4,
       hint: 'Collect the order at the marker (E).', objective: { label: 'Pick up · Burger stand', kind: 'pickup', position: { x: 0, y: 0, z: 0 }, radius: 2.6 } } });
     await menu('My job');
-    assert.deepEqual(await rows(), ['Job guide', 'Pick up · Burger stand', 'GPS to my next stop', 'Abandon this run', 'Paycheck']);
+    assert.deepEqual(await rows(), ['Job guide', 'Pick up · Burger stand', 'GPS to my next stop', 'Abandon this run', 'Paycheck', 'Resign']);
     await page.keyboard.press('ArrowDown'); await page.waitForTimeout(150); await shot('menu-run');
     await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter');
     assert.deepEqual((await actions()).at(-1), { type: 'jobs.gps' });

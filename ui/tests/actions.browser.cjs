@@ -17,7 +17,10 @@ const base = { id: 'test', kind: 'progress', label: 'Prepare the equipment', des
     await fire('state', { character: { registered: true, status: 'active', welcomePending: false, slots: [], origins: [], accountName: 'UITest', key: 'test', step: 'done', playerId: 1 } });
     await fire('hud', { ready: true, health: { value: 100, max: 100 }, armor: 0, stamina: { value: 100, max: 100 }, vehicle: { active: false }, voice: { state: 'idle', range: 'normal', level: 0 }, clock: '12:00' });
     let seq = 0;
-    const open = async (options = {}) => { const d = { ...base, ...options, id: `a${++seq}` }; await fire('activity:start', d); await page.locator('.activity').waitFor(); return d; };
+    // A finished run stays on screen a moment, so `.activity` alone may still be the previous one: wait for
+    // the new run's activity:started, emitted by the effect that binds its keys (Escape pressed earlier is lost).
+    const open = async (options = {}) => { const d = { ...base, ...options, id: `a${++seq}` }; await fire('activity:start', d);
+      await page.waitForFunction(id => window.testBridge.sent.some(x => x.name.endsWith('activity:started') && x.payload.id === id), d.id); return d; };
     const results = () => page.evaluate(() => window.testBridge.sent.filter(x => x.name.endsWith('activity:result')).map(x => x.payload));
     let d = await open();
     await page.locator('.activity.is-success').waitFor();
