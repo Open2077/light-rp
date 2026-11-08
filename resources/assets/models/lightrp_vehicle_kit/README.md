@@ -58,6 +58,21 @@ The resource names are load-bearing. `KIT.rims.pack`, `KIT.body.pack` and `stage
 `GetResourceState(<name>) == "running"`, and each pack's internal paths contain its name. Do not
 rename a pack; rebuild it under the new name instead.
 
+## Using them on another server
+
+The liveries, stickers, stages and plate packs register their own content: copy the folder, add
+it to `resources.load`, and you are done (plus `ensure open77_vehicle_plates`, which does not
+start by itself). The rims and body kit packs carry only the models. Their parts and fits are the
+catalogue in `resources/gamemodes/op77_lightrp/server/config/` (`vehicle_kit.lua`,
+`vehicle_kit_player_rims.lua`, `vehicle_kit_trims.lua`), which `op77_lightrp` registers. Without
+Light RP, copy those three files into a small resource of your own that depends on both packs
+and calls `Open77.vehicles.registerParts` once per part. The resource, ready to paste, and the
+whole setup (loaders, `server.jsonc`, restart) are in
+[Using Light RP's packs on another server](https://open2077.net/docs/vehicle-customization-packs#using-light-rps-packs-on-another-server)
+and in the
+[devblog walkthrough](https://open2077.net/devblog/2026-11-08-customize-cars-and-nameplates-a-to-z).
+Your parts are then named after your resource (`my_lightrp_parts:rim_lattice`).
+
 ## Rebuilding a pack, or making your own
 
 The packs are built by the Open77 vehicle kit pipeline, published in
