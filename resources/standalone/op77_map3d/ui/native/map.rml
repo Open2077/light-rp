@@ -106,13 +106,6 @@
                 <div id="card-btn" class="btn solid-btn"><span>Set route</span><span class="kbd">G</span></div>
             </div>
 
-            <div id="perf" class="glass-panel">
-                <div class="perf-head"><span class="perf-dot"></span><span>NATIVEUI</span><span class="dim"> · NO BROWSER · GPU SCENE</span></div>
-                <div class="perf-row"><span id="pf-fps" class="perf-big">--</span><span class="dim">FPS</span><span id="pf-frame" class="mono"></span></div>
-                <div class="perf-row"><span class="dim">UI CPU</span><span id="pf-cpu" class="mono"></span></div>
-                <div class="perf-row"><span class="dim">SCENE</span><span id="pf-scene" class="mono"></span></div>
-                <div id="pf-spark" class="spark"></div>
-            </div>
         </div>
 
         <div id="toast" class="toast"></div>
