@@ -1551,7 +1551,7 @@ local function updateMini(dt)
 end
 
 
-local lastSlow, perfSamples, lastPerf = 0, {}, 0
+local lastSlow = 0
 local function slowTick()
     -- 10 per second: what follows the open map's camera
     if not isOpen or not ui then return end
@@ -1566,27 +1566,6 @@ local function slowTick()
     if waypoint and math.abs((N.destD or 0) - fullCam.distance) > fullCam.distance * 0.1 then N.destD = fullCam.distance; syncDestination() end
 end
 
-local function perfTick()
-    if not isOpen or not ui then return end
-    local st = ui:state()
-    local p = st and st.perf
-    if type(p) ~= "table" then return end
-    perfSamples[#perfSamples + 1] = tonumber(p.frameMs) or 0
-    if #perfSamples > 40 then table.remove(perfSamples, 1) end
-    ui:text("#pf-fps", ("%d"):format(math.floor((tonumber(p.fps) or 0) + 0.5)))
-    ui:text("#pf-frame", ("%.1f ms"):format(tonumber(p.frameMs) or 0))
-    ui:text("#pf-cpu", ("%.2f ms"):format((tonumber(p.updateMs) or 0) + (tonumber(p.renderMs) or 0)))
-    local draws = tonumber(p.sceneDraws) or 0
-    ui:text("#pf-scene", draws == 0 and ("still: nothing redrawn · %.0f MB"):format(tonumber(p.sceneGpuMB) or 0)
-        or ("%d draws · %dk instances · %.0f MB"):format(draws, math.floor((tonumber(p.sceneInstances) or 0) / 1000), tonumber(p.sceneGpuMB) or 0))
-    local maxMs = 1
-    for _, v in ipairs(perfSamples) do if v > maxMs then maxMs = v end end
-    local parts = {}
-    for i, v in ipairs(perfSamples) do
-        parts[#parts + 1] = ("%s%.1f %.1f"):format(i == 1 and "M" or "L", (i - 1) * 5, 21 - v / maxMs * 20)
-    end
-    ui:rml("#pf-spark", ('<path view-box="0 0 200 22" preserve-aspect="none" d="%s"/>'):format(table.concat(parts, " ")))
-end
 
 CreateThread(function()
     local last = now()
@@ -1602,7 +1581,6 @@ CreateThread(function()
                 moveWithKeys(dt)
                 if easeZones(dt) or N.zonesDirty then N.zonesDirty = false; syncZones() end
                 if t - lastSlow > 100 then lastSlow = t; slowTick() end
-                if t - lastPerf > 250 then lastPerf = t; perfTick() end
             end
         end
     end

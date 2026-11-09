@@ -171,15 +171,6 @@ img.ic-img { width: 18dp; height: 18dp; }
 .solid-btn { justify-content: center; padding: 8dp; font-size: 13dp; letter-spacing: 0.2em; }
 .solid-btn.is-clear { border-width: 1dp; }
 
-/* the showcase: what drawing this map costs, live */
-#perf { position: absolute; left: 32dp; bottom: 56dp; width: 280dp; padding: 8dp 10dp; font-size: 10dp; letter-spacing: 0.14em; white-space: nowrap; }
-.perf-head { font-size: 10dp; letter-spacing: 0.24em; display: flex; flex-direction: row; align-items: center; }
-.perf-dot { width: 6dp; height: 6dp; border-radius: 3dp; margin-right: 6dp; animation: 1.1s sine-in-out infinite m3-blink; }
-@keyframes m3-blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-.perf-row { display: flex; flex-direction: row; align-items: center; gap: 6dp; margin-top: 3dp; }
-.perf-big { font-family: "Zen Dots"; font-weight: normal; font-size: 20dp; letter-spacing: 0; }
-.spark { height: 22dp; margin-top: 4dp; }
-.spark path { width: 258dp; height: 22dp; stroke-width: 1.2dp; fill: transparent; }
 
 .toast { position: absolute; padding: 10dp 18dp; font-size: 13dp; letter-spacing: 0.24em; border-width: 1dp; white-space: nowrap; display: none; }
 .toast.show { display: block; animation: 2.8s linear m3-toast; }

@@ -5,7 +5,7 @@ customizable 3D map of Night City, built from the game's own 3D map assets and d
 by **NativeUI**: the client's own D3D12 scene layer and RmlUi, no browser. One native
 document holds the minimap and the full map as two views of one city
 loaded once; the map renders in the game's frame (no page texture, no IPC), redraws
-only what moves, and shows what it costs live (the NATIVEUI panel on the open map).
+only what moves.
 
 - **The city in 3D**: terrain, water, roads and road lines, metro, cliffs, landmarks
   and the 255,532 building volumes of every district (Phantom Liberty's Dogtown and
@@ -308,7 +308,7 @@ game and is distributed for use with it.
 | `client/native/theme.lua` | The theme as one RCSS layer (`ui:stylesheet("theme", ...)`): `setTheme` reaches every rule live. |
 | `client/native/icons.lua` | The built-in icons, and a resource's own `<svg>` turned into NativeUI `<path>` data. |
 | `client/native/defaults.lua` | The `page` defaults and the config merge. |
-| `client/native/app.lua` | The two roles `client/main.lua` talks to (send / on / show / hide / focus): scene, views, blips, GPS, areas, zones, jamming, search, legend, card, quality chooser, perf panel. |
+| `client/native/app.lua` | The two roles `client/main.lua` talks to (send / on / show / hide / focus): scene, views, blips, GPS, areas, zones, jamming, search, legend, card, quality chooser. |
 
 What the client does natively (and any resource can use, `wiki/native-ui.md`):
 
