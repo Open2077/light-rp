@@ -107,6 +107,8 @@ path.ic-fill { fill: {accent}; }
 #card-desc { color: {dim}; }
 .dt { color: {dim}; }
 .solid-btn { background-color: {accent}; color: #050506; }
+.solid-btn .kbd { color: #050506; border-color: #05050666; margin-left: 8dp; margin-right: 0; }
+.solid-btn.is-clear .kbd { display: none; }
 .solid-btn.is-clear { background-color: transparent; border-color: {danger}; color: {danger}; }
 #perf { border-left-width: 2dp; border-left-color: {accent}; }
 .perf-dot { background-color: {accent}; }
