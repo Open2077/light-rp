@@ -1,5 +1,5 @@
 -- op77_map3d configuration. Everything under `page` is sent to the map page and
--- deep-merged over its defaults (ui/src/config.ts lists every key); the rest is
+-- deep-merged over its defaults (client/native/defaults.lua lists every key); the rest is
 -- client behaviour. A server can also change the page at runtime:
 --   exports.op77_map3d:setConfig({ theme = { accent = "#3FE0D0" } })   -- client
 Map3DConfig = {
@@ -37,15 +37,14 @@ Map3DConfig = {
     -- How often the player's position reaches the page (Hz).
     playerRate = 30,
 
-    -- WebUI surface frame rates (fixed when the surface is created; 60 at most). The
-    -- minimap has its own small surface, the open map a full-screen one hidden while
-    -- closed. page.minimap.fps / page.map.idleFps cap how often the page redraws.
-    fps = { minimap = 60, map = 60, holo = 30 },
+    -- Kept for older configs: the native map redraws only what moves;
+    -- page.minimap.fps / page.map.idleFps cap its redraws while something animates.
+    fps = { minimap = 60, map = 60 },
 
-    -- Surface order: the minimap and the holo GPS under the gamemode's interfaces
-    -- (LightRP's page is 720), the open map above them.
-    zIndex = { minimap = 700, holo = 699, map = 781 },
-    -- Hide the minimap and the holo GPS while another interface holds the cursor
+    -- Kept for older configs: the native document draws above WebUI pages and steps
+    -- aside under other interfaces (hideUnderMenus).
+    zIndex = { minimap = 700, map = 781 },
+    -- Hide the minimap while another interface holds the cursor
     -- (inventory, F1 menu, phone...).
     hideUnderMenus = true,
     -- How long the open map's surface stays up after closing, for its closing animation

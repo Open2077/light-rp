@@ -1,0 +1,238 @@
+/* op77_map3d on NativeUI: layout, motion and effects. Colours come from the
+   theme layer (client/native/theme.lua, applied with ui:stylesheet), so a
+   setTheme reaches every rule live. 1 dp = 1 px of the 1920 x 1080 reference. */
+
+body { font-family: "Chakra Petch"; font-weight: bold; pointer-events: none; }
+.toast, #loading, #mini, .blip { pointer-events: none; }
+.m3 { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.layer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; }
+.kbd { font-family: "Share Tech Mono"; font-size: 10dp; letter-spacing: 0.08em; padding: 1dp 6dp; border-width: 1dp; margin-right: 6dp; }
+.mono { font-family: "Share Tech Mono"; font-weight: normal; }
+.hide { display: none; }
+
+/* ---- icons ------------------------------------------------------------------------- */
+path.ic { width: 18dp; height: 18dp; stroke-width: 1.8dp; stroke-linecap: round; stroke-linejoin: round; }
+path.ic-line { fill: transparent; }
+path.ic-fill { stroke: transparent; }
+img.ic-img { width: 18dp; height: 18dp; }
+
+/* ---- minimap ------------------------------------------------------------------------ */
+#mini { position: absolute; width: 264dp; height: 264dp; top: 26dp; right: 32dp; opacity: 0; transition: opacity 0.25s cubic-out; }
+.has-mini #mini { opacity: 1; }
+#mini-frame { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+#mini-glass { position: absolute; left: 0; top: 0; right: 0; bottom: 0; backdrop-filter: blur(9dp) saturate(1.25); }
+#mini-view { position: absolute; left: 0; top: 0; right: 0; bottom: 0; opacity: 0.9; }
+.shape-circle #mini-frame, .shape-circle #mini-glass, .shape-circle #mini-view { border-radius: 132dp; }
+.shape-chamfer #mini-glass { decorator: fx(chamfer 14 1 0.0 0 #00000000); }
+.corner { position: absolute; width: 18dp; height: 18dp; }
+.corner-a { left: -1dp; top: -1dp; border-left-width: 2dp; border-top-width: 2dp; }
+.corner-b { right: -1dp; bottom: -1dp; border-right-width: 2dp; border-bottom-width: 2dp; }
+.north { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.north-mark { position: absolute; left: -5dp; top: -5dp; width: 10dp; height: 10dp; filter: drop-shadow(#000000 0 1dp 2dp); }
+#mini-info { position: absolute; left: 0; right: 0; top: 270dp; display: flex; flex-direction: row; justify-content: space-between; }
+#mini-district { font-size: 12dp; letter-spacing: 0.14em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160dp; }
+#mini-wp { display: flex; flex-direction: row; align-items: center; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; }
+#mini-wp path.ic { width: 13dp; height: 13dp; margin-right: 4dp; }
+.nav { position: absolute; right: 16dp; bottom: 6dp; display: none; flex-direction: row; align-items: center; padding: 3dp 7dp 3dp 5dp; border-left-width: 2dp; }
+.has-route.has-mini .nav { display: flex; }
+.nav path.ic { width: 15dp; height: 15dp; margin-right: 5dp; stroke-width: 2dp; }
+.nav-text b { font-size: 12dp; display: block; }
+.nav-text span { font-size: 8.5dp; letter-spacing: 0.16em; display: block; }
+#mini-toast { left: 0; right: 0; top: 296dp; padding: 6dp 12dp; font-size: 11dp; text-align: center; white-space: normal; }
+
+/* ---- blips -------------------------------------------------------------------------- */
+.blip { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.is-open #full-blips .blip { pointer-events: auto; }
+.blip .pin { position: absolute; left: -15dp; top: -15dp; width: 30dp; height: 30dp; display: flex; align-items: center; justify-content: center; }
+.blip .pin path.ic, .blip .pin img.ic-img { width: 18dp; height: 18dp; }
+.blip .label { position: absolute; left: 20dp; top: -10dp; padding: 2dp 7dp; font-size: 12dp; letter-spacing: 0.06em; white-space: nowrap; border-left-width: 2dp; display: none; }
+.near .blip .label, .blip.prio .label, .blip:hover .label, .blip.is-fanned .label { display: block; }
+.blip .count { position: absolute; left: 8dp; top: -22dp; height: 16dp; min-width: 16dp; padding: 0 4dp; font-family: "Share Tech Mono"; font-size: 10dp; line-height: 16dp; text-align: center; border-radius: 8dp; display: none; }
+.blip.is-cluster .count { display: block; }
+.blip.is-grouped { visibility: hidden; }
+.blip.is-fanned { z-index: 5; }
+.blip.is-edge .pin { opacity: 0.9; }
+.blip .ring { position: absolute; left: -21dp; top: -21dp; width: 42dp; height: 42dp; border-width: 1.5dp; border-radius: 21dp; display: none; }
+.blip.pulse .ring { display: block; animation: 1.6s cubic-out infinite m3-pulse; }
+@keyframes m3-pulse { from { transform: scale(0.8); opacity: 0.9; } to { transform: scale(1.8); opacity: 0; } }
+.blip .arrow { position: absolute; left: -10dp; top: -10dp; width: 20dp; height: 20dp; }
+.blip.is-arrow .pin { display: none; }
+.blip.is-self { z-index: 4; }
+#mini-blips .blip .pin { left: -11dp; top: -11dp; width: 22dp; height: 22dp; }
+#mini-blips .blip .pin path.ic, #mini-blips .blip .pin img.ic-img { width: 14dp; height: 14dp; }
+#mini-blips .blip .arrow { left: -9dp; top: -9dp; width: 18dp; height: 18dp; }
+#mini-blips .blip .count { left: 5dp; top: -17dp; height: 13dp; min-width: 13dp; font-size: 8dp; line-height: 13dp; }
+#mini-blips .blip .label { display: none; }
+.is-jammed .blip, .is-jammed .nav, .is-jammed .north, .is-jammed #mini-info, .is-jammed #routebar, .is-jammed .district, .is-jammed #readout,
+.is-jammed .zone-label, .is-jammed .area-label { visibility: hidden; }
+
+
+/* ---- full map ----------------------------------------------------------------------- */
+#full { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: none; opacity: 0; }
+.is-open #full, .is-closing #full { display: block; }
+.is-open #full { opacity: 1; transition: opacity 0.34s cubic-out; }
+#full-backdrop { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; backdrop-filter: blur(22dp) saturate(1.35) brightness(0.55); }
+#full-view { position: absolute; left: 0; top: 0; right: 0; bottom: 0; opacity: 0.86; pointer-events: auto; }
+.is-opening #full-view { animation: 0.5s cubic-out m3-map-in; }
+@keyframes m3-map-in { 0% { opacity: 0; transform: scale(1.07); filter: brightness(2.4) blur(8dp); } 35% { opacity: 1; filter: brightness(1.5) blur(2dp); } 100% { transform: scale(1); filter: brightness(1) blur(0dp); } }
+.is-closing #full-view { animation: 0.24s cubic-in m3-map-out; opacity: 0; }
+@keyframes m3-map-out { 0% { opacity: 1; } 30% { filter: brightness(1.7); } 100% { opacity: 0; transform: scale(0.965); filter: brightness(0.4) blur(6dp); } }
+.is-perf .is-opening #full-view, .is-perf.is-opening #full-view { animation: 0.2s cubic-out m3-fade-in; }
+@keyframes m3-fade-in { from { opacity: 0; } to { opacity: 1; } }
+#full-vignette { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; decorator: radial-gradient(circle farthest-corner at center, #00000000 55%, #0000008c 100%); }
+.is-perf #full-vignette { display: none; }
+#scan { position: absolute; left: 0; right: 0; top: 0; height: 2dp; opacity: 0; pointer-events: none; }
+.is-opening #scan { animation: 0.48s cubic-in-out m3-scan; }
+.is-perf #scan { display: none; }
+@keyframes m3-scan { 0% { top: 0%; opacity: 0; } 12% { opacity: 1; } 85% { opacity: 0.8; } 100% { top: 100%; opacity: 0; } }
+
+#ui { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; }
+.is-opening #ui { animation: 0.34s cubic-out m3-ui-in; }
+@keyframes m3-ui-in { 0% { opacity: 0; } 40% { opacity: 0; } 100% { opacity: 1; } }
+.is-closing #ui { opacity: 0; transition: opacity 0.14s cubic-in; }
+.is-asking #ui { visibility: hidden; }
+.is-open #ui > * { pointer-events: auto; }
+
+.glass-panel { backdrop-filter: blur(14dp) saturate(1.2); border-width: 1dp; }
+.chamfer { }
+.tag { font-size: 12dp; letter-spacing: 0.24em; padding: 3dp 9dp; }
+#hdr { position: absolute; left: 32dp; top: 26dp; display: flex; flex-direction: row; align-items: center; gap: 12dp; }
+#title { font-family: "Zen Dots"; font-weight: normal; font-size: 30dp; letter-spacing: 0.04em; line-height: 30dp; }
+#subtitle { font-size: 11dp; letter-spacing: 0.32em; margin-top: 4dp; }
+#readout { position: absolute; left: 32dp; top: 92dp; display: flex; flex-direction: row; gap: 12dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; }
+#ro-d { letter-spacing: 0.14em; }
+.btn { cursor: pointer; display: flex; flex-direction: row; align-items: center; }
+#close { position: absolute; right: 32dp; top: 26dp; padding: 8dp 12dp; font-size: 12dp; letter-spacing: 0.18em; }
+
+#routebar { position: absolute; left: 50%; top: 26dp; transform: translateX(-50%); display: none; flex-direction: row; align-items: center; gap: 10dp; padding: 8dp 10dp 8dp 14dp; font-size: 13dp; letter-spacing: 0.12em; border-left-width: 3dp; white-space: nowrap; }
+.has-route #routebar { display: flex; }
+#routebar path.ic { width: 22dp; height: 22dp; stroke-width: 2dp; }
+#rb-dist { font-size: 18dp; }
+.rb-div { width: 1dp; height: 22dp; }
+#rb-eta { font-size: 13dp; }
+.danger-btn { padding: 6dp 10dp; font-size: 11dp; letter-spacing: 0.18em; border-width: 1dp; margin-left: 6dp; }
+
+#search { position: absolute; right: 32dp; top: 74dp; width: 260dp; z-index: 3; display: none; }
+.has-search #search { display: block; }
+#search-field { height: 42dp; display: flex; flex-direction: row; align-items: center; padding: 0 10dp; border-left-width: 3dp; }
+#search-field path.ic { width: 17dp; height: 17dp; margin-right: 8dp; }
+#search-input { flex: 1 1 auto; font-size: 14dp; letter-spacing: 0.06em; font-family: "Chakra Petch"; font-weight: bold; background-color: transparent; border-width: 0; padding: 0; height: 20dp; }
+#search.is-active .kbd { display: none; }
+#results { margin-top: 4dp; padding: 4dp; max-height: 420dp; overflow-y: auto; display: none; }
+#search.is-active #results { display: block; }
+.res { display: flex; flex-direction: row; align-items: center; padding: 8dp; gap: 10dp; cursor: pointer; }
+.res path.ic, .res img.ic-img { width: 18dp; height: 18dp; flex: 0 0 auto; }
+.res-main { flex: 1 1 auto; overflow: hidden; }
+.res-name { font-size: 13dp; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res-sub { font-size: 9dp; letter-spacing: 0.2em; text-transform: uppercase; white-space: nowrap; }
+.res-dist { font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; flex: 0 0 auto; }
+.res.is-sel, .res:hover { border-left-width: 2dp; }
+.res-empty { font-size: 12dp; letter-spacing: 0.14em; padding: 8dp; }
+
+#legend { position: absolute; right: 32dp; top: 74dp; width: 240dp; padding: 10dp; max-height: 560dp; overflow-y: auto; }
+.has-search #legend { top: 128dp; max-height: 500dp; }
+#legend h3 { font-size: 10dp; letter-spacing: 0.3em; margin: 8dp 0 6dp 0; }
+.switch2 { display: flex; flex-direction: row; gap: 4dp; }
+.sw { flex: 1 1 0; font-size: 10dp; letter-spacing: 0.12em; text-transform: uppercase; padding: 6dp 4dp; text-align: center; border-width: 1dp; cursor: pointer; }
+.cat { display: flex; flex-direction: row; align-items: center; padding: 6dp; gap: 8dp; font-size: 13dp; cursor: pointer; }
+.cat path.ic, .cat img.ic-img { width: 16dp; height: 16dp; flex: 0 0 auto; }
+.cat-label { flex: 1 1 auto; }
+.cat-count { font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; }
+.cat.is-off { opacity: 0.35; }
+.tog { display: flex; flex-direction: row; align-items: center; padding: 5dp 6dp; font-size: 13dp; cursor: pointer; }
+.tog-label { flex: 1 1 auto; }
+.tog-state { font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; padding: 1dp 6dp; border-width: 1dp; }
+.levels { display: flex; flex-direction: row; gap: 4dp; padding: 4dp 6dp; }
+.lvl { flex: 1 1 0; }
+.lvl-bar { height: 4dp; margin-bottom: 3dp; }
+.lvl-name { font-size: 9dp; }
+.lvl-min { font-family: "Share Tech Mono"; font-weight: normal; font-size: 9dp; }
+
+#tools { position: absolute; right: 32dp; bottom: 74dp; display: flex; flex-direction: column; gap: 6dp; }
+.tool { width: 40dp; height: 40dp; display: flex; align-items: center; justify-content: center; font-size: 18dp; border-width: 1dp; cursor: pointer; }
+.tool.small { font-size: 12dp; letter-spacing: 0.1em; }
+.is-perf #t-pitch { display: none; }
+#t-north-n { font-family: "Share Tech Mono"; font-weight: normal; font-size: 13dp; }
+#t-center path.ic { width: 18dp; height: 18dp; }
+#help { position: absolute; left: 32dp; bottom: 24dp; display: flex; flex-direction: row; gap: 18dp; font-size: 11dp; letter-spacing: 0.14em; }
+
+#card { position: absolute; left: 32dp; top: 132dp; width: 300dp; padding: 14dp; display: none; }
+#card.is-on { display: block; animation: 0.18s cubic-out m3-card-in; }
+@keyframes m3-card-in { from { opacity: 0; transform: translateX(-8dp); } to { opacity: 1; transform: translateX(0); } }
+.card-head { display: flex; flex-direction: row; align-items: center; gap: 10dp; }
+.card-head path.ic, .card-head img.ic-img { width: 22dp; height: 22dp; }
+.card-cat { font-size: 10dp; letter-spacing: 0.3em; }
+.card-name { font-size: 18dp; }
+#card-desc { font-family: Rajdhani; font-weight: normal; font-size: 14dp; line-height: 1.45; margin: 8dp 0 0 0; }
+.card-dl { display: flex; flex-direction: row; gap: 16dp; margin: 10dp 0; }
+.card-dl > div { flex: 1 1 0; }
+.dt { font-size: 10dp; letter-spacing: 0.24em; }
+.dd { font-family: "Share Tech Mono"; font-weight: normal; font-size: 14dp; }
+.solid-btn { justify-content: center; padding: 8dp; font-size: 13dp; letter-spacing: 0.2em; }
+.solid-btn.is-clear { border-width: 1dp; }
+
+/* the showcase: what drawing this map costs, live */
+#perf { position: absolute; left: 32dp; bottom: 56dp; width: 280dp; padding: 8dp 10dp; font-size: 10dp; letter-spacing: 0.14em; white-space: nowrap; }
+.perf-head { font-size: 10dp; letter-spacing: 0.24em; display: flex; flex-direction: row; align-items: center; }
+.perf-dot { width: 6dp; height: 6dp; border-radius: 3dp; margin-right: 6dp; animation: 1.1s sine-in-out infinite m3-blink; }
+@keyframes m3-blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+.perf-row { display: flex; flex-direction: row; align-items: center; gap: 6dp; margin-top: 3dp; }
+.perf-big { font-family: "Zen Dots"; font-weight: normal; font-size: 20dp; letter-spacing: 0; }
+.spark { height: 22dp; margin-top: 4dp; }
+.spark path { width: 258dp; height: 22dp; stroke-width: 1.2dp; fill: transparent; }
+
+.toast { position: absolute; padding: 10dp 18dp; font-size: 13dp; letter-spacing: 0.24em; border-width: 1dp; white-space: nowrap; display: none; }
+.toast.show { display: block; animation: 2.8s linear m3-toast; }
+@keyframes m3-toast { 0% { opacity: 0; } 10% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+#toast { left: 50%; bottom: 120dp; transform: translateX(-50%); }
+
+#loading { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 18dp 26dp; display: none; text-align: center; }
+.is-loading.is-open #loading { display: block; }
+.ld-title { font-family: "Zen Dots"; font-weight: normal; font-size: 16dp; letter-spacing: 0.2em; }
+.ld-stage { font-size: 11dp; letter-spacing: 0.3em; margin: 6dp 0 10dp 0; }
+.ld-bar { width: 220dp; height: 3dp; margin: 0 auto; }
+.ld-fill { width: 0%; height: 3dp; transition: width 0.2s cubic-out; }
+
+.district { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.district span { position: absolute; left: -200dp; width: 400dp; top: -10dp; text-align: center; font-family: "Zen Dots"; font-weight: normal; font-size: 15dp; letter-spacing: 0.3em; }
+.far-off .district { visibility: hidden; }
+.area-label, .zone-label { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.area-pill { position: absolute; left: -120dp; width: 240dp; top: -12dp; display: flex; flex-direction: row; justify-content: center; }
+.area-pill > div { display: flex; flex-direction: row; align-items: center; padding: 4dp 12dp 3dp 10dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 13dp; letter-spacing: 0.24em; decorator: fx(chamfer-solid 8 0 0 0 #ffffff); background-color: transparent; }
+.area-pill path.ic { width: 13dp; height: 13dp; margin-right: 6dp; }
+.zone-stack { position: absolute; left: -100dp; width: 200dp; bottom: 0; display: flex; flex-direction: column; align-items: center; }
+.zone-count { font-size: 11dp; letter-spacing: 0.14em; text-transform: uppercase; }
+.zone-pill { font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; letter-spacing: 0.24em; padding: 2dp 10dp; margin-top: 3dp; }
+.zone-stem { width: 1dp; height: 18dp; opacity: 0.8; }
+
+/* the quality chooser */
+#quality { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: none; z-index: 6; }
+.is-asking #quality { display: flex; align-items: center; justify-content: center; pointer-events: auto; }
+.q-panel { width: 720dp; padding: 22dp 24dp 18dp 24dp; animation: 0.2s cubic-out m3-fade-in; }
+.q-head { display: flex; flex-direction: row; align-items: center; gap: 12dp; }
+.q-title { font-family: "Zen Dots"; font-weight: normal; font-size: 26dp; }
+.q-sub { font-size: 11dp; letter-spacing: 0.3em; }
+.q-cards { display: flex; flex-direction: row; gap: 12dp; margin: 20dp 0 16dp 0; }
+.q-card { flex: 1 1 0; position: relative; padding: 14dp; border-width: 1dp; border-left-width: 3dp; cursor: pointer; }
+.q-key { position: absolute; right: 8dp; top: 10dp; }
+.q-art { width: 120dp; height: 72dp; border-width: 1dp; margin-bottom: 10dp; }
+.q-art path { position: absolute; width: 120dp; height: 72dp; stroke-width: 1.4dp; fill: transparent; }
+.q-art .q-art-route { stroke-dasharray: 5 4; stroke-width: 2dp; }
+.q-tag { font-size: 10dp; letter-spacing: 0.26em; }
+.q-name { font-size: 20dp; letter-spacing: 0.12em; margin: 3dp 0; }
+.q-text { font-family: Rajdhani; font-weight: normal; font-size: 14dp; line-height: 1.45; }
+.q-foot { display: flex; flex-direction: row; justify-content: space-between; font-size: 11dp; letter-spacing: 0.14em; }
+
+/* jamming: static and a sweep over the map */
+.jam { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: none; pointer-events: none; }
+.is-jamming .jam { display: block; }
+.jam-noise { position: absolute; left: 0; top: 0; right: 0; bottom: 0; decorator: fx(noise 1 1 0 0 #9aa3b0); filter: scanlines(0.35 3); }
+.jam-sweep { position: absolute; left: 0; right: 0; top: 0; height: 18%; animation: 2.6s linear infinite m3-sweep; }
+@keyframes m3-sweep { from { top: -18%; } to { top: 100%; } }
+.jam-label { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: none; flex-direction: row; align-items: center; padding: 6dp 12dp; border-width: 1dp; font-size: 10dp; letter-spacing: 0.3em; animation: 2.2s linear infinite m3-flicker; }
+.has-jam-label .jam-label { display: flex; }
+.jam-label path.ic { width: 16dp; height: 16dp; margin-right: 8dp; }
+#full-jam .jam-label { font-size: 18dp; letter-spacing: 0.34em; padding: 12dp 22dp; }
+#full-jam .jam-label path.ic { width: 26dp; height: 26dp; }
+@keyframes m3-flicker { 0% { opacity: 1; } 46% { opacity: 1; } 48% { opacity: 0.35; } 50% { opacity: 1; } 82% { opacity: 1; } 84% { opacity: 0.5; } 100% { opacity: 1; } }
+#mini-jam { z-index: 6; }
