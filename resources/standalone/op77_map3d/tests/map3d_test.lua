@@ -1,4 +1,4 @@
--- op77_map3d: blip and area validation, the client (page, blips, areas, owners, waypoint mirror, open)
+-- op77_map3d: blip and area validation, the client (surfaces, blips, areas, owners, waypoint mirror, open)
 -- and the server (targets, late joiners, cleanup). Run: pwsh -File tests/run-lua.ps1
 dofile("shared/config.lua")
 -- off on our servers (owner, 2026-11-06): no player positions on the map; the feature is still tested
@@ -76,7 +76,8 @@ local function newPage(role, options)
         destroy = function() s.destroyed = true end,
     }
 end
-_G.WebUI = { create = function(o) return newPage(({ [700] = "mini", [781] = "full", [699] = "holo" })[o.zIndex], o) end }
+-- the native surfaces (client/native/app.lua is drawn by the client; its page API is what main.lua talks to)
+_G.Map3DNative = { surface = function(role, o) return newPage(role, o) end }
 local nativeWp, blocked, hudMinimap = nil, nil, true
 local otherCursor = false
 local kvpStore = {}
@@ -104,9 +105,8 @@ runThreads(1)
 local pageHandlers, miniHandlers = surfaces.full.handlers, surfaces.mini.handlers
 assert(pageHandlers["map3d:ready"] and miniHandlers["map3d:ready"], "both surfaces created")
 local mo, fo = surfaces.mini.options, surfaces.full.options
-assert(mo.fps == 60 and mo.visible and mo.drawBounds.x < 0 and mo.drawBounds.y == 0 and mo.drawBounds.width > 264, "the minimap: its top-right corner, 60 fps")
-assert(fo.fps == 60 and not fo.visible and fo.drawBounds == nil, "the map: full screen, hidden until opened")
-assert(surfaces.holo and surfaces.holo.options.fps == 30 and not surfaces.holo.options.visible, "the holo GPS: its own surface, hidden without a route")
+assert(mo.visible, "the minimap shows from the start")
+assert(not fo.visible, "the map: hidden until opened")
 -- a blip before the page is ready is kept and sent on ready
 invoking = "shop"
 local id = exported.addBlip({ position = { x = 1, y = 2 }, icon = "store", label = "24/7", category = "service" })
@@ -300,26 +300,9 @@ assert(surfaces.mini.visible, "closed: the minimap is back at once")
 assert(surfaces.full.visible, "the map's surface stays up for its closing animation")
 runThreads(2)
 assert(not surfaces.full.visible, "closed: the map's surface is hidden after it")
--- the holographic GPS: the minimap's route reaches it; it shows while a route runs and
--- the map is closed, unless switched off on the map
-surfaces.holo.handlers["map3d:ready"]({})
-local holoRoute = { pts = { 1, 2, 3, 4 }, left = "1 km" }
-miniHandlers["map3d:holo"](holoRoute)
-assert(surfaces.holo.visible and lastPage("map3d:holo") == holoRoute, "a route shows the holo")
-pageHandlers["map3d:holo"]({ clear = true, pts = {} })
-assert(surfaces.holo.visible, "only the GPS surface speaks for the route")
-fakeNow = fakeNow + 1000; keyFn()
-assert(exported.isOpen() and not surfaces.holo.visible, "the open map hides it")
-pageHandlers["map3d:close"]({}); fakeNow = fakeNow + 1000
-assert(surfaces.holo.visible)
-pageHandlers["map3d:holoPref"]({ enabled = false })
-assert(not surfaces.holo.visible, "switched off on the map")
-pageHandlers["map3d:holoPref"]({ enabled = true })
-miniHandlers["map3d:holo"]({ clear = true, pts = {} })
-assert(not surfaces.holo.visible, "no route, no holo")
 -- the player's switches on the map: the minimap's surface rests, the choices reach it
 local before = #pageSent
-pageHandlers["map3d:prefs"]({ hud = { minimap = false, holo = true }, layers = { metro = false }, hiddenCats = { "job" } })
+pageHandlers["map3d:prefs"]({ hud = { minimap = false }, layers = { metro = false }, hiddenCats = { "job" } })
 assert(not surfaces.mini.visible, "minimap switched off: its surface is hidden")
 local got
 for i = before + 1, #pageSent do if pageSent[i].name == "map3d:prefs" and pageSent[i].role == "mini" then got = pageSent[i].payload end end
@@ -328,22 +311,19 @@ fakeNow = fakeNow + 1000; keyFn(); fakeNow = fakeNow + 1000; pageHandlers["map3d
 assert(not surfaces.mini.visible, "closing the map does not bring a switched-off minimap back")
 pageHandlers["map3d:prefs"]({ hud = { minimap = true }, layers = {}, hiddenCats = {} })
 assert(surfaces.mini.visible)
--- jamming: a direct jam reaches every page and hides the holo; a zone follows the player
-miniHandlers["map3d:holo"]({ pts = { 1, 2, 3, 4, 5, 6 } })
-assert(surfaces.holo.visible)
+-- jamming: a direct jam reaches every surface; a zone follows the player
 invoking = "rp_scrambler"
 local jamId = assert(exported.jam({ label = "SIGNAL LOST" }))
 assert(lastPage("map3d:jam").strength == 1 and lastPage("map3d:jam").label == "SIGNAL LOST", "the pages drown in static")
-assert(not surfaces.holo.visible and exported.isJammed(), "no holo GPS while the map is jammed")
+assert(exported.isJammed(), "jammed")
 assert(lastEvent("op77_map3d:jammed") == true)
 invoking = "intruder"
 assert(not exported.unjam(jamId), "another resource cannot lift it")
 invoking = "rp_scrambler"
-assert(exported.unjam(jamId) and lastPage("map3d:jam").strength == 0 and surfaces.holo.visible)
+assert(exported.unjam(jamId) and lastPage("map3d:jam").strength == 0)
 local zoneId = assert(exported.addJamZone({ position = { x = 100, y = 200 }, radius = 30, strength = 0.5, label = "NO MAP" }))
 runThreads(2) -- the player feed puts the player at (100, 200): inside
 assert(lastPage("map3d:jam").strength == 0.5 and lastPage("map3d:jam").label == "NO MAP", "a zone around the player jams")
-assert(surfaces.holo.visible, "a partial jam keeps the holo")
 assert(not exported.addJamZone({ strength = 1 }), "a zone needs a position and a radius")
 handlers.onClientResourceStop("rp_scrambler")
 assert(lastPage("map3d:jam").strength == 0 and not exported.isJammed(), "a stopping resource takes its jams along")
@@ -351,7 +331,6 @@ netHandlers["op77_map3d:jams"]({ upsert = { { id = "srv:x:j", strength = 1 } } }
 assert(lastPage("map3d:jam").strength == 1, "the server's jams count too")
 netHandlers["op77_map3d:jams"]({ remove = { "srv:x:j" } })
 assert(lastPage("map3d:jam").strength == 0)
-miniHandlers["map3d:holo"]({ clear = true, pts = {} })
 -- another interface takes the cursor (inventory, F1 menu): the minimap steps aside
 assert(surfaces.mini.visible)
 otherCursor = true
@@ -369,11 +348,11 @@ pageHandlers["map3d:close"]({})
 events = {}
 handlers["open77:mapProvider:query"]()
 assert(lastEvent("open77:mapProvider:register"), "announces itself again when the menu asks")
--- moving the minimap recreates its cropped surface
+-- moving the minimap gives it a new surface (the native document places it)
 local oldMini = surfaces.mini
 exported.setConfig({ minimap = { anchor = "bottom-left" } })
 runThreads(1)
-assert(oldMini.destroyed and surfaces.mini ~= oldMini and surfaces.mini.options.drawBounds.x == 0 and surfaces.mini.options.drawBounds.y < 0)
+assert(oldMini.destroyed and surfaces.mini ~= oldMini)
 miniHandlers = surfaces.mini.handlers
 miniHandlers["map3d:ready"]({})
 -- runtime config survives a page reload
@@ -447,7 +426,7 @@ do
   assert(ev.id == id1 and #ev.pts == 8 and ev.label == "TURF" and ev.pattern == "hatch")
   local roles = {}
   for _, s in ipairs(pageSent) do if s.name == "map3d:area" then roles[s.role] = true end end
-  assert(roles.mini and roles.full and not roles.holo, "the map and the minimap draw it, the holo GPS does not")
+  assert(roles.mini and roles.full, "the map and the minimap draw it")
   local none, why = exported.addArea({ points = { { 0, 0 } } })
   assert(none == nil and why:find("3 points"), "a refused definition says why")
   assert(not exported.addArea({ id = string.rep("i", 65), points = sq }))

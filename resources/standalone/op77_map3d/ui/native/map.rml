@@ -1,0 +1,155 @@
+<rml>
+<head>
+    <title>op77_map3d</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="map.rcss"/>
+</head>
+<body>
+<div id="m3" class="m3 anchor-top-right shape-chamfer">
+
+    <!-- minimap: a glass corner over the game, the city drawn translucent inside -->
+    <div id="mini">
+        <div id="mini-frame">
+            <div id="mini-glass"></div>
+            <scene3d id="mini-view" scene="city" view="mini" controls="none"/>
+            <div id="mini-blips" class="layer"></div>
+            <div id="mini-north" class="north"><path class="north-mark" view-box="0 0 10 10" d="M5 0 10 9 5 7 0 9z"/></div>
+            <div id="mini-nav" class="nav">
+                <span id="mini-nav-icon" class="nav-icon"></span><span class="nav-text"><b id="mini-nav-dist"></b><span id="mini-nav-label"></span></span>
+            </div>
+            <div id="mini-jam" class="jam"><div class="jam-noise"></div><div class="jam-sweep"></div><div class="jam-label"><span class="jam-icon"></span><span class="jam-text">NO SIGNAL</span></div></div>
+            <div class="corner corner-a"></div>
+            <div class="corner corner-b"></div>
+        </div>
+        <div id="mini-info">
+            <b id="mini-district"></b>
+            <span id="mini-wp"><span id="mini-wp-icon" class="wp-icon"></span><span id="mini-wp-text"></span></span>
+        </div>
+        <div id="mini-toast" class="toast"></div>
+    </div>
+
+    <!-- the full map -->
+    <div id="full">
+        <div id="full-backdrop"></div>
+        <scene3d id="full-view" scene="city" view="full" controls="map"/>
+        <div id="full-vignette"></div>
+        <div id="full-districts" class="layer"></div>
+        <div id="full-areas" class="layer"></div>
+        <div id="full-zones" class="layer"></div>
+        <div id="full-blips" class="layer"></div>
+        <div id="full-jam" class="jam"><div class="jam-noise"></div><div class="jam-sweep"></div><div class="jam-label"><span class="jam-icon"></span><span class="jam-text">NO SIGNAL</span></div></div>
+
+        <div id="ui">
+            <div id="hdr">
+                <span class="tag">MAP</span>
+                <div class="hdr-text">
+                    <div id="title">NIGHT CITY</div>
+                    <div id="subtitle">CITY MAP</div>
+                </div>
+            </div>
+            <div id="readout"><span id="ro-x">X 0</span><span id="ro-y">Y 0</span><span id="ro-d"></span></div>
+
+            <div id="close" class="btn glass-btn"><span class="kbd">ESC</span><span>CLOSE</span></div>
+
+            <div id="routebar" class="glass-panel">
+                <span id="rb-icon" class="rb-icon"></span>
+                <b id="rb-dist"></b><span id="rb-label" class="rb-label"></span>
+                <span class="rb-div"></span>
+                <span id="rb-left"></span><span id="rb-eta" class="mono accent"></span>
+                <div id="rb-clear" class="btn danger-btn"><span>× Clear route</span><span class="kbd">DEL</span></div>
+            </div>
+
+            <div id="search">
+                <div id="search-field" class="glass-panel">
+                    <span id="search-icon" class="search-icon"></span>
+                    <input id="search-input" type="text" maxlength="48" placeholder="Search places"/>
+                    <span class="kbd dim">/</span>
+                </div>
+                <div id="results" class="glass-panel"></div>
+            </div>
+
+            <div id="legend" class="glass-panel chamfer">
+                <h3 id="lg-display-title">DISPLAY</h3>
+                <div id="lg-quality" class="switch2">
+                    <div id="q-perf" class="sw">2D · Performance</div>
+                    <div id="q-quality" class="sw">3D · Quality</div>
+                </div>
+                <h3 id="lg-cat-title">LEGEND</h3>
+                <div id="lg-cats"></div>
+                <h3>HUD</h3>
+                <div id="lg-hud"></div>
+                <h3>LAYERS</h3>
+                <div id="lg-layers"></div>
+                <div id="lg-zones"></div>
+            </div>
+
+            <div id="tools">
+                <div id="t-in" class="tool"><span>+</span></div>
+                <div id="t-out" class="tool"><span>−</span></div>
+                <div id="t-north" class="tool"><span id="t-north-n">N</span></div>
+                <div id="t-pitch" class="tool small"><span id="t-pitch-t">2D</span></div>
+                <div id="t-center" class="tool"><span id="t-center-icon"></span></div>
+            </div>
+
+            <div id="help"></div>
+
+            <div id="card" class="glass-panel chamfer">
+                <div class="card-head">
+                    <span id="card-icon" class="card-icon"></span>
+                    <div class="card-names"><div id="card-cat" class="card-cat">PLACE</div><div id="card-name" class="card-name">Location</div></div>
+                </div>
+                <p id="card-desc"></p>
+                <div class="card-dl">
+                    <div><div class="dt">DISTANCE</div><div id="card-dist" class="dd">--</div></div>
+                    <div><div class="dt">DISTRICT</div><div id="card-district" class="dd">--</div></div>
+                </div>
+                <div id="card-btn" class="btn solid-btn"><span>Set route</span><span class="kbd">G</span></div>
+            </div>
+
+            <div id="perf" class="glass-panel">
+                <div class="perf-head"><span class="perf-dot"></span><span>NATIVEUI</span><span class="dim"> · NO BROWSER · GPU SCENE</span></div>
+                <div class="perf-row"><span id="pf-fps" class="perf-big">--</span><span class="dim">FPS</span><span id="pf-frame" class="mono"></span></div>
+                <div class="perf-row"><span class="dim">UI CPU</span><span id="pf-cpu" class="mono"></span></div>
+                <div class="perf-row"><span class="dim">SCENE</span><span id="pf-scene" class="mono"></span></div>
+                <div id="pf-spark" class="spark"></div>
+            </div>
+        </div>
+
+        <div id="toast" class="toast"></div>
+
+        <div id="loading" class="glass-panel">
+            <div class="ld-title">LOADING CITY</div>
+            <div id="ld-stage" class="ld-stage">MAP DATA</div>
+            <div class="ld-bar"><div id="ld-fill" class="ld-fill"></div></div>
+        </div>
+
+        <div id="quality">
+            <div class="q-panel glass-panel chamfer">
+                <div class="q-head">
+                    <span class="tag">MAP</span>
+                    <div><div class="q-title">DISPLAY MODE</div><div class="q-sub">HOW SHOULD THE CITY BE DRAWN?</div></div>
+                </div>
+                <div class="q-cards">
+                    <div id="qc-performance" class="q-card">
+                        <span class="kbd q-key">1</span>
+                        <div class="q-art"><path class="q-art-line" view-box="0 0 120 72" d="M8 8h30v22H8zM46 8h22v14H46zM76 8h36v28H76zM8 38h24v26H8zM40 30h28v34H40zM76 44h36v20H76z"/><path class="q-art-route" view-box="0 0 120 72" d="M4 34H36V70M36 34h36v-6h44"/></div>
+                        <div class="q-tag">LIGHT · ANY PC</div>
+                        <div class="q-name">PERFORMANCE</div>
+                        <div class="q-text">A flat 2D map without the heavy effects, on the map and the minimap. Smooth on small configurations.</div>
+                    </div>
+                    <div id="qc-quality" class="q-card">
+                        <span class="kbd q-key">2</span>
+                        <div class="q-art"><path class="q-art-line" view-box="0 0 120 72" d="M20 50 40 40 60 50 40 60zM20 50V28l20-10 20 10v22M40 40V18M68 46l16-8 16 8-16 8zM68 46V20l16-8 16 8v26M84 38V12"/><path class="q-art-route" view-box="0 0 120 72" d="M4 66 40 64 64 58 116 62"/></div>
+                        <div class="q-tag">RECENT GRAPHICS CARD</div>
+                        <div class="q-name">QUALITY</div>
+                        <div class="q-text">The 3D city: lit buildings, x-ray minimap, animated route and activity zones.</div>
+                    </div>
+                </div>
+                <div class="q-foot"><span><span class="kbd">ENTER</span>Confirm</span><span class="dim">Switch at any time under DISPLAY in the legend.</span></div>
+            </div>
+        </div>
+        <div id="scan"></div>
+    </div>
+</div>
+</body>
+</rml>

@@ -1,17 +1,12 @@
--- op77_map3d client: the pages (the minimap's small surface and the full map's surface,
--- the same web page with a role each), the player feed, the blips of every resource,
--- the waypoint and its GPS route. README.md has the API.
+-- op77_map3d client: the surfaces (minimap and full map: two roles of one NativeUI
+-- document, client/native/app.lua), the player feed, the blips of every
+-- resource, the waypoint and its GPS route. README.md has the API.
 local C = Map3DConfig
 local B = Map3DBlip
 
--- Two surfaces. The minimap's is cropped to its corner (drawBounds) and redrawn at a low
--- rate; the map's is full screen at 60 fps and hidden while closed, so it costs nothing
--- until opened. One full-screen page doing both made the game recompose the whole
--- overlay 30 times a second for a corner.
-local surfaces = {}        -- role ("mini" | "full" | "holo") -> { page, ready }
--- The holographic GPS (its own small surface at the bottom of the view): shown while a
--- route runs, the map is closed and the player has not switched it off on the map.
-local holoEnabled = ((C.page or {}).holo or {}).enabled ~= false
+-- Two roles of one native document: the minimap and the full map (hidden while closed,
+-- so it costs nothing until opened), each a view of the same 3D city.
+local surfaces = {}        -- role ("mini" | "full") -> { page, ready }
 -- Jamming (shared/jam.lua): direct jams and zones of any resource, and the server's.
 local jams = {}            -- id -> jam (normalized) + owner
 local serverJams = {}      -- id -> jam from the server
@@ -23,7 +18,6 @@ local influenceShown = true -- a resource's own switch (setInfluenceVisible), on
 local userMinimap = true   -- the player's own switch on the map (prefs.hud.minimap)
 local uiBusy = false       -- another interface holds the cursor (inventory, F1 menu, phone...)
 local prefs = nil          -- the map page's display choices, replayed to the minimap
-local holoRoute = nil
 local pageReady = false    -- a surface has answered
 local open = false
 local blips = {}          -- id -> blip (normalized) + owner
@@ -88,15 +82,6 @@ local function syncMini()
     end
 end
 
-local function syncHolo()
-    local s = surfaces.holo
-    if not s then return end
-    local want = holoEnabled and holoRoute ~= nil and not open and not uiBusy and jamSent.strength < 0.99
-    if want ~= s.shown then
-        s.shown = want
-        pcall(want and s.page.show or s.page.hide, s.page)
-    end
-end
 local function caller() return GetInvokingResource() or GetCurrentResourceName() end
 local function same(a, b) return a and b and math.abs(a.x - b.x) < 0.5 and math.abs(a.y - b.y) < 0.5 end
 
@@ -219,7 +204,7 @@ local function areaId(id, owner)
     return areas[own] and own or id
 end
 
--- the map and the minimap draw areas; the holo GPS does not
+-- the map and the minimap draw areas
 local function sendMaps(name, payload) sendTo("mini", name, payload); sendTo("full", name, payload) end
 
 -- The player's choice (from the open map) or a resource's (exports.setQuality): kept in
@@ -395,7 +380,6 @@ local function syncJam()
     jamSent = { strength = strength, label = label }
     send("map3d:jam", { strength = strength, label = label })
     if (strength > 0) ~= wasJammed then TriggerEvent("op77_map3d:jammed", strength > 0, strength) end
-    syncHolo()
 end
 
 local function addJam(def, owner, wantZone)
@@ -451,7 +435,6 @@ local function setOpen(v, focus)
         end
         syncMini()
         pcall(page.show, page)
-        syncHolo()
         page:setFocus(true, true)
         sendTo("full", "map3d:open", focus or {})
         TriggerEvent("op77_map3d:opened")
@@ -471,7 +454,6 @@ local function setOpen(v, focus)
             pcall(page.hide, page)
         end
         syncMini()
-        syncHolo()
         TriggerEvent("op77_map3d:closed")
     end
     return open
@@ -491,7 +473,7 @@ local function takeOver(active)
 end
 
 -- While another interface holds the cursor (an inventory, a menu, a phone), the minimap
--- and the holo GPS step aside, and come back when it closes.
+-- steps aside, and comes back when it closes.
 CreateThread(function()
     while true do
         Wait(150)
@@ -503,7 +485,6 @@ CreateThread(function()
         if busy ~= uiBusy then
             uiBusy = busy
             syncMini()
-            syncHolo()
         end
     end
 end)
@@ -625,7 +606,7 @@ CreateThread(function()
 end)
 
 -- ---------------------------------------------------------------------------
--- The page
+-- The surfaces
 
 -- A minimap setting as it stands after the runtime patches.
 local function minimapSetting(key, default)
@@ -637,79 +618,29 @@ local function minimapSetting(key, default)
     return v
 end
 
--- The minimap's corner, with room for the district line and a toast under it (CSS units
--- of the 1920 x 1080 reference; negative = from the right / bottom edge).
-local function miniBounds()
-    local size = tonumber(minimapSetting("size", 264)) or 264
-    local margin = minimapSetting("margin", { 32, 26 })
-    local w = (tonumber(margin[1]) or 32) + size + 24
-    local h = (tonumber(margin[2]) or 26) + size + 100
-    local anchor = tostring(minimapSetting("anchor", "top-right"))
-    return { x = anchor:find("right") and -w or 0, y = anchor:find("bottom") and -h or 0, width = w, height = h }
-end
-
--- Bottom centre, where the holo screen rises: the CSS width follows the screen's aspect
--- (1080 CSS px high), so read the back buffer to centre the crop.
--- The screen's aspect as a page sees it (map3d:ready carries its viewport): the holo
--- crop is centred, so it needs the width. Open77.screen.surface would tell too, but it
--- requires screen.capture, which this map has no business asking for.
-local viewAspect = nil
-local function holoBounds()
-    local w, h = 780, 320
-    local aspect = viewAspect
-    if not aspect then
-        local okS, surface = pcall(function() return Open77.screen.surface() end)
-        local px, py = okS and type(surface) == "table" and tonumber(surface.width), okS and type(surface) == "table" and tonumber(surface.height)
-        if px and py and py > 0 then aspect = px / py end
-    end
-    if not aspect then return nil end
-    local cssWidth = 1080 * aspect
-    return { x = math.floor((cssWidth - w) / 2), y = -h, width = w, height = h }
-end
-
 local function createSurface(role)
-    local fps = C.fps or {}
-    local options = {
-        entry = "web/index.html", layer = "hud", width = 1920, height = 1080, transparent = true,
-        -- above LightRP (720) and the voice HUD (760)
-        fps = role == "mini" and (fps.minimap or 30) or role == "holo" and (fps.holo or 30) or (fps.map or 60),
-        -- the minimap and the holo GPS sit under the gamemode's interfaces (LightRP: 720),
-        -- the open map above them
-        zIndex = (C.zIndex or {})[role == "full" and "map" or role == "mini" and "minimap" or "holo"]
-            or (role == "mini" and 700 or role == "holo" and 699 or 781),
-        visible = role == "mini" or (role == "full" and open),
-        drawBounds = role == "mini" and miniBounds() or role == "holo" and holoBounds() or nil,
-    }
-    local created, why
-    for _ = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
-        created, why = WebUI.create(options)
-        if created or why ~= "resource_preparing" then break end
-        Wait(250)
-    end
-    if not created and why == "invalid_webui_draw_bounds" then
-        warn("bounds", "minimap crop refused: drawn on a full-screen surface")
-        options.drawBounds = nil
-        created, why = WebUI.create(options)
-    end
-    if not created then print("[map3d] no " .. role .. " WebUI surface: " .. tostring(why)) return end
-    local s = { page = created, ready = false, shown = options.visible, cropped = options.drawBounds ~= nil }
+    -- NativeUI (client/native/app.lua): one document draws both roles from one city,
+    -- each role keeps the page API this file always spoke (send / on / show / hide / focus)
+    local options = { visible = role == "mini" or (role == "full" and open) }
+    local created, why = Map3DNative.surface(role, options)
+    if not created then print("[map3d] no " .. role .. " surface: " .. tostring(why)) return end
+    local s = { page = created, ready = false, shown = options.visible, cropped = true }
     surfaces[role] = s
     local page = created
     local function hello()
         s.ready, pageReady = true, true
         page:send("map3d:role", { role = role })
-        -- before the city loads: the page builds the right renderer from the start
-        if role ~= "holo" then page:send("map3d:quality", qualityPayload()) end
+        -- before the city loads: the map starts with the right renderer
+        page:send("map3d:quality", qualityPayload())
         page:send("map3d:config", pageConfig)
         for _, patch in ipairs(configPatches) do page:send("map3d:config", patch) end
         page:send("map3d:minimap", { visible = minimapVisible })
         page:send("map3d:blips", { set = allBlips() })
-        if role ~= "holo" then replayAreas(page) end
+        replayAreas(page)
         if waypoint then page:send("map3d:route", waypoint) end
         if role == "full" and open then page:send("map3d:open", {}) end
         if jamSent.strength > 0 then page:send("map3d:jam", jamSent) end
-        if role ~= "holo" then page:send("map3d:influence", influence); page:send("map3d:influenceVisible", { visible = influenceShown }) end
-        if role == "holo" then page:send("map3d:holo", holoRoute or { clear = true, pts = {} }); syncHolo() end
+        page:send("map3d:influence", influence); page:send("map3d:influenceVisible", { visible = influenceShown })
         if role == "mini" then
             if prefs then page:send("map3d:prefs", prefs) end
             syncMini()
@@ -719,47 +650,21 @@ local function createSurface(role)
     page:on("map3d:ready", function(info)
         hello()
         if role == gpsRole() then TriggerEvent("op77_map3d:ready", info) end
-        -- the first page to know the screen's aspect lets the holo GPS be cropped
-        local vw, vh = type(info) == "table" and tonumber(info.vw), type(info) == "table" and tonumber(info.vh)
-        if not viewAspect and vw and vh and vw > 0 and vh > 0 then
-            viewAspect = vw / vh
-            local holo = surfaces.holo
-            if holo and not holo.cropped and role ~= "holo" then
-                CreateThread(function()
-                    pcall(holo.page.destroy, holo.page)
-                    surfaces.holo = nil
-                    createSurface("holo")
-                end)
-            end
-        end
     end)
     page:on("map3d:error", function(p) print("[map3d] " .. role .. " page error: " .. tostring(p and p.message)) end)
     page:on("map3d:close", function() setOpen(false) end)
     page:on("map3d:typing", function(p) typing = role == "full" and p and p.active == true or false end)
-    page:on("map3d:holo", function(p)
-        if role ~= gpsRole() then return end
-        holoRoute = type(p) == "table" and not p.clear and p or nil
-        sendTo("holo", "map3d:holo", p)
-        syncHolo()
-    end)
     page:on("map3d:prefs", function(p)
         if role ~= "full" or type(p) ~= "table" then return end
         prefs = p
         local hud = type(p.hud) == "table" and p.hud or {}
-        holoEnabled = hud.holo ~= false
         userMinimap = hud.minimap ~= false
         sendTo("mini", "map3d:prefs", p)
         syncMini()
-        syncHolo()
     end)
     page:on("map3d:quality", function(p)
         if role ~= "full" or type(p) ~= "table" then return end
         setQuality(p.mode, role)
-    end)
-    page:on("map3d:holoPref", function(p)
-        if role ~= "full" then return end
-        holoEnabled = p and p.enabled ~= false
-        syncHolo()
     end)
     page:on("map3d:log", function(p) dbg("%s page: %s", role, tostring(p and p.message)) end)
     page:on("map3d:waypoint", function(p)
@@ -843,7 +748,6 @@ AddEventHandler("onClientResourceStart", function(name)
     CreateThread(function()
         syncMinimapSurface()
         createSurface("full")
-        createSurface("holo")
     end)
 end)
 

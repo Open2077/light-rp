@@ -1,7 +1,11 @@
 # op77_map3d — 3D city map, minimap and GPS
 
 A standalone Open77 resource that replaces the game's map and minimap with a fully
-customizable 3D map of Night City, built from the game's own 3D map assets:
+customizable 3D map of Night City, built from the game's own 3D map assets and drawn
+by **NativeUI**: the client's own D3D12 scene layer and RmlUi, no browser. One native
+document holds the minimap and the full map as two views of one city
+loaded once; the map renders in the game's frame (no page texture, no IPC), redraws
+only what moves, and shows what it costs live (the NATIVEUI panel on the open map).
 
 - **The city in 3D**: terrain, water, roads and road lines, metro, cliffs, landmarks
   and the 255,532 building volumes of every district (Phantom Liberty's Dogtown and
@@ -42,8 +46,9 @@ back when it stops.
 
 1. Put the folder in `resources/` (it is self-contained) and add `op77_map3d` to the
    server's resource load list.
-2. Players need nothing else: the page and its data (about 11 MB) download with the
-   resource.
+2. Players need nothing else: the native UI and its data (about 11 MB) download with
+   the resource. It needs a client with NativeUI views (Open77 0.6, scene views, graph
+   routes and anchors: see `wiki/native-ui.md`).
 
 ## Configuration
 
@@ -54,18 +59,18 @@ back when it stops.
 | `key` | Key mapping that opens the map (default `M`). |
 | `zoomKeys` | `{ zoomIn, zoomOut }` key mappings that zoom the minimap while held (default numpad `+` / `-`, `NUMPADPLUS` / `NUMPADMINUS`: needs a client that knows the numpad names; `PAGEUP` / `PAGEDOWN` work everywhere). The level is remembered. |
 | `replaceNativeMap` | Block the game's map key/menu while the resource runs. |
-| `zIndex` | `{ minimap, holo, map }` surface order: the minimap (700) and the holo GPS (699) under a gamemode's interfaces (LightRP's page is 720), the open map (781) above. |
-| `hideUnderMenus` | Hide the minimap and the holo GPS while another interface holds the cursor (inventory, F1 menu, phone). |
+| `zIndex` | Kept for older configs; the native document draws above WebUI pages (NativeUI's layer), `hideUnderMenus` steps it aside under other interfaces. |
+| `hideUnderMenus` | Hide the minimap while another interface holds the cursor (inventory, F1 menu, phone). |
 | `pauseMenuMap`, `pauseMenuPriority` | Register as the pause menu's CITY MAP (open77_pause map providers, `wiki/map-providers.md`); the highest priority wins. |
 | `hideNativeMinimap` | Hide the vanilla HUD minimap. |
 | `mirrorNativeWaypoint` | Share the waypoint with the game's (both ways). |
-| `playerRate` | Player position updates per second sent to the page. |
-| `fps` | `{ minimap, map }`: the two WebUI surfaces' frame rates (default 60 and 60). The minimap has its own surface cropped to its corner; the map's full-screen surface is hidden while closed. |
+| `playerRate` | Player position updates per second fed to the map (the minimap camera eases between them every frame). |
+| `fps` | Kept for older configs: `page.minimap.fps` caps the minimap's redraws, `page.map.idleFps` the open map's while only the route or zones animate. |
 | `debug` | Print open/close, waypoint changes (with their origin) and page keys to the client log. |
 | `nearbyPlayers` | `{ enabled, radius, interval, color }` other players as blips. Off by default since 0.2.1 (no positions on the map; no loop runs). |
-| `page` | Everything the page uses, deep-merged over its defaults (below). |
+| `page` | Everything the native map uses, deep-merged over its defaults (below). |
 
-`page` (defaults in `ui/src/config.ts`):
+`page` (defaults in `client/native/defaults.lua`):
 
 - `theme`: `background, terrain, terrainGrid, water, waterLine, road, roadEdge, metro,
   building, buildingTop, buildingEdge, landmark, accent, accentSoft, text, textDim,
@@ -176,7 +181,7 @@ comes back when it stops. Blips and the player's own arrow are not affected.
 
 The map and minimap can drown in static: an unmapped place, a custom map zone, an RP
 action (a scrambler, a blindfold, a dead phone). `strength` 1 hides everything (map,
-blips, route, the holographic GPS) under "NO SIGNAL"; below 1 the map shows through the
+blips, route) under "NO SIGNAL"; below 1 the map shows through the
 static. Several jams combine, the strongest wins; they belong to their resource.
 
 ```lua
@@ -287,46 +292,42 @@ python tools/export_web.py out
 npx @gltf-transform/cli weld out/world.raw.glb out/w.glb && npx @gltf-transform/cli quantize out/w.glb out/world.glb
 ```
 
-The page reads these files through `open77://op77_map3d/web/data/...` (a WebUI page may
-only fetch declared resource files, and WebAssembly is refused, hence no meshopt). If you
-rename the folder, set `window.MAP3D_RESOURCE` in `web/index.html` to the new name.
+The client reads these files itself (NativeUI scene ops `mesh`, `instances`, `graph` and
+`lines`, on loader threads): Lua only reads `manifest.json`.
 
 The data is derived from Cyberpunk 2077 (CD PROJEKT RED); it only makes sense with the
 game and is distributed for use with it.
 
-## The page
+## The native map
 
-`ui/` is the source (Vite + TypeScript + three.js 0.169), built into `web/`:
+`client/native/` and `ui/native/` (no build step):
 
-```
-cd ui && npm ci && npm run build      # npm run dev -> http://localhost:5181/?open=1&route=1
-```
+| File | |
+| --- | --- |
+| `ui/native/map.rml`, `map.rcss` | The document: minimap and full map (layout, motion, effects). Colours are a theme layer. |
+| `client/native/theme.lua` | The theme as one RCSS layer (`ui:stylesheet("theme", ...)`): `setTheme` reaches every rule live. |
+| `client/native/icons.lua` | The built-in icons, and a resource's own `<svg>` turned into NativeUI `<path>` data. |
+| `client/native/defaults.lua` | The `page` defaults and the config merge. |
+| `client/native/app.lua` | The two roles `client/main.lua` talks to (send / on / show / hide / focus): scene, views, blips, GPS, areas, zones, jamming, search, legend, card, quality chooser, perf panel. |
 
-The browser preview (`npm run dev`) runs a mock player and blips: `?open=1` opens the
-map, `?route=1` sets a route, `?drive=1` drives, `?dist=700&fx=-1450&fy=150` zooms,
-`?areas=1` (or `?areas=pulse`) adds Light RP's Dogtown danger zone and a solid area
-(`?areas=1&open=1&dist=2600&fx=-1750&fy=-2450`), `?px=-1800&py=-2550&pyaw=0` puts the
-player there (the minimap over a place). The preview draws in performance mode;
-`?quality=quality` draws the 3D city, `?ask=1` shows the first opening's question.
+What the client does natively (and any resource can use, `wiki/native-ui.md`):
 
-`npm run build` empties `web/` first (Vite's `emptyOutDir`), `web/data` included: restore
-it with `git checkout -- web/data`, or build with `npx vite build --outDir <elsewhere>` and
-copy `index.html` and `assets/` over.
+- one scene, two **views** (`<scene3d view="mini|full">`): own cameras, MSAA,
+  redraw caps, render scale, x-ray; the city is loaded once;
+- **areas** and **activity zones** drawn in the scene's shaders (`areas`, `zones` ops);
+- the **GPS search**: the traffic network as a scene `graph`, A* off the game thread
+  (`route`), the route drawn as chevron lines;
+- **anchors** for the blips: pinned to the minimap's edge, turned to a heading,
+  clustered with a count, fanned out under the mouse, moved by transform (no relayout);
+- the open map's backdrop blurs the game behind it, the minimap is glass: the city is
+  drawn translucent over the frosted frame.
 
-What the game's browser does differently from a desktop browser (all handled):
-
-- `fetch` only reaches `open77://` URLs and WebAssembly is refused (see above);
-- every click arrives with a click count of 1, so `dblclick` never fires: the page
-  detects two still clicks within 450 ms itself;
-- key events arrive without `KeyboardEvent.code`: keys are read through `keyName()`
-  (`ui/src/controls.ts`), which falls back to `keyCode`;
-- Escape is consumed while the map is open (`page:setConsumedKeys`), otherwise it also
-  opens the pause menu.
+Fonts: Zen Dots and Share Tech Mono (SIL OFL), `ui/native/fonts`, converted to TTF from
+the former web page's WOFF2 files; Chakra Petch is built into NativeUI.
 
 ## Tests
 
 ```
-pwsh -File tests/run-lua.ps1      # blips, areas, owners, page lifecycle, waypoint mirror, server targets
-node tests/gps_test.mjs           # 200 random routes on the real network (needs ui/node_modules)
-node tests/areas_test.mjs         # what the shaders get from an area: distances, slots, Dogtown (needs ui/node_modules)
+pwsh -File tests/run-lua.ps1                        # blips, areas, owners, surfaces, waypoint mirror, server targets
+pwsh -File tests/run-lua.ps1 -Test native_test.lua  # icons (SVG to paths), theme layer, config merge
 ```
