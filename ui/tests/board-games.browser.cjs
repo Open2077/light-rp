@@ -277,14 +277,6 @@ const BUSY = [
     await show({ ...CASES[0].view, leaving: 1500 });
     assert.match(await bar.getByRole('alert').innerText(), /Too far from the table — step back or you leave your seat\./);
 
-    // Notices stay visible and clickable above the pointer layer.
-    await page.evaluate(() => testBridge.fire('lightrp:ui:notice', { id: 'n1', kind: 'info', title: 'TABLE', body: 'Red 14 wins', durationMs: 60000 }));
-    const notice = page.locator('.notices .o77-notice').first();
-    await notice.waitFor();
-    await page.waitForTimeout(300); // the notice's wipe-in clips it while it runs
-    const nb = await notice.boundingBox();
-    assert(await page.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest('.notices'), { x: nb.x + nb.width / 2, y: nb.y + nb.height / 2 }), 'notice above the pointer layer');
-
     // Layout: the bar never covers the table centre, keeps 16 px gutters, stays short.
     const boxes = {};
     for (const size of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
@@ -332,6 +324,6 @@ const BUSY = [
     await page.mouse.click(300, 300); await page.keyboard.press('Backspace'); await page.keyboard.press('Escape'); await page.keyboard.press('e');
     assert.deepEqual(await page.evaluate(() => testBridge.sent.filter(e => e.name.startsWith('lightrp:boardGames:'))), [], 'nothing sent once standing');
     assert.deepEqual(errors, []);
-    console.log(`board games browser: ${CASES.length} table kinds (actions, chip, camera, pointer, wheel, leave), empty Lua lists, countdown, warning, notices, layout at 1280x720 and 1920x1080 passed; Free (overlay with crosshair, cursor key, HUD kept), placement bar (buttons, drag, keys, cancel), key forwarding and Escape passed`);
+    console.log(`board games browser: ${CASES.length} table kinds (actions, chip, camera, pointer, wheel, leave), empty Lua lists, countdown, warning, layout at 1280x720 and 1920x1080 passed; Free (overlay with crosshair, cursor key, HUD kept), placement bar (buttons, drag, keys, cancel), key forwarding and Escape passed`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

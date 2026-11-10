@@ -1,0 +1,91 @@
+<rml>
+<head>
+    <title>Open//77 Voice</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="voice.rcss"/>
+</head>
+<!-- The Light RP voice HUD as a hologram, bottom right, in the same projection as the
+     vehicle speedometer (op77_speedometer): tilted toward the centre of the screen, glowing,
+     scanlined. Left, the reach in seven-segment digits. Row one: mic glyph, state readout,
+     the 14-cell input meter, players heard. Row two: the reach presets with a selector under
+     the active one (or the single reach), the cycle key. Bound to one data model, "voice",
+     that client/ui.lua fills from the payload client/main.lua builds; ui.lua also writes
+     #dist7 (the digits), #ranges (the presets) and two stylesheet layers (the reach colours). -->
+<body data-model="voice">
+<div id="root">
+<div id="voice" data-class-visible="shown" data-class-off="off" data-class-multi="multi" data-class-changing="changing"
+     data-class-s-idle="state == 'idle'" data-class-s-detected="state == 'detected'"
+     data-class-s-talking="state == 'talking'" data-class-s-muted="state == 'muted'"
+     data-class-s-offline="state == 'offline'">
+<div id="scaler" data-class-narrow="narrow == 1" data-class-narrower="narrow == 2">
+
+    <!-- a rejected request, for a few seconds, above the plate -->
+    <div id="error" data-class-active="hasError"><span id="error-text">{{error}}</span></div>
+
+    <div id="rig">
+    <div id="plane">
+        <div id="haze"></div>
+        <!-- #bloom glows, #scan draws the scanlines; never on #voice, #rig or #plane -->
+        <div id="bloom">
+        <div id="scan">
+        <div id="plate">
+            <div class="corner tl"></div><div class="corner br"></div>
+
+            <div id="dist">
+                <div id="dist7"></div>
+                <span id="dist-unit">M</span>
+            </div>
+
+            <div id="body">
+                <div class="vrow first">
+                    <div id="glyph">
+                        <path id="mic-on" view-box="0 0 24 24"
+                              d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z M19 10v2a7 7 0 0 1-14 0v-2 M12 19v3"/>
+                        <path id="mic-off" view-box="0 0 24 24"
+                              d="M2 2L22 22 M18.89 13.23A7.12 7.12 0 0 0 19 12v-2 M5 10v2a7 7 0 0 0 12 5 M15 9.34V5a3 3 0 0 0-5.68-1.33 M9 9v3a3 3 0 0 0 5.12 2.12 M12 19v3"/>
+                    </div>
+                    <span id="state">{{stateLabel}}</span>
+                    <div id="meter">
+                        <span class="cell" data-class-lit="lit > 0" data-class-tip="lit == 1"></span>
+                        <span class="cell" data-class-lit="lit > 1" data-class-tip="lit == 2"></span>
+                        <span class="cell" data-class-lit="lit > 2" data-class-tip="lit == 3"></span>
+                        <span class="cell" data-class-lit="lit > 3" data-class-tip="lit == 4"></span>
+                        <span class="cell" data-class-lit="lit > 4" data-class-tip="lit == 5"></span>
+                        <span class="cell" data-class-lit="lit > 5" data-class-tip="lit == 6"></span>
+                        <span class="cell" data-class-lit="lit > 6" data-class-tip="lit == 7"></span>
+                        <span class="cell" data-class-lit="lit > 7" data-class-tip="lit == 8"></span>
+                        <span class="cell" data-class-lit="lit > 8" data-class-tip="lit == 9"></span>
+                        <span class="cell" data-class-lit="lit > 9" data-class-tip="lit == 10"></span>
+                        <span class="cell" data-class-lit="lit > 10" data-class-tip="lit == 11"></span>
+                        <span class="cell peak" data-class-lit="lit > 11" data-class-tip="lit == 12"></span>
+                        <span class="cell peak" data-class-lit="lit > 12" data-class-tip="lit == 13"></span>
+                        <span class="cell peak" data-class-lit="lit > 13" data-class-tip="lit == 14"></span>
+                    </div>
+                    <div id="talkers" data-class-on="heard > 0">
+                        <div class="rx"></div>
+                        <span id="talker-count">{{heard}}</span>
+                    </div>
+                </div>
+                <div class="vrow second">
+                    <div id="selector"><div id="ranges"></div></div>
+                    <div id="reach">
+                        <span id="mode-label">{{label}}</span>
+                        <span class="sep">·</span>
+                        <span id="distance">{{distance}}</span>
+                        <span>M</span>
+                    </div>
+                    <div id="key">{{key}}</div>
+                </div>
+            </div>
+
+            <div id="sweep"></div>
+        </div>
+        </div>
+        </div>
+    </div>
+    </div>
+</div>
+</div>
+</div>
+</body>
+</rml>

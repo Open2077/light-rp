@@ -1,6 +1,0 @@
-/* The Maneki-neko placement tool's bar: the free camera's bar (freecam.css) with a gold mark. */
-.maneki-tool { min-width: 760px; border-top-color: #ffcc00; }
-.maneki-tool .freecam__title { color: #ffcc00; }
-.maneki-tool__dot { width: 7px; height: 7px; border-radius: 50%; background: #ffcc00; box-shadow: 0 0 8px #ffcc00aa; animation: freecam-rec 1.6s ease-in-out infinite; }
-.maneki-tool__message { margin: 0; padding: 7px 18px; font-size: 12px; color: #3ddc84; border-bottom: 1px solid var(--line-soft); }
-.maneki-tool__message.is-error { color: #ff5a4d; }

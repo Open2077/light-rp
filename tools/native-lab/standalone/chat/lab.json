@@ -1,0 +1,6 @@
+{
+  "resource": "resources/system/open77_chat",
+  "scripts": ["client/ui.lua"],
+  "files": ["ui/*.rml", "ui/*.rcss", "ui/fonts/*"],
+  "permissions": []
+}

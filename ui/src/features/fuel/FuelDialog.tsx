@@ -99,13 +99,3 @@ function FuelBody({ payload: p, close }: { payload: FuelDialogPayload; close: ()
     <footer className="pump__footer"><span><kbd>Esc</kbd> Close</span><span>Timed filling · Cancel without charge</span></footer>
   </div>;
 }
-export function FuelApproach() {
-  const [state, setState] = useState<{ label: string; deadline: number; cancelKey: string } | null>(null);
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => on<{ phase: string; label: string; expiresMs: number; cancelKey?: string }>("lightrp:ui:fuel:state", p => {
-    setState(p.phase === "approach" ? { label: p.label, deadline: Date.now() + p.expiresMs, cancelKey: p.cancelKey ?? "X" } : null);
-  }), []);
-  useEffect(() => { if (!state) return; const t = setInterval(() => setNow(Date.now()), 200); return () => clearInterval(t); }, [state]);
-  if (!state) return null;
-  return <aside className="pump-route" role="status"><Icon name="fuel" size={24} /><div><span>PUMP RESERVED · {Math.max(0, Math.ceil((state.deadline - now) / 1000))}s</span><strong>Walk beside your {state.label}</strong><p>Face the vehicle. <kbd>E</kbd> Start filling <b>·</b> <kbd>{state.cancelKey}</kbd> Cancel</p></div></aside>;
-}

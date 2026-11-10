@@ -1,0 +1,142 @@
+/* Action bubbles: a pin on the anchor, a leader line, and a hologram card in 3D (a slab of
+   stacked glass layers turned toward the centre of the screen). client/view.lua places
+   each bubble by writing transforms only; the animations here are the life of a bubble: in
+   (pin, line, unfold), out (fold, retract). The accent colour of a bubble is written inline
+   on its elements (RCSS has no variables), as are the chamfered glass plates (decorators
+   whose cuts are in pixels: scaled with the screen). 1 dp = 1 px of the 1920 x 1080 reference.
+
+   RCSS animations carry no delay and no fill mode here: a delay is a first stretch of the
+   keyframes, and the rule that carries the animation also carries its end state.
+
+   RmlUi does not multiply opacity down the tree: a child that sets its own opacity replaces
+   its parent's. The script fades .ab-fade (distance x the 140 ms show fade), so nothing
+   under it sets an opacity in RCSS: things appear by scale, visibility or colour. */
+
+body { font-family: "Chakra Petch"; font-weight: bold; pointer-events: none; }
+#bubbles { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; }
+/* another interface holds the cursor: NativeUI would draw over it */
+#bubbles.is-off { visibility: hidden; }
+
+/* ---- one bubble: its origin is the anchor point ---- */
+.ab { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+/* the fade (inline opacity) */
+.ab-fade { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+
+/* the pin: a diamond with a ring that pulses (inline: scale; the ring: motion keyframes) */
+.ab-pin { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0% 0%; }
+.ab-dia { position: absolute; left: -4dp; top: -4dp; width: 8dp; height: 8dp; transform: rotate(45deg) scale(0); }
+.ab-ring { position: absolute; left: -10dp; top: -10dp; width: 20dp; height: 20dp; box-sizing: border-box; border-width: 1dp; border-radius: 10dp; }
+
+/* the leader line, from the pin to the card: a diagonal (.ab-la) then a short run (.ab-lb),
+   two bars 100 dp long that the script turns and stretches (inline); their fill draws itself */
+.ab-la, .ab-lb { position: absolute; left: 0; top: -0.75dp; width: 100dp; height: 1.5dp; transform-origin: 0% 50%; transform: scaleX(0); }
+.ab-lf { position: absolute; left: 0; top: 0; width: 100dp; height: 1.5dp; transform-origin: 0% 50%; transform: scaleX(0); }
+/* the dot where the line meets the card (inline: translate) */
+.ab-dot { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.ab-dot-in { position: absolute; left: -2dp; top: -2dp; width: 4dp; height: 4dp; border-radius: 2dp; transform: scale(0); }
+
+/* the rig sits where the card attaches (inline: translate, scale); it holds the perspective */
+.ab-rig { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0% 0%; perspective: 900dp; perspective-origin: 50% 50%; }
+/* room for the card to take its own width (a shrink-to-fit box is no wider than its container) */
+.ab-hold { position: absolute; left: 0; top: 0; width: 360dp; height: 0; }
+.ab.is-left .ab-hold { left: -360dp; }
+/* folded flat until it enters */
+.ab-card { position: absolute; left: 0; top: 0; transform-origin: 0% 50%; transform: rotateY(0deg) scaleX(0); }
+.ab.is-left .ab-card { left: auto; right: 0; transform-origin: 100% 50%; }
+/* the float (native motion: bob and sway), then the pose (inline: turn and tilt) */
+.ab-float { transform-origin: 0% 50%; }
+.ab-body { position: relative; transform-origin: 0% 50%; }
+.ab.is-left .ab-float, .ab.is-left .ab-body { transform-origin: 100% 50%; }
+
+/* glass thickness: three layers behind the face (inline decorators, their alphas carry the
+   page's 18 / 30 / 50 % opacities) */
+.ab-slab { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.ab-slab-1 { transform: translateZ(-9dp); }
+.ab-slab-2 { transform: translateZ(-6dp); }
+.ab-slab-3 { transform: translateZ(-3dp); }
+
+/* the face: 1 px border + padding 6 13 8 10, at most 340 wide */
+.ab-face { position: relative; box-sizing: border-box; max-width: 340dp; padding: 7dp 14dp 9dp 11dp; color: #f2f0ea; }
+.ab-plate { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+/* the accent tint and the scanlines (inline decorators), and the sheen that sweeps once on the
+   way in; the mask takes the bottom-left cut off them */
+.ab-fx { position: absolute; left: 1dp; top: 1dp; right: 1dp; bottom: 1dp; overflow: hidden;
+    mask-image: linear-gradient(45deg, #ffffff00 0dp, #ffffff00 5.6dp, #ffffffff 5.7dp, #ffffffff 100%); }
+.ab-sheen { position: absolute; top: 0; bottom: 0; left: -120dp; width: 90dp; opacity: 0; }
+/* ab-glitch: two steps (the script holds each 130 ms) */
+.ab-face.g1 { transform: translateX(-3dp); }
+.ab-face.g2 { transform: translateX(2dp); }
+
+/* one row: icon, *, the text in its own column (it wraps there), *; positioned, as everything
+   in the face (in-flow content would be painted under the plate) */
+.ab-text { position: relative; display: flex; flex-direction: row; align-items: flex-start; max-width: 316dp; font-size: 15dp; line-height: 18.75dp; letter-spacing: 0.01em; white-space: normal; word-break: break-word; font-effect: shadow(0dp 1dp #000000cc); }
+path.ab-icon { flex-shrink: 0; width: 13dp; height: 13dp; margin: 3dp 7dp 0dp 0dp; fill: transparent; stroke-width: 1dp; stroke-linecap: round; stroke-linejoin: round; }
+.ab-t { position: relative; flex: 0 1 auto; min-width: 0; transform: skewX(-7deg); }
+.ab-sizer { visibility: hidden; }
+.ab-type { position: absolute; left: 0; top: 0; right: 0; }
+.ab-star { display: none; flex-shrink: 0; }
+.ab.has-asterisks .ab-star { display: block; }
+.ab-star-a { margin-right: 3dp; }
+.ab-star-b { margin-left: 3dp; align-self: flex-end; }
+.ab-timer { position: absolute; left: 11dp; right: 14dp; bottom: 4dp; height: 1dp; background-color: #f2f0ea1a; }
+.ab-tbar { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform-origin: 0% 50%; }
+.ab.is-infinite .ab-timer { display: none; }
+
+/* corner brackets, in front of the face */
+.ab-corner { position: absolute; width: 6dp; height: 6dp; transform: translateZ(4dp) scale(1); visibility: hidden; }
+.ab-corner-tl { left: -4dp; top: -4dp; border-top-width: 1dp; border-left-width: 1dp; transform-origin: 0% 0%; }
+.ab-corner-br { right: -4dp; bottom: -4dp; border-right-width: 1dp; border-bottom-width: 1dp; transform-origin: 100% 100%; }
+
+/* ---- entered: where the entrance ends ---- */
+.ab.is-on .ab-dia { transform: rotate(45deg) scale(1); }
+.ab.is-on .ab-lf { transform: scaleX(1); }
+.ab.is-on .ab-dot-in { transform: scale(1); }
+.ab.is-on .ab-card { transform: rotateY(0deg) scaleX(1); }
+.ab.is-on .ab-corner { visibility: visible; }
+
+/* ---- in: pin 260 ms; line 240 ms after 140; dot 120 after 360; card 520 after 330;
+        corners 160 after 760 ---- */
+.ab.is-in .ab-dia { animation: 0.26s back-out ab-pin; }
+.ab.is-in .ab-lf-a { animation: 0.38s cubic-in-out ab-draw-a; }
+.ab.is-in .ab-lf-b { animation: 0.38s cubic-out ab-draw-b; }
+.ab.is-in .ab-dot-in { animation: 0.48s linear-in-out ab-dot-in; }
+.ab.is-in .ab-card { animation: 0.85s back-out ab-unfold; }
+.ab.is-left.is-in .ab-card { animation: 0.85s back-out ab-unfold-left; }
+.ab.is-in .ab-corner { animation: 0.92s cubic-out ab-corner-in; }
+
+/* ---- out: card 320 ms; line 220 after 220; pin 180 after 420 ---- */
+.ab.is-out .ab-card { transform: rotateY(84deg) scaleX(0); animation: 0.32s cubic-in ab-fold; }
+.ab.is-left.is-out .ab-card { transform: rotateY(-84deg) scaleX(0); animation: 0.32s cubic-in ab-fold-left; }
+.ab.is-out .ab-lf-a { transform: scaleX(0); animation: 0.44s cubic-in ab-retract-a; }
+.ab.is-out .ab-lf-b { transform: scaleX(0); animation: 0.44s cubic-in ab-retract-b; }
+.ab.is-out .ab-dot-in { transform: scale(0); transition: transform 0.12s cubic-in; }
+.ab.is-out .ab-dia { transform: rotate(45deg) scale(0); animation: 0.6s cubic-in ab-pin-out; }
+.ab.is-out .ab-ring { visibility: hidden; }
+.ab.is-out .ab-corner { visibility: hidden; }
+
+@keyframes ab-pin { from { transform: rotate(45deg) scale(0); } to { transform: rotate(45deg) scale(1); } }
+@keyframes ab-pin-out { 0% { transform: rotate(45deg) scale(1); } 70% { transform: rotate(45deg) scale(1); } 100% { transform: rotate(45deg) scale(0); } }
+/* the diagonal is 70 % of the line, the run 30 % */
+@keyframes ab-draw-a { 0% { transform: scaleX(0); } 37% { transform: scaleX(0); } 81% { transform: scaleX(1); } 100% { transform: scaleX(1); } }
+@keyframes ab-draw-b { 0% { transform: scaleX(0); } 81% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
+@keyframes ab-retract-b { 0% { transform: scaleX(1); } 50% { transform: scaleX(1); } 65% { transform: scaleX(0); } 100% { transform: scaleX(0); } }
+@keyframes ab-retract-a { 0% { transform: scaleX(1); } 65% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+/* the page faded these in; here they grow (an opacity would not take the bubble's fade) */
+@keyframes ab-dot-in { 0% { transform: scale(0); } 75% { transform: scale(0); } 100% { transform: scale(1); } }
+@keyframes ab-corner-in { 0% { transform: translateZ(4dp) scale(0); } 83% { transform: translateZ(4dp) scale(0); } 100% { transform: translateZ(4dp) scale(1); } }
+/* the card: flat (zero wide) for 330 ms, then unfolds from edge-on (the page faded in its
+   first 35 %: at 88 degrees and a fifth of its width it is a sliver either way) */
+@keyframes ab-unfold {
+    0% { transform: rotateY(-88deg) scaleX(0); }
+    39% { transform: rotateY(-88deg) scaleX(0); }
+    40% { transform: rotateY(-88deg) scaleX(0.2); }
+    100% { transform: rotateY(0deg) scaleX(1); }
+}
+@keyframes ab-unfold-left {
+    0% { transform: rotateY(88deg) scaleX(0); }
+    39% { transform: rotateY(88deg) scaleX(0); }
+    40% { transform: rotateY(88deg) scaleX(0.2); }
+    100% { transform: rotateY(0deg) scaleX(1); }
+}
+@keyframes ab-fold { from { transform: rotateY(0deg) scaleX(1); } to { transform: rotateY(84deg) scaleX(0.15); } }
+@keyframes ab-fold-left { from { transform: rotateY(0deg) scaleX(1); } to { transform: rotateY(-84deg) scaleX(0.15); } }

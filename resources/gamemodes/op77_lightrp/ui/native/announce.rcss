@@ -1,0 +1,154 @@
+/* Announcements on NativeUI: the staff broadcast (features/announce/staff-broadcast.css), the
+   voice announcement signal (announce.css + signalShader.ts) and the arrival tour's caption
+   (features/arrival/arrival-tour.css). 1 dp = 1 px of the 1920 x 1080 page.
+   What moves: client/native/announce.lua (ui:animate with the page's beziers, stepped
+   styles for the steps() animations); only the endless blinks are keyframes here. */
+
+/* ================= staff broadcast ================================================== */
+/* .sb: top hud-safe-y + 64, centred, 680 wide, padding 12 20 8 24, chamfer-lg plate
+   (#0A0A0C .94 -> #060608 .86, scanlines), hairline line-soft, 3 px accent on the left */
+#sb
+{
+    display: none;
+    position: absolute; top: 90dp; left: 50%; width: 680dp; margin-left: -340dp;
+    box-sizing: border-box; padding: 12dp 20dp 8dp 24dp;
+    color: #C3C7D1; font-size: 15dp; line-height: 1.45;
+    opacity: 0;
+}
+#sb.is-on { display: block; }
+/* --clip-chamfer-lg cuts top-left and bottom-right: the fx plate, mirrored */
+.sb-plate { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform: scaleX(-1); decorator: fx(chamfer 18 1 0.9 0 #FFCC0047); }
+.sb-scanlines { position: absolute; left: 3dp; top: 18dp; right: 1dp; bottom: 18dp; decorator: repeating-linear-gradient(180deg, #ffffff09 0dp, #ffffff09 1dp, #ffffff00 1dp, #ffffff00 3dp); }
+.sb-accent { position: absolute; left: 0; top: 18dp; bottom: 0; width: 3dp; background-color: #FFCC00; }
+/* .sb::after: a scan line sweeping down once (announce.lua) */
+#sb-scan { position: absolute; left: 0; right: 0; top: 0%; height: 2dp; opacity: 0; decorator: linear-gradient(90deg, #FFCC0000 0%, #FFCC00 50%, #FFCC0000 100%); }
+
+/* the tear: three slices shifted sideways, during the entrance only (steps(2, end)) */
+.sb-glitch { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.sb-slice { position: absolute; left: 0; right: 0; height: 18%; opacity: 0; background-color: #FFCC0038; }
+.sb-slice-1 { top: 12%; }
+.sb-slice-2 { top: 46%; background-color: #00F0FF38; }
+.sb-slice-3 { top: 74%; background-color: #FF3F6E33; }
+#sb.is-in .sb-slice-1 { animation: 0.5s 0.02s linear-in-out sb-slice; }
+#sb.is-in .sb-slice-2 { animation: 0.5s 0.1s linear-in-out sb-slice-back; }
+#sb.is-in .sb-slice-3 { animation: 0.45s 0.18s linear-in-out sb-slice; }
+@keyframes sb-slice
+{
+    0% { opacity: 0; transform: translateX(0dp); } 14.9% { opacity: 0; transform: translateX(0dp); }
+    15% { opacity: 0.5; transform: translateX(-11dp); } 29.9% { opacity: 0.5; transform: translateX(-11dp); }
+    30% { opacity: 1; transform: translateX(-22dp); } 44.9% { opacity: 1; transform: translateX(-22dp); }
+    45% { opacity: 0.9; transform: translateX(-3dp); } 59.9% { opacity: 0.9; transform: translateX(-3dp); }
+    60% { opacity: 0.8; transform: translateX(16dp); } 79.9% { opacity: 0.8; transform: translateX(16dp); }
+    80% { opacity: 0.4; transform: translateX(8dp); } 99.9% { opacity: 0.4; transform: translateX(8dp); }
+    100% { opacity: 0; transform: translateX(0dp); }
+}
+@keyframes sb-slice-back
+{
+    0% { opacity: 0.4; transform: translateX(8dp); } 19.9% { opacity: 0.4; transform: translateX(8dp); }
+    20% { opacity: 0.8; transform: translateX(16dp); } 39.9% { opacity: 0.8; transform: translateX(16dp); }
+    40% { opacity: 0.9; transform: translateX(-3dp); } 54.9% { opacity: 0.9; transform: translateX(-3dp); }
+    55% { opacity: 1; transform: translateX(-22dp); } 69.9% { opacity: 1; transform: translateX(-22dp); }
+    70% { opacity: 0.5; transform: translateX(-11dp); } 84.9% { opacity: 0.5; transform: translateX(-11dp); }
+    85% { opacity: 0; transform: translateX(0dp); } 100% { opacity: 0; transform: translateX(0dp); }
+}
+/* sb-blink: 50% { opacity: .2 } with steps(2, end) */
+@keyframes sb-blink
+{
+    0% { opacity: 1; } 24.9% { opacity: 1; } 25% { opacity: 0.6; } 49.9% { opacity: 0.6; }
+    50% { opacity: 0.2; } 74.9% { opacity: 0.2; } 75% { opacity: 0.6; } 99.9% { opacity: 0.6; } 100% { opacity: 1; }
+}
+
+.sb-head { position: relative; display: flex; flex-direction: row; align-items: center; gap: 12dp; padding-bottom: 6dp; border-bottom-width: 1dp; border-bottom-color: #FFCC0024; }
+/* .sb__live: padding 3 9 2 7, #ff3b3b, --clip-tag (the bottom-right corner slanted 8 px) */
+.sb-live { display: flex; flex-direction: row; flex-shrink: 0; height: 15dp; }
+.sb-live-body { display: flex; flex-direction: row; align-items: center; gap: 6dp; height: 15dp; padding: 0 1dp 0 7dp; background-color: #FF3B3B; }
+.sb-live-body span { font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 10dp; letter-spacing: 0.18em; color: #FFFFFF; white-space: nowrap; }
+.sb-live-dot { width: 6dp; height: 6dp; border-radius: 3dp; background-color: #FFFFFF; flex-shrink: 0; animation: 1s linear-in-out infinite sb-blink; }
+path.sb-live-cut { display: block; width: 8dp; height: 15dp; fill: #FF3B3B; flex-shrink: 0; }
+.sb-title { display: flex; flex-direction: row; align-items: center; gap: 6dp; flex-shrink: 0; }
+.sb-title span { font-family: "Share Tech Mono"; font-weight: normal; font-size: 13dp; line-height: 13dp; letter-spacing: 0.14em; color: #FFCC00; white-space: nowrap; }
+.sb-title path.ic { width: 14dp; height: 14dp; stroke: #FFCC00; stroke-width: 1.2dp; }
+.sb-tag { display: block; max-width: 286dp; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 10dp; letter-spacing: 0.14em; color: #8A8F9C; }
+
+.sb-text { position: relative; margin: 8dp 0 8dp 0; color: #F2F3F5; font-size: 20dp; line-height: 1.35; letter-spacing: 0.01em; font-effect: glow(0dp 9dp 0dp 0dp #FFCC0026); }
+#sb-unsaid { color: #F2F3F500; font-effect: none; }
+#sb-caret { display: inline-block; width: 11dp; height: 20dp; margin-left: 2dp; vertical-align: -2dp; background-color: #FFCC00; animation: 0.6s linear-in-out infinite sb-blink; }
+#sb.is-typed #sb-caret { display: none; }
+
+.sb-foot { position: relative; display: flex; flex-direction: row; align-items: center; gap: 12dp; }
+.sb-from { flex-shrink: 0; white-space: nowrap; }
+.sb-from span { font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 10dp; letter-spacing: 0.14em; color: #8A8F9C; }
+.sb-from #sb-from-name { color: #FFCC00; }
+.sb-bar { position: relative; flex: 1 1 auto; height: 3dp; background-color: #FFFFFF14; overflow: hidden; }
+#sb-fill { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform-origin: 0% 50%; decorator: linear-gradient(90deg, #C99A00 0%, #FFCC00 100%); }
+
+/* ================= voice announcement signal ======================================== */
+/* .announce: top centre; the canvas 900 x 300 (min(900px, 66vw)), the label under it */
+#halo { display: none; position: absolute; left: 0; top: 0; right: 0; height: 0; }
+#halo.is-on { display: block; }
+/* the signal: decorator fx(lightrp-signal level energy talk presence) written by announce.lua */
+#halo-signal { position: absolute; left: 50%; top: 0; width: 900dp; height: 300dp; margin-left: -450dp; }
+/* without the custom effect: one pixel-stepped cyan trace that stretches with the voice */
+#halo-fallback
+{
+    display: none;
+    position: absolute; left: 50%; top: 126dp; width: 760dp; height: 4dp; margin-left: -380dp; opacity: 0;
+    decorator: repeating-linear-gradient(90deg, #5AF5FF 0dp, #5AF5FF 12dp, #5AF5FF00 12dp, #5AF5FF00 16dp);
+    box-shadow: #5AF5FF73 0dp 0dp 12dp 2dp;
+}
+#halo.is-css #halo-signal { display: none; }
+#halo.is-css #halo-fallback { display: block; }
+#halo-label
+{
+    position: absolute; left: 50%; top: 0;
+    transform: translate(-50%, 186dp); opacity: 0;
+    white-space: nowrap; padding: 5dp 12dp 6dp 12dp;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; letter-spacing: 0.14em; color: #C3C7D1;
+    font-effect: glow(0dp 3dp 0dp 0dp #000000CC);
+}
+/* the row inside a block: an absolute plate in an auto-height flex container gets no height */
+.halo-row { position: relative; display: flex; flex-direction: row; align-items: baseline; gap: 10dp; }
+/* rgba(6, 6, 8, .72), 1 px line-soft, the 8 px chamfer cut top-left and bottom-right */
+.halo-plate { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform: scaleX(-1); decorator: fx(chamfer 8 1 0.72 0 #FFCC0047); }
+.halo-tag { position: relative; display: block; padding: 1dp 7dp; background-color: #FFCC00; color: #050506; font-size: 10dp; letter-spacing: 0.2em; font-effect: none; }
+.halo-name { position: relative; display: block; font-family: "Zen Dots"; font-size: 15dp; letter-spacing: 0.1em; color: #F2F3F5; }
+.halo-reach { position: relative; display: block; font-size: 10dp; letter-spacing: 0.2em; color: #FFCC00; }
+
+/* ================= arrival tour ====================================================== */
+/* .at: cinema bars 9vh (97.2), the caption at hud-safe-x + 24 over the bottom bar, the
+   foot inside the bottom bar. Everything starts hidden; announce.lua plays the entrances. */
+#at { display: none; position: absolute; left: 0; top: 0; right: 0; bottom: 0; opacity: 0; color: #C3C7D1; }
+#at.is-on { display: block; }
+.at-shade { position: absolute; left: 0; top: 0; right: 0; bottom: 0; decorator: linear-gradient(20deg, #0000008C 0%, #00000000 45%); }
+.at-bar { position: absolute; left: 0; right: 0; height: 97.2dp; background-color: #000000; }
+#at-bar-top { top: 0; }
+#at-bar-bottom { bottom: 0; }
+.at-bar-line { position: absolute; left: 0; right: 0; top: 0; height: 1dp; decorator: linear-gradient(90deg, #FFCC0000 0%, #FFCC008C 20%, #FFCC008C 80%, #FFCC0000 100%); }
+
+#at-caption { position: absolute; left: 56dp; bottom: 135.2dp; max-width: 900dp; font-effect: glow(0dp 9dp 0dp 2dp #000000BF); }
+#at-eyebrow { display: flex; flex-direction: row; align-items: center; gap: 10dp; opacity: 0; }
+#at-eyebrow span { font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 12dp; letter-spacing: 0.28em; color: #FFCC00; white-space: nowrap; }
+#at-eyebrow-line { width: 34dp; height: 2dp; flex-shrink: 0; background-color: #FFCC00; transform-origin: 0% 50%; }
+/* the title wiped in: a clip box and the title moved against it, in 14 steps */
+.at-title-box { display: flex; flex-direction: row; margin: 12dp 0 6dp 0; }
+#at-title-clip { flex: 0 0 auto; overflow: hidden; transform: translateX(-100%); }
+#at-title-inner { position: relative; transform: translateX(100%); }
+.at-title { font-family: "Zen Dots"; font-weight: normal; font-size: 76dp; line-height: 76dp; letter-spacing: 0.04em; white-space: nowrap; color: #F2F3F5; }
+/* .at__title::after: a cyan / magenta split that settles */
+#at-split { position: absolute; left: 0; top: 0; right: 0; bottom: 0; opacity: 0; }
+#at-split-a { position: absolute; left: 3dp; top: 0; color: #00F0FF8C; font-effect: none; }
+#at-split-b { position: absolute; left: -3dp; top: 0; color: #FF3F6E80; font-effect: none; }
+#at-subtitle { color: #C3C7D1; font-size: 20dp; line-height: 1.3; opacity: 0; }
+#at-lines { display: flex; flex-direction: column; gap: 6dp; margin-top: 18dp; }
+.at-line { display: flex; flex-direction: row; align-items: baseline; gap: 12dp; opacity: 0; }
+.at-n { display: block; flex-shrink: 0; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; letter-spacing: 0.14em; color: #FFCC00; }
+.at-lt { display: block; font-size: 16dp; line-height: 1.3; color: #F2F3F5; }
+
+#at-foot { position: absolute; left: 56dp; right: 56dp; bottom: 42.6dp; display: flex; flex-direction: row; align-items: center; gap: 22dp; opacity: 0; }
+.at-time { position: relative; flex: 1 1 auto; height: 2dp; background-color: #FFFFFF1C; overflow: hidden; }
+#at-time-fill { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform-origin: 0% 50%; decorator: linear-gradient(90deg, #C99A00 0%, #FFCC00 100%); }
+#at-skip { display: flex; flex-direction: row; align-items: center; gap: 8dp; flex-shrink: 0; }
+#at-skip span { font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; letter-spacing: 0.16em; text-transform: uppercase; color: #8A8F9C; white-space: nowrap; }
+/* --clip-keycap: 4 px cut top-right and bottom-left, the fx chamfer's own corners */
+.at-kbd { padding: 3dp 8dp; flex-shrink: 0; decorator: fx(chamfer-solid 4 0 0 0 #FFCC00); }
+#at-skip .at-kbd span { color: #050506; letter-spacing: 0.06em; }

@@ -1,0 +1,77 @@
+<rml>
+<head>
+    <title>Light RP announcements</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="announce.rcss"/>
+</head>
+<!-- Three passive overlays of the page, in its z order (client/native/announce.lua drives
+     them; nothing is bound, the shell never hides them):
+       #sb    the staff broadcast banner       (features/announce/StaffBroadcast.tsx, z 46)
+       #halo  the voice announcement signal    (features/announce/AnnounceHalo.tsx, z 60)
+       #at    the arrival tour's caption       (features/arrival/ArrivalTour.tsx, z 80) -->
+<body>
+<div id="root" class="fill">
+
+    <div id="sb">
+        <div class="sb-plate"></div>
+        <div class="sb-scanlines"></div>
+        <div class="sb-accent"></div>
+        <div id="sb-scan"></div>
+        <div class="sb-glitch"><div class="sb-slice sb-slice-1"></div><div class="sb-slice sb-slice-2"></div><div class="sb-slice sb-slice-3"></div></div>
+        <div class="sb-head">
+            <div class="sb-live">
+                <div class="sb-live-body"><div class="sb-live-dot"></div><span>LIVE</span></div>
+                <path class="sb-live-cut" view-box="0 0 8 15" d="M0 0H8L0 15Z"/>
+            </div>
+            <div class="sb-title"><path id="sb-icon" class="ic" view-box="0 0 24 24" d="M0 0"/><span>CITYWIDE BROADCAST</span></div>
+            <span class="grow"></span>
+            <span id="sb-tag" class="sb-tag"></span>
+        </div>
+        <div class="sb-text"><span id="sb-said"></span><span id="sb-caret"></span><span id="sb-unsaid"></span></div>
+        <div class="sb-foot">
+            <div class="sb-from"><span id="sb-from-lead">// LIGHT/RP STAFF</span><span id="sb-from-name"></span></div>
+            <div class="sb-bar"><div id="sb-fill"></div></div>
+        </div>
+    </div>
+
+    <div id="halo">
+        <div id="halo-signal"></div>
+        <div id="halo-fallback"></div>
+        <div id="halo-label">
+            <div class="halo-plate"></div>
+            <div class="halo-row">
+                <span id="halo-tag" class="halo-tag"></span>
+                <span id="halo-name" class="halo-name"></span>
+                <span id="halo-reach" class="halo-reach"></span>
+            </div>
+        </div>
+    </div>
+
+    <div id="at">
+        <div class="at-shade"></div>
+        <div id="at-bar-top" class="at-bar"></div>
+        <div id="at-bar-bottom" class="at-bar"><div class="at-bar-line"></div></div>
+        <div id="at-caption">
+            <div id="at-eyebrow"><div id="at-eyebrow-line"></div><span>WELCOME TO NIGHT CITY</span></div>
+            <div class="at-title-box"><div id="at-title-clip"><div id="at-title-inner">
+                <div id="at-title" class="at-title"></div>
+                <div id="at-split"><div id="at-split-a" class="at-title"></div><div id="at-split-b" class="at-title"></div></div>
+            </div></div></div>
+            <div id="at-subtitle"></div>
+            <div id="at-lines">
+                <div id="at-l1" class="at-line"><span class="at-n">01</span><span class="at-lt"></span></div>
+                <div id="at-l2" class="at-line"><span class="at-n">02</span><span class="at-lt"></span></div>
+                <div id="at-l3" class="at-line"><span class="at-n">03</span><span class="at-lt"></span></div>
+                <div id="at-l4" class="at-line"><span class="at-n">04</span><span class="at-lt"></span></div>
+            </div>
+        </div>
+        <div id="at-foot">
+            <div class="at-time"><div id="at-time-fill"></div></div>
+            <div id="at-skip"><div class="at-kbd"><span id="at-key"></span></div><span>Skip</span></div>
+        </div>
+    </div>
+
+</div>
+</body>
+</rml>

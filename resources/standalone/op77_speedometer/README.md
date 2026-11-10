@@ -11,7 +11,20 @@ shakes a little at high speed.
 - **Starts:** on its own (add `"op77_speedometer"` to `resources.load`)
 - **Needs:** nothing. With `op77_lightrp`, the gamemode's own vehicle cluster stands down while
   this display is on (`op77_speedometer:state` / `op77_speedometer:query`).
-- **Runs on:** client (the page, the samples) and server (runtime configuration)
+- **Runs on:** client (the NativeUI document, the samples) and server (runtime configuration)
+
+## How it is drawn
+
+A NativeUI document (`Open77.ui`: RmlUi on the game's own Direct3D device, no browser):
+`ui/speedometer.rml` + `ui/speedometer.rcss`, driven by `client/ui.lua` through one data model
+(only the values that changed are merged; the numbers are smoothed between two samples `fps`
+times a second). `client/ui.lua` offers `client/main.lua` the page API the former WebUI page
+had (`on`, `send`, `destroy`), so the sampling code did not change. The tilt is RCSS 3D (a
+perspective on `#rig`, `rotateX` / `rotateY` on `#plane` from `layout.tiltX` / `tiltY`); the
+bloom and the scanlines are filters on `#holo`; the theme's colours are a stylesheet layer
+built from the sheet itself. Fonts: Chakra Petch (built into the client) and Share Tech Mono
+(`ui/fonts`). A client without NativeUI logs one line and shows nothing (the gamemode's own
+cluster and the game's speedometer stay).
 
 ## What it reads
 
@@ -28,18 +41,19 @@ shakes a little at high speed.
 | fuel | the vehicle's state bag `fuel` / `fuelMax` (LightRP's fuel module); no value, no gauge |
 | condition | `health` |
 
-It shows for the driver (passengers with `showForPassengers`), and hides while another page
-holds the mouse cursor (`Open77.input.isCaptured()`: inventory, menus, phone).
+It shows for the driver (passengers with `showForPassengers`), and hides while another
+interface holds the mouse cursor (`Open77.input.isCaptured()`: inventory, menus, phone).
+NativeUI draws above every WebUI page: besides `hideUnderMenus` (the fold), the display steps
+aside at once for as long as the cursor is held.
 
 ## Placement
 
-At the default (`layout.right = 36`, `layout.bottom = 146`, `layout.scale = 0.6`, CSS pixels of a
+At the default (`layout.right = 36`, `layout.bottom = 146`, `layout.scale = 0.6`, dp: pixels of a
 1080-pixel-high screen) the display sits in the band at the right edge between LightRP's
 work-order tracker (ends at y 766, 785 on 4:3) and its rental chip (y 946), above the voice HUD
 (open-voice composites the bottom 160 px) and to the right of op77_map3d's holo GPS (bottom
 centre, 780 x 320); on screens too narrow for that (5:4) it shrinks down to `layout.minScale`.
-Its surface is cropped to that corner (`drawBounds`), 30 fps, zIndex 710: under LightRP's page
-(720) and the voice HUD (760), above the 3D minimap (700).
+`zIndex` 710 is its order among the NativeUI documents of the `hud` layer.
 
 ## Configuration
 
@@ -63,7 +77,7 @@ exports.op77_speedometer:resetConfig()                                          
 Client:
 
 ```lua
-exports.op77_speedometer:setConfig(patch)      -- deep-merged; a new layout recreates the surface
+exports.op77_speedometer:setConfig(patch)      -- deep-merged; a new layout moves the same document
 exports.op77_speedometer:getConfig()
 exports.op77_speedometer:setEnabled(false)     -- the native speedometer and LightRP's cluster come back
 exports.op77_speedometer:isEnabled()
@@ -77,8 +91,10 @@ Events (client, local): `op77_speedometer:state` `{ active }` when it turns on o
 
 ## Development
 
-- Tests: `pwsh -NoProfile -File tests/run-lua.ps1` (shared logic, the client with the host
-  stubbed, the LightRP handshake).
-- Preview without the game: serve `web/` and open `index.html?speed=63&gear=3&rpm=0.55&hbk=1`
-  (also `abs tcs lights fuel health engine tires name units tilt scale accent zeros instant=0
-  demo=1`); `demo=1` drives a loop.
+- Tests: `pwsh -NoProfile -File tests/run-lua.ps1` (`-LuaDll <path to lua54.dll>` when the
+  server's is not four folders up): the shared logic, the adapter (digits, ticks, scale, shake,
+  theme layer, every name the document binds), the client with the host and NativeUI stubbed,
+  the LightRP handshake.
+- `ui/speedometer.rcss` keeps one rule per line with lowercase `#rrggbb[aa]` colours: the theme
+  layer is derived from those lines (see its header).
+- In game: `nui.reload` re-reads the document; `nui.debug <id>` inspects it.

@@ -1045,9 +1045,9 @@ reads its own game; every vehicle write is server-side.
       `SKIP` line. Set `LIGHTRP_GARAGES=<path to a patched garages.lua>` to run the
       whole flow. The runner runs it with the keys at the top level and, when that
       run is complete, again with them in `visual` (`LIGHTRP_WAVE2_KEYS`).
-- Run `npm run build --prefix ui`. Then restore `web/safezone`, which is hand-written:
-  vite's `emptyOutDir` deletes it, so run
-  `git checkout -- resources/gamemodes/op77_lightrp/web/safezone`.
+- Run `npm run build --prefix ui`. Nothing hand-written is left in `web/` to restore: the
+  safe-zone tile is a NativeUI document now (`ui/native/safezone_tile.rml`,
+  `client/native/safezone_tile.lua`).
 - Run the browser test:
   `PLAYWRIGHT_MODULE=/path/to/playwright CHROMIUM_PATH=/path/to/chrome node ui/tests/customization.browser.cjs`.
   - **Phase-1 checks:** paint, lights and trim flows, then layouts.

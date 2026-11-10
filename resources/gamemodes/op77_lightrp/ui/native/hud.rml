@@ -1,0 +1,402 @@
+<rml>
+<head>
+    <title>Light RP HUD</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="hud.rcss"/>
+</head>
+<body data-model="hud">
+
+<!-- The gameplay HUD (ui/src/features/hud/Hud.tsx and what it mounts): it fades with the shell. -->
+<div id="lhud" class="shell" data-class-is-ready="ready" data-class-is-hidden="hidden" data-class-is-quiet="quiet">
+
+    <!-- starving: a red pulse at the screen edges (PlayerVitals .player-vitals__vignette) -->
+    <div id="starve-vignette" data-if="starveOn" data-style-opacity="vignetteOpacity"><div class="sv-pulse"></div></div>
+
+    <!-- WalkFlash -->
+    <div id="walkflash">
+        <div class="wf-box" data-class-is-on="wfOn">
+            <div class="wf-bg-a"></div><div class="wf-bg-b"></div>
+            <path class="wf-bg-c" view-box="0 0 14 14" d="M0 0L14 14H0Z"/>
+            <div class="wf-in">
+                <div class="wf-icon"><path class="pi" view-box="0 0 24 24" d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0ZM20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0ZM16 17h4M4 13h4"/></div>
+                <div class="wf-text">
+                    <span class="wf-label">{{wfLabel}}</span>
+                    <span class="wf-pace">{{wfPace}}</span>
+                </div>
+                <div class="wf-cells">
+                    <div class="wf-col" data-for="c : wfCells"><div class="wf-cell" data-style-height="c.h" data-class-is-lit="c.on"
+                         data-class-go="wfOn" data-class-nx="c.i > 0" data-class-d1="c.i == 1" data-class-d2="c.i == 2"></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hotbar -->
+    <div id="hotbar" data-class-is-on="hbOn">
+        <div class="hb-in">
+            <div class="hb-slots">
+                <div class="hb-cell" data-for="s : hbSlots"><div class="hb-slot" data-class-is-active="s.active" data-class-is-error="s.error">
+                    <span class="hb-key">{{s.key}}</span>
+                    <span class="hb-count" data-if="s.filled">{{s.count}}</span>
+                    <div class="hb-art" data-if="s.filled">
+                        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" data-if="s.hasImage" data-attr-src="s.image"/>
+                        <path class="pi" data-if="!s.hasImage" view-box="0 0 24 24" data-attr-d="s.icon"/>
+                    </div>
+                    <span class="hb-name" data-if="s.filled">{{s.label}}</span>
+                    <div class="hb-empty" data-if="!s.filled"><span>—</span></div>
+                </div></div>
+            </div>
+            <span class="hb-hint" data-class-is-error="hbHintError">{{hbHint}}</span>
+        </div>
+    </div>
+
+    <!-- bottom-left stack: crew invite, crew, weapon, hologram gap, grenade, vitals -->
+    <div id="bl">
+
+        <!-- CrewInvitePrompt -->
+        <div id="crew-invite" class="bl-item" data-class-is-on="inviteOn">
+            <div class="ci-bg-a"></div><div class="ci-bg-b"></div>
+            <path class="ci-bg-c" view-box="0 0 8 8" d="M0 0H8L0 8Z"/>
+            <div class="ci-in">
+                <div class="ci-head">
+                    <path class="pi" view-box="0 0 24 24" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0zM19 8L19 14M22 11L16 11"/>
+                    <span class="ci-title">CREW INVITE</span>
+                    <span class="ci-left">{{inviteSecs}}</span>
+                </div>
+                <div class="ci-body"><span class="ci-from">{{inviteFrom}}</span><span>invites you to their crew.{{inviteMore}}</span></div>
+                <div class="ci-actions">
+                    <div class="ci-btn is-yes"><span class="ci-kbd">{{inviteAccept}}</span><span>ACCEPT</span></div>
+                    <div class="ci-btn is-no"><span class="ci-kbd">{{inviteDecline}}</span><span>DECLINE</span></div>
+                </div>
+            </div>
+            <div class="ci-time" data-style-width="inviteBar"></div>
+        </div>
+
+        <!-- CrewFrame / MissionCrew -->
+        <div id="crew" class="bl-item" data-if="crewOn">
+            <div class="crew-head">
+                <path class="pi" view-box="0 0 24 24" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+                <span class="crew-title">{{crewTitle}}</span>
+                <span class="crew-extra" data-if="crewHasExtra">{{crewExtra}}</span>
+                <span class="crew-count">{{crewCount}}</span>
+            </div>
+
+            <!-- outside a mission: who is there, who leads, what keeps them -->
+            <div class="crew-item" data-for="m : crewRows"><div class="crew-row" data-class-is-me="m.me" data-class-is-far="m.far"
+                 data-class-is-down="m.down" data-class-is-dead="m.dead">
+                <div class="cr-bg-a"></div><div class="cr-bg-b"></div>
+                <path class="cr-bg-c" view-box="0 0 5 5" d="M0 0H5L0 5Z"/>
+                <div class="cr-in">
+                    <div class="crew-mark">
+                        <path class="pi" data-if="m.leader" view-box="0 0 24 24" d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294zM5 21h14"/>
+                        <div class="crew-dot" data-if="!m.leader"></div>
+                    </div>
+                    <span class="crew-name">{{m.name}}</span>
+                    <span class="crew-rank" data-if="m.hasTitle" data-style-color="m.titleColor">{{m.title}}</span>
+                    <span class="crew-you" data-if="m.me">YOU</span>
+                    <div class="crew-chip" data-if="m.chipOn" data-class-is-alert="m.chipAlert" data-class-is-dim="m.chipDim">
+                        <path class="pi" data-if="m.chipHasIcon" view-box="0 0 24 24" data-attr-d="m.chipIcon"/>
+                        <span>{{m.chipText}}</span>
+                    </div>
+                </div>
+            </div></div>
+            <div class="crew-row is-more" data-if="crewHasMore">
+                <div class="cr-bg-a"></div><div class="cr-bg-b"></div>
+                <path class="cr-bg-c" view-box="0 0 5 5" d="M0 0H5L0 5Z"/>
+                <div class="cr-in"><span>{{crewMore}}</span></div>
+            </div>
+            <div class="crew-row is-pending" data-for="p : crewPending">
+                <div class="cr-bg-a"></div><div class="cr-bg-b"></div>
+                <path class="cr-bg-c" view-box="0 0 5 5" d="M0 0H5L0 5Z"/>
+                <div class="cr-in">
+                    <div class="crew-mark"><path class="pi" view-box="0 0 24 24" d="M12 2v4M16.2 7.8l2.9-2.9M18 12h4M16.2 16.2l2.9 2.9M12 18v4M4.9 19.1l2.9-2.9M2 12h4M4.9 4.9l2.9 2.9"/></div>
+                    <span class="crew-name">{{p.name}}</span>
+                    <div class="crew-chip"><span>INVITED</span></div>
+                </div>
+            </div>
+
+            <!-- during a mission: every operator's health and armor -->
+            <div class="crew-item" data-for="o : crewOps"><div class="crew-op" data-class-is-me="o.me" data-class-is-stranger="o.stranger" data-class-is-low="o.low"
+                 data-class-is-down="o.down" data-class-is-dead="o.dead" data-class-is-recovering="o.recovering">
+                <div class="co-bg-a"></div><div class="co-bg-b"></div>
+                <path class="co-bg-c" view-box="0 0 6 6" d="M0 0H6L0 6Z"/>
+                <div class="co-in">
+                    <div class="co-line">
+                        <div class="crew-mark">
+                            <path class="pi" data-if="o.crown" view-box="0 0 24 24" d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294zM5 21h14"/>
+                            <div class="crew-dot" data-if="!o.crown"></div>
+                        </div>
+                        <span class="crew-name">{{o.name}}</span>
+                        <span class="crew-you" data-if="o.me">YOU</span>
+                        <div class="crew-chip is-alert" data-if="o.alertOn"><span>{{o.alert}}</span></div>
+                        <span class="co-hp" data-if="!o.alertOn">{{o.health}}</span>
+                    </div>
+                    <div class="co-bar is-health"><div class="co-fill" data-style-width="o.hp"></div></div>
+                    <div class="co-bar is-armor"><div class="co-fill" data-style-width="o.armor"></div></div>
+                </div>
+            </div></div>
+            <div class="crew-row is-more" data-if="crewOpsHasMore">
+                <div class="cr-bg-a"></div><div class="cr-bg-b"></div>
+                <path class="cr-bg-c" view-box="0 0 5 5" d="M0 0H5L0 5Z"/>
+                <div class="cr-in"><span>{{crewOpsMore}}</span></div>
+            </div>
+        </div>
+
+        <!-- WeaponStatus: the page's own weapon dials (hud.weapon.active) -->
+        <div id="weapon" class="bl-item" data-if="wsOn">
+            <div class="ws-hands">
+                <div class="ws-slot" data-for="h : wsHands"><div class="ws-hand" data-class-is-empty="h.empty">
+                    <div class="ws-dial">
+                        <div class="pv-shadow"></div>
+                        <path class="pv-g pv-face" view-box="0 0 100 100" d="M14 50a36 36 0 1 0 72 0a36 36 0 1 0 -72 0z"/>
+                        <path class="pv-g pv-rim" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239"/>
+                        <path class="pv-g pv-track" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239"/>
+                        <path class="pv-g pv-fill" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="h.trim" data-class-is-zero="h.zero"/>
+                        <div class="pv-read">
+                            <path class="pi pv-icon" view-box="0 0 24 24" d="M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0zM22 12L18 12M6 12L2 12M12 6L12 2M12 22L12 18"/>
+                            <span class="pv-num">{{h.magazine}}</span>
+                        </div>
+                        <span class="ws-reload" data-if="h.reloading">RELOADING</span>
+                    </div>
+                    <div class="pv-cap"><span>{{h.side}}</span><span class="pv-limit">/ {{h.capacity}}</span></div>
+                    <div class="ws-name">{{h.label}}</div>
+                </div></div>
+            </div>
+            <div class="ws-reserve">
+                <span class="ws-res-label">{{wsReserveLabel}}</span>
+                <span class="ws-res-value">{{wsReserve}}</span>
+                <span class="ws-res-unit">ROUNDS</span>
+            </div>
+        </div>
+
+        <!-- WeaponGap: keeps what is above clear of op77_weaponhud's hologram -->
+        <div id="weapon-gap" class="bl-item" data-if="gapOn" data-style-height="gapHeight"></div>
+
+        <!-- GrenadeStatus -->
+        <div id="grenade" class="bl-item" data-if="grOn">
+            <path class="pi" view-box="0 0 24 24" d="M2 13a9 9 0 1 0 18 0a9 9 0 1 0 -18 0zM14.35 4.65 16.3 2.7a2.41 2.41 0 0 1 3.4 0l1.6 1.6a2.4 2.4 0 0 1 0 3.4l-1.95 1.95M22 2l-1.5 1.5"/>
+            <span class="gr-count">{{grCount}}</span>
+            <span class="gr-label">{{grLabel}}</span>
+        </div>
+
+        <!-- PlayerVitals -->
+        <div id="vitals" class="bl-item">
+            <div class="pv-shade"></div>
+
+            <div class="pv-starving" data-class-is-on="starveOn">
+                <div class="ps-bg-a"></div><div class="ps-bg-b"></div>
+                <path class="ps-bg-c" view-box="0 0 7 7" d="M0 0H7L0 7Z"/>
+                <div class="ps-in">
+                    <path class="pi" view-box="0 0 24 24" d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7ZM3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/>
+                    <div class="ps-text"><span class="ps-title">{{starveTitle}}</span><span class="ps-line">{{starveText}}</span></div>
+                </div>
+            </div>
+            <div class="pv-note pv-warning" data-class-is-on="warnOn">
+                <path class="pi" view-box="0 0 24 24" d="M21.73 18l-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4M12 17h.01"/>
+                <span>{{warnText}}</span>
+            </div>
+            <div class="pv-note pv-fed" data-class-is-on="fedOn">
+                <path class="pi" view-box="0 0 24 24" d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7ZM3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/>
+                <span>{{fedText}}</span>
+            </div>
+
+            <div class="pv pv-health" data-class-is-low="hpLow" data-class-is-critical="hpCritical" data-class-is-empty="hpEmpty" data-class-is-draining="hpDrain">
+                <div class="pv-dial">
+                    <div class="pv-shadow"></div>
+                    <path class="pv-g pv-face" view-box="0 0 100 100" d="M14 50a36 36 0 1 0 72 0a36 36 0 1 0 -72 0z"/>
+                    <path class="pv-g pv-rim" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239"/>
+                    <path class="pv-g pv-track" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239"/>
+                    <path class="pv-g pv-trail" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="hpTrim" data-class-is-zero="hpZero"/>
+                    <path class="pv-g pv-fill" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="hpTrim" data-class-is-zero="hpZero"/>
+                        <path class="pv-g pv-drain" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="hpTrim" data-class-is-zero="hpZero"/>
+                    <div class="pv-read">
+                        <path class="pi pv-icon" view-box="0 0 24 24" d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7ZM3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/>
+                        <span class="pv-num" data-class-is-compact="hpCompact">{{hp}}</span>
+                    </div>
+                    <span class="pv-delta" data-class-is-on="deltaOn" data-class-is-loss="deltaLoss">{{deltaText}}</span>
+                </div>
+                <div class="pv-cap"><span>Health</span><span class="pv-limit">/ {{hpMax}}</span></div>
+            </div>
+
+            <div class="pv-secondary">
+                <div class="pv pv-armor" data-class-is-empty="arEmpty">
+                    <div class="pv-dial">
+                        <div class="pv-shadow"></div>
+                        <path class="pv-g pv-face" view-box="0 0 100 100" d="M14 50a36 36 0 1 0 72 0a36 36 0 1 0 -72 0z"/>
+                        <path class="pv-g pv-rim" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239"/>
+                        <path class="pv-g pv-track" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239"/>
+                        <path class="pv-g pv-trail" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="arTrim" data-class-is-zero="arZero"/>
+                        <path class="pv-g pv-fill" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="arTrim" data-class-is-zero="arZero"/>
+                        <div class="pv-read">
+                            <path class="pi pv-icon" view-box="0 0 24 24" d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+                            <span class="pv-num" data-class-is-compact="arCompact">{{ar}}</span>
+                        </div>
+                    </div>
+                    <div class="pv-cap"><span>Armor</span></div>
+                </div>
+                <div class="pv pv-next pv-energy" data-class-is-empty="enEmpty">
+                    <div class="pv-dial">
+                        <div class="pv-shadow"></div>
+                        <path class="pv-g pv-face" view-box="0 0 100 100" d="M14 50a36 36 0 1 0 72 0a36 36 0 1 0 -72 0z"/>
+                        <path class="pv-g pv-rim" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239"/>
+                        <path class="pv-g pv-track" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239"/>
+                        <path class="pv-g pv-trail" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="enTrim" data-class-is-zero="enZero"/>
+                        <path class="pv-g pv-fill" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="enTrim" data-class-is-zero="enZero"/>
+                        <div class="pv-read">
+                            <path class="pi pv-icon" view-box="0 0 24 24" d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
+                            <span class="pv-num" data-class-is-compact="enCompact">{{en}}</span>
+                        </div>
+                    </div>
+                    <div class="pv-cap"><span>Energy</span></div>
+                </div>
+                <div class="pv pv-next pv-food" data-if="!matchOn" data-class-is-low="fdLow" data-class-is-empty="fdEmpty" data-class-is-draining="fdDrain">
+                    <div class="pv-dial">
+                        <div class="pv-shadow"></div>
+                        <path class="pv-g pv-face" view-box="0 0 100 100" d="M14 50a36 36 0 1 0 72 0a36 36 0 1 0 -72 0z"/>
+                        <path class="pv-g pv-rim" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239"/>
+                        <path class="pv-g pv-track" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239"/>
+                        <path class="pv-g pv-trail" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="fdTrim" data-class-is-zero="fdZero"/>
+                        <path class="pv-g pv-fill" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="fdTrim" data-class-is-zero="fdZero"/>
+                        <path class="pv-g pv-drain" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="fdTrim" data-class-is-zero="fdZero"/>
+                        <div class="pv-read">
+                            <path class="pi pv-icon" view-box="0 0 24 24" d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06ZM10 2c1 .5 2 2 2 5"/>
+                            <span class="pv-num" data-class-is-compact="fdCompact">{{fd}}</span>
+                        </div>
+                    </div>
+                    <div class="pv-cap"><span>Food</span></div>
+                </div>
+                <div class="pv pv-next pv-water" data-if="!matchOn" data-class-is-low="wtLow" data-class-is-empty="wtEmpty" data-class-is-draining="wtDrain">
+                    <div class="pv-dial">
+                        <div class="pv-shadow"></div>
+                        <path class="pv-g pv-face" view-box="0 0 100 100" d="M14 50a36 36 0 1 0 72 0a36 36 0 1 0 -72 0z"/>
+                        <path class="pv-g pv-rim" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239"/>
+                        <path class="pv-g pv-track" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239"/>
+                        <path class="pv-g pv-trail" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="wtTrim" data-class-is-zero="wtZero"/>
+                        <path class="pv-g pv-fill" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="wtTrim" data-class-is-zero="wtZero"/>
+                        <path class="pv-g pv-drain" view-box="0 0 100 100" d="M28.5 87.239A43 43 0 1 1 71.5 87.239" data-style-trim-end="wtTrim" data-class-is-zero="wtZero"/>
+                        <div class="pv-read">
+                            <path class="pi pv-icon" view-box="0 0 24 24" d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>
+                            <span class="pv-num" data-class-is-compact="wtCompact">{{wt}}</span>
+                        </div>
+                    </div>
+                    <div class="pv-cap"><span>Water</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- bottom-right stack, above the voice plate: rental countdown, vehicle cluster -->
+    <div id="br">
+        <div id="rental" class="br-item" data-if="rentOn" data-class-is-ending="rentEnding">
+            <div class="rt-chip">
+                <div class="rt-bg-a"></div>
+                <path class="rt-bg-c" view-box="0 0 8 10" preserve-aspect="none" d="M0 0H8L0 10Z"/>
+                <div class="rt-in">
+                    <path class="pi" view-box="0 0 24 24" d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M5 17a2 2 0 1 0 4 0a2 2 0 1 0 -4 0zM9 17h6M15 17a2 2 0 1 0 4 0a2 2 0 1 0 -4 0z"/>
+                    <span class="rt-label">RENTAL</span>
+                    <span class="rt-value">{{rentClock}}</span>
+                </div>
+            </div>
+            <div class="rt-hint" data-if="rentEnding"><span>{{rentHint}}</span></div>
+        </div>
+
+        <!-- VehicleCluster: drawn at 400 x 214 in the page and shown at 0.56; the sizes here are the shown ones -->
+        <div id="cluster" class="br-item" data-if="clOn" data-class-fuel-low="clFuelLow" data-class-fuel-empty="clFuelEmpty">
+            <path class="cl-g cl-plate" view-box="0 0 400 214" d="M14 22L30 6L370 6L386 22L386 178L374 190L26 190L14 178Z"/>
+            <path class="cl-g cl-accent" view-box="0 0 400 214" d="M30 6L110 6M290 6L370 6"/>
+            <path class="cl-g cl-track" view-box="0 0 400 214" d="M132.45 135.00A78 78 0 1 1 267.55 135.00"/>
+            <div class="cl-glow cl-speed">
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M138.48 129.40A70 70 0 0 1 135.81 123.91" data-class-is-lit="clSpeed > 0"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M134.43 120.51A70 70 0 0 1 132.55 114.71" data-class-is-lit="clSpeed > 1"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M131.66 111.15A70 70 0 0 1 130.60 105.14" data-class-is-lit="clSpeed > 2"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M130.22 101.49A70 70 0 0 1 130.00 95.39" data-class-is-lit="clSpeed > 3"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M130.13 91.73A70 70 0 0 1 130.77 85.65" data-class-is-lit="clSpeed > 4"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M131.41 82.04A70 70 0 0 1 132.88 76.12" data-class-is-lit="clSpeed > 5"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M134.02 72.63A70 70 0 0 1 136.30 66.97" data-class-is-lit="clSpeed > 6"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M137.91 63.68A70 70 0 0 1 140.96 58.39" data-class-is-lit="clSpeed > 7"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M143.01 55.35A70 70 0 0 1 146.77 50.54" data-class-is-lit="clSpeed > 8"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M149.22 47.82A70 70 0 0 1 153.62 43.57" data-class-is-lit="clSpeed > 9"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M156.42 41.22A70 70 0 0 1 161.36 37.63" data-class-is-lit="clSpeed > 10"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M164.47 35.69A70 70 0 0 1 169.86 32.82" data-class-is-lit="clSpeed > 11"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M173.21 31.33A70 70 0 0 1 178.95 29.24" data-class-is-lit="clSpeed > 12"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M182.47 28.23A70 70 0 0 1 188.45 26.96" data-class-is-lit="clSpeed > 13"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M192.08 26.45A70 70 0 0 1 198.17 26.02" data-class-is-lit="clSpeed > 14"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M201.83 26.02A70 70 0 0 1 207.92 26.45" data-class-is-lit="clSpeed > 15"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M211.55 26.96A70 70 0 0 1 217.53 28.23" data-class-is-lit="clSpeed > 16"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M221.05 29.24A70 70 0 0 1 226.79 31.33" data-class-is-lit="clSpeed > 17"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M230.14 32.82A70 70 0 0 1 235.53 35.69" data-class-is-lit="clSpeed > 18"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M238.64 37.63A70 70 0 0 1 243.58 41.22" data-class-is-lit="clSpeed > 19"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M246.38 43.57A70 70 0 0 1 250.78 47.82" data-class-is-lit="clSpeed > 20"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M253.23 50.54A70 70 0 0 1 256.99 55.35" data-class-is-lit="clSpeed > 21"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M259.04 58.39A70 70 0 0 1 262.09 63.68" data-class-is-lit="clSpeed > 22"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M263.70 66.97A70 70 0 0 1 265.98 72.63" data-class-is-lit="clSpeed > 23"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M267.12 76.12A70 70 0 0 1 268.59 82.04" data-class-is-lit="clSpeed > 24"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M269.23 85.65A70 70 0 0 1 269.87 91.73" data-class-is-lit="clSpeed > 25"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M270.00 95.39A70 70 0 0 1 269.78 101.49" data-class-is-lit="clSpeed > 26"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M269.40 105.14A70 70 0 0 1 268.34 111.15" data-class-is-lit="clSpeed > 27"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M267.45 114.71A70 70 0 0 1 265.57 120.51" data-class-is-lit="clSpeed > 28"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M264.19 123.91A70 70 0 0 1 261.52 129.40" data-class-is-lit="clSpeed > 29"/>
+            </div>
+            <div class="cl-glow cl-cond">
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M54.03 147.20A40 40 0 0 1 47.12 145.13" data-class-is-lit="clCond > 0"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M45.20 144.30A40 40 0 0 1 38.96 140.70" data-class-is-lit="clCond > 1"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M37.28 139.45A40 40 0 0 1 32.04 134.50" data-class-is-lit="clCond > 2"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M30.70 132.90A40 40 0 0 1 26.74 126.88" data-class-is-lit="clCond > 3"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M25.80 125.01A40 40 0 0 1 23.33 118.24" data-class-is-lit="clCond > 4"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M22.85 116.20A40 40 0 0 1 22.01 109.05" data-class-is-lit="clCond > 5"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M22.01 106.95A40 40 0 0 1 22.85 99.80" data-class-is-lit="clCond > 6"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M23.33 97.76A40 40 0 0 1 25.80 90.99" data-class-is-lit="clCond > 7"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M26.74 89.12A40 40 0 0 1 30.70 83.10" data-class-is-lit="clCond > 8"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M32.04 81.50A40 40 0 0 1 37.28 76.55" data-class-is-lit="clCond > 9"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M38.96 75.30A40 40 0 0 1 45.20 71.70" data-class-is-lit="clCond > 10"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M47.12 70.87A40 40 0 0 1 54.03 68.80" data-class-is-lit="clCond > 11"/>
+            </div>
+            <div class="cl-glow cl-fuel">
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M345.97 68.80A40 40 0 0 1 352.88 70.87" data-class-is-lit="clFuel > 11"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M354.80 71.70A40 40 0 0 1 361.04 75.30" data-class-is-lit="clFuel > 10"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M362.72 76.55A40 40 0 0 1 367.96 81.50" data-class-is-lit="clFuel > 9"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M369.30 83.10A40 40 0 0 1 373.26 89.12" data-class-is-lit="clFuel > 8"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M374.20 90.99A40 40 0 0 1 376.67 97.76" data-class-is-lit="clFuel > 7"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M377.15 99.80A40 40 0 0 1 377.99 106.95" data-class-is-lit="clFuel > 6"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M377.99 109.05A40 40 0 0 1 377.15 116.20" data-class-is-lit="clFuel > 5"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M376.67 118.24A40 40 0 0 1 374.20 125.01" data-class-is-lit="clFuel > 4"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M373.26 126.88A40 40 0 0 1 369.30 132.90" data-class-is-lit="clFuel > 3"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M367.96 134.50A40 40 0 0 1 362.72 139.45" data-class-is-lit="clFuel > 2"/>
+            </div>
+            <div class="cl-glow cl-fuel cl-reserve">
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M361.04 140.70A40 40 0 0 1 354.80 144.30" data-class-is-lit="clFuel > 1"/>
+                <path class="cl-g cl-cell" view-box="0 0 400 214" d="M352.88 145.13A40 40 0 0 1 345.97 147.20" data-class-is-lit="clFuel > 0"/>
+            </div>
+
+            <div class="cl-speed-read">
+                <span class="cl-speed-value">{{clSpeedText}}</span>
+                <span class="cl-speed-unit">KM/H</span>
+            </div>
+            <div class="cl-gear"><span>{{clGear}}</span></div>
+            <div class="cl-side cl-side-cond">
+                <path class="pi" view-box="0 0 24 24" d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>
+                <span class="cl-side-value">{{clCondText}}</span>
+                <span class="cl-side-unit">COND</span>
+            </div>
+            <div class="cl-side cl-side-fuel">
+                <path class="pi" view-box="0 0 24 24" d="M3 22L15 22M4 9L14 9M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"/>
+                <span class="cl-side-value" data-class-is-compact="clFuelCompact">{{clFuelText}}</span>
+                <span class="cl-side-unit">{{clFuelUnit}}</span>
+            </div>
+            <div class="cl-name">{{clName}}</div>
+        </div>
+    </div>
+</div>
+
+<!-- InteractPrompt: mounted beside the HUD in the page, so it does not wait for the vitals;
+     it steps aside with the other documents (NativeUI draws above the page's dialogs). -->
+<div id="interact-layer" data-class-is-hidden="hidden">
+    <div id="interact" data-class-is-on="iaOn">
+        <div class="ia-key">{{iaKey}}</div>
+        <span class="ia-text">{{iaText}}</span>
+    </div>
+</div>
+
+</body>
+</rml>

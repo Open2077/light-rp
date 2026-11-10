@@ -1,0 +1,45 @@
+<rml>
+<head>
+    <title>Light RP queue panel</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="queue.rcss"/>
+</head>
+<!-- The queue panel (ui/src/features/queue/QueuePanel.tsx): one strip at the top centre
+     while the player waits in a queue. client/native/queue.lua fills the model: the tag,
+     the mode, players in queue / needed, the start once it is scheduled, the wait and the
+     cancel key. -->
+<body data-model="queue">
+<div id="root" class="shell fill" data-class-is-ready="ready" data-class-is-hidden="hidden" data-class-is-quiet="quiet">
+    <div id="qp-line" data-class-is-under="under">
+        <div id="qp" class="qp" data-class-is-on="on" data-class-is-starting="starting">
+            <div class="qp-plate"></div>
+            <div class="qp-scan"></div>
+            <div class="qp-rail"></div>
+            <div class="qp-row">
+                <div class="qp-tag" data-class-is-accent="toneAccent" data-class-is-go="toneGo">
+                    <span class="qp-tag-text">{{tag}}</span>
+                    <path class="qp-tag-cut" view-box="0 0 8 18" preserve-aspect="none" d="M0 0H8L0 18Z"/>
+                </div>
+                <div class="qp-id">
+                    <span class="qp-label">{{label}}</span>
+                    <span class="qp-mode" data-if="hasMode">{{mode}}</span>
+                </div>
+                <div class="qp-cell" data-if="hasCount">
+                    <span class="qp-k">PLAYERS</span><span class="qp-v">{{count}}</span><span class="qp-note" data-if="hasNote">{{note}}</span>
+                </div>
+                <div class="qp-cell is-start" data-if="hasStart">
+                    <span class="qp-k">STARTS IN</span><span class="qp-v">{{startsIn}}</span>
+                </div>
+                <div class="qp-cell">
+                    <span class="qp-k">WAITED</span><span class="qp-v">{{waited}}</span>
+                </div>
+                <div class="qp-cancel">
+                    <span class="qp-cap">{{cap}}</span><span class="qp-cancel-text">{{cancel}}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</rml>

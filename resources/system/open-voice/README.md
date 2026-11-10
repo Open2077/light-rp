@@ -29,7 +29,7 @@ key and cooldown are checked at server resource load; invalid configuration
 fails the resource rather than silently weakening policy.
 
 Supported cycle keys are A-Z, 0-9, F1-F12, SPACE, ENTER/RETURN and the arrow
-keys. Input is ignored while another WebUI captures the keyboard.
+keys. Input is ignored while another interface captures the keyboard.
 
 ## HUD states
 
@@ -55,14 +55,27 @@ it is a range guide, not an audibility guarantee (routing/mute still apply).
 
 ### Voice activity
 
-The 60 fps HUD is one compact line in the bottom-right corner with no panel or
-background: a mic glyph tinted by state, a twelve-segment input meter, the
-active range with its distance in the range's colour, the cycle key, and a
-pulsing "heard" counter that only appears while someone is audible. States:
-`idle` (grey), `detected` (cyan), `talking` (mint, glowing mic), `muted` (red,
-slashed mic, meter dark), `offline` (dark grey, slashed). A server rejection
-shows as a red line above it for a few seconds. `setHudVisible(false)` hides
-the whole line.
+The HUD is a NativeUI document (`ui/voice.rml`, `ui/voice.rcss`) drawn by the game's
+renderer, with no browser page: the Light RP hologram plate in the bottom-right corner,
+tilted toward the centre of the screen like the vehicle speedometer, glowing and scanlined.
+
+- left, the active reach in seven-segment digits, in the reach's colour;
+- row one: a mic glyph and a state word (`OPEN`, `SIGNAL`, `TRANSMIT`, `MUTED`, `VOICE OFF`),
+  a fourteen-cell input meter (the last three cells red), and a pulsing green "heard"
+  counter that only appears while someone is audible;
+- row two: the reach presets (whisper steel, normal yellow, shout magenta; any other preset
+  keeps the server's colour) with a bar under the active one, and the cycle key. With a
+  single preset the reach is written out instead.
+
+A new reach retunes the digits and flashes the bar. A server rejection shows as a red line
+above the plate for a few seconds. On 4:3 and 5:4 screens the plate is drawn smaller.
+`setHudVisible(false)` hides it.
+
+`client/ui.lua` is the presentation layer: it turns the payload `client/main.lua` builds
+into one data model (`voice`), the digit paths, the preset tags and two stylesheet layers
+(the reach colours), and sends only what changed. `tests/ui.test.lua` covers it and
+`tests/hud_blocks.test.lua` the visibility rules (Lua 5.4, from the resource folder).
+Needs a client with NativeUI; without it the resource logs one line and runs without a HUD.
 
 ## Client integration
 
@@ -75,7 +88,7 @@ submit an arbitrary distance; reach remains server-owned.
 
 Full-screen flows can emit the local event `open-voice:setHudBlocked(reason, blocked)`
 using a stable, resource-prefixed reason (for example `op77_lightrp:onboarding`).
-Blocking hides the WebUI surface immediately, without waiting for the cosmetic fade.
+Blocking hides the HUD document immediately, without waiting for the cosmetic fade.
 The HUD returns only after all reasons are released and `setHudVisible` still allows
 it. Release your reason when the flow finishes and on resource stop; reapply it when
 `open-voice` starts again. This only affects the indicator, never microphone capture.

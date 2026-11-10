@@ -1,0 +1,12 @@
+<rml>
+<head>
+    <title>op77_playermarks</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="playermarks.rcss"/>
+</head>
+<body>
+<!-- One .pm per player around, created by client/view.lua (ui:create):
+     .pm > .pm-rig > ( .pm-pin, .pm-pulse, .pm-tip, .pm-box > .pm-chip > ( shapes, .pm-accent, .pm-voice > .v x3, .pm-name ) ) -->
+<div id="marks"></div>
+</body>
+</rml>

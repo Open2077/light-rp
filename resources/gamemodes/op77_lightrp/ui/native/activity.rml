@@ -1,0 +1,151 @@
+<rml>
+<head>
+    <title>Light RP activity HUD</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="activity.rcss"/>
+</head>
+<body data-model="hud">
+<!-- ui/src/features/activityhud/ActivityHud.tsx: the header top centre, the match panel in the
+     work order's slot, the feed left of the minimap, countdown / banner / result in the centre -->
+<div id="ah" data-class-is-on="on" data-class-is-quiet="quiet" data-class-is-lowered="low1" data-class-is-lowered-2="low2">
+
+    <!-- header strip -->
+    <div class="ah-head-pos" data-class-is-in="headOn">
+        <div class="ah-head">
+            <div class="ah-plate">
+                <div class="plate-bg"></div><div class="plate-scan"></div><div class="plate-rail"></div>
+                <div class="ah-head-in">
+                    <div class="ah-head-id">
+                        <div class="ah-phase" data-class-is-countdown="phase == 'countdown'" data-class-is-running="phase == 'running'" data-class-is-ended="phase == 'ended'">
+                            <span class="ah-phase-text">{{phaseLabel}}</span>
+                            <path class="ah-phase-tail" view-box="0 0 8 18" preserve-aspect="none" d="M0 0H8L0 18Z"/>
+                        </div>
+                        <span class="ah-title">{{title}}</span>
+                        <span class="ah-sub" data-if="hasSub">{{subtitle}}</span>
+                    </div>
+                    <div class="ah-head-mid" data-if="middle">
+                        <div class="ah-side is-left" data-if="duel" data-class-is-self="t1self" data-style-border-bottom-color="t1color">
+                            <span class="ah-side-name">{{t1name}}</span><span class="ah-side-score">{{t1score}}</span>
+                        </div>
+                        <div class="ah-clock" data-if="hasTimer" data-class-is-up="timerUp" data-class-is-low="clockLow">
+                            <span class="ah-clock-label" data-if="hasTimerLabel">{{timerLabel}}</span>
+                            <span class="ah-clock-digits">{{clock}}</span>
+                        </div>
+                        <span class="ah-versus" data-if="!hasTimer">VS</span>
+                        <div class="ah-side is-right" data-if="duel" data-class-is-self="t2self" data-style-border-bottom-color="t2color">
+                            <span class="ah-side-name">{{t2name}}</span><span class="ah-side-score">{{t2score}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="ah-teams" data-if="chipsOn">
+                <div class="ah-team" data-for="t : teams" data-class-is-off="t.off" data-class-is-self="t.self">
+                    <div class="cut-bg"></div>
+                    <div class="ah-team-bar" data-style-background-color="t.color"></div>
+                    <span class="ah-team-name">{{t.name}}</span><span class="ah-team-score">{{t.score}}</span>
+                </div>
+            </div>
+            <div class="ah-objective" data-if="hasObjective">
+                <div class="cut-bg"></div>
+                <path class="ic" view-box="0 0 24 24" data-attr-d="icCrosshair"/>
+                <span class="ah-objective-text">{{objective}}</span>
+            </div>
+            <div class="ah-head-hints" data-if="headHints">
+                <div class="cut-bg"></div>
+                <div class="ah-hint" data-for="h : hints" data-class-is-off="h.off"><span class="kc">{{h.key}}</span><span class="ah-hint-text">{{h.label}}</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- countdown -->
+    <div class="ah-count-pos" data-class-is-in="countOn">
+        <div class="ah-count-y">
+            <div class="ah-count is-wait" data-if="countWait"><div class="cut-bg cut-md"></div><span class="ah-count-wait">GET READY</span></div>
+            <div class="ah-count is-far" data-if="countFar"><div class="cut-bg cut-md"></div><span class="ah-count-small">STARTS IN</span><span class="ah-count-far">{{countText}}</span></div>
+            <div class="ah-count" data-if="countBig"><span class="ah-count-digit" data-class-is-a="countA" data-class-is-b="!countA" data-class-is-go="countGo">{{countText}}</span></div>
+        </div>
+    </div>
+
+    <!-- match panel -->
+    <div class="ah-panel" data-class-is-in="panelOn">
+        <div class="plate-bg plate-lg"></div><div class="plate-scan"></div><div class="plate-rail plate-lg"></div>
+        <div class="ah-panel-in">
+            <div class="ah-stats" data-if="statCount > 0" data-class-n1="statCount == 1" data-class-n3="statCount == 3">
+                <div class="ah-stat" data-for="s : stats" data-class-is-off="s.off"><span class="ah-stat-label">{{s.label}}</span><span class="ah-stat-value">{{s.value}}</span></div>
+            </div>
+            <div class="ah-bars" data-if="barCount > 0" data-class-sep="sepBars">
+                <div class="ah-bar" data-for="b : bars" data-class-is-off="b.off">
+                    <div class="ah-bar-head" data-if="b.hasLabel"><span>{{b.label}}</span><span class="ah-bar-pct">{{b.pct}}%</span></div>
+                    <div class="ah-bar-track"><div class="ah-bar-fill" data-style-width="b.pct + '%'" data-style-background-color="b.color"></div></div>
+                </div>
+            </div>
+            <div class="ah-board" data-if="boardOn" data-class-sep="sepBoard">
+                <div class="ah-row is-head" data-if="boardHead">
+                    <span class="ah-rank">#</span><div class="ah-name"></div>
+                    <span class="ah-cell" data-for="c : cols" data-class-is-off="c.off" data-style-width="c.w + 'dp'">{{c.t}}</span>
+                </div>
+                <div class="ah-row" data-for="r : rows" data-class-is-off="r.off" data-class-is-self="r.self" data-class-is-gap="r.gap">
+                    <div class="ah-gap"></div>
+                    <span class="ah-rank">{{r.rank}}</span>
+                    <div class="ah-name"><div class="ah-dot" data-if="r.hasTeam" data-style-background-color="r.color"></div><span class="ah-name-text">{{r.name}}</span></div>
+                    <span class="ah-cell" data-for="v : r.cells" data-class-is-off="v.off" data-style-width="v.w + 'dp'">{{v.t}}</span>
+                </div>
+            </div>
+            <div class="ah-hints" data-if="panelHints" data-class-sep="sepHints">
+                <div class="ah-hint" data-for="h : hints" data-class-is-off="h.off"><span class="kc">{{h.key}}</span><span class="ah-hint-text">{{h.label}}</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- feed -->
+    <div class="ah-feed">
+        <div class="ah-feed-item" data-for="f : feed" data-class-is-off="f.off" data-class-is-out="f.out" data-class-is-hi="f.hi">
+            <div class="cut-bg"></div>
+            <div class="ah-feed-rail" data-style-background-color="f.rail"></div>
+            <span class="ah-feed-text">{{f.text}}</span>
+        </div>
+    </div>
+
+    <!-- banner -->
+    <div class="ah-banner-pos" data-class-is-in="bannerOn">
+        <div class="ah-banner-fade" data-class-is-out="bannerOut">
+        <div class="ah-banner" data-class-is-a="bannerA" data-class-is-b="!bannerA">
+            <div class="ah-banner-bg"></div>
+            <div class="ah-banner-line is-top" data-style-background-color="bannerTone"></div>
+            <div class="ah-banner-line is-bottom" data-style-background-color="bannerTone"></div>
+            <span class="ah-banner-title" data-if="bannerHasTitle" data-style-color="bannerTone" data-class-is-accent="bannerAccent">{{bannerTitle}}</span>
+            <span class="ah-banner-text" data-if="bannerHasText">{{bannerText}}</span>
+        </div>
+        </div>
+    </div>
+
+    <!-- result card -->
+    <div class="ah-result-pos" data-class-is-in="resultOn">
+        <div class="ah-result-y">
+            <div class="ah-result" data-class-is-a="resultA" data-class-is-b="!resultA" data-class-is-first="resultFirst">
+                <div class="plate-bg plate-xl"></div><div class="plate-scan"></div><div class="plate-rail plate-xl"></div>
+                <div class="ah-result-in">
+                    <div class="ah-result-top">
+                        <div class="ah-place" data-if="placeOn">
+                            <span class="ah-place-n" data-class-is-word="placeWord">{{place}}</span>
+                            <span class="ah-place-sup" data-if="!placeWord">{{placeSuffix}}</span>
+                        </div>
+                        <div class="ah-result-id">
+                            <span class="ah-result-tag">RESULT</span>
+                            <span class="ah-result-title" data-if="resultHasTitle">{{resultTitle}}</span>
+                            <span class="ah-result-sub" data-if="resultHasSub">{{resultSub}}</span>
+                        </div>
+                    </div>
+                    <div class="ah-lines" data-if="lineCount > 0">
+                        <div class="ah-line" data-for="l : lines" data-class-is-off="l.off"><span class="ah-line-label">{{l.label}}</span><span class="ah-line-value">{{l.value}}</span></div>
+                    </div>
+                </div>
+                <div class="ah-life" data-style-width="resultLife + '%'"></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</rml>

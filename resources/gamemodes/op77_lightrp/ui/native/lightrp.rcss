@@ -1,0 +1,77 @@
+/* Light RP on NativeUI: the Open//77 RP design system (ui/src/design/tokens.css) as RCSS.
+   RCSS has no custom properties: the tokens are the literal values below, and every HUD
+   sheet uses these numbers. 1 dp = 1 px of the 1920 x 1080 reference.
+
+   black #050506  ink-900 #0A0A0C  ink-800 #111114  ink-700 #17181C  ink-600 #202127
+   ink-500 #2B2D34  ink-400 #3A3D46  ink-300 #565A66  ink-200 #8A8F9C  ink-100 #C3C7D1  white #F2F3F5
+   yellow-100 #FFF6C2  -200 #FFEB85  -300 #FFDD40  -400 #FFCC00 (accent)  -500 #F5C000
+   -600 #C99A00  -700 #8F6D00  -800 #4A3800  -900 #241B00
+   red #FF2E3C  red-dim #7A1119  steel #7FB4D6  steel-dim #1E3B4C  green #8FE04A  green-dim #2A4415
+   cyan #3FE0D0  cyan-dim #0F4741  magenta #FF3FB4
+   surface-hud #060608B8 (.72)  surface-hud-solid #0A0A0C  surface-scrim #040406D1 (.82)
+   text-hi #F2F3F5  text-body #C3C7D1  text-dim #8A8F9C  text-disabled #565A66
+   line-hairline #FFCC0024 (.14)  line-soft #FFCC0047 (.28)  line-neutral #2B2D34
+   accent-quiet #FFCC001F (.12)  accent-quiet-strong #FFCC0038 (.22)
+   hud-safe-x 32dp  hud-safe-y 26dp  hud-gap 10dp  chamfer 6 / 10 / 18 dp
+   fonts: core "Chakra Petch" (one face: weights 500-700 all draw the same), mono
+   "Share Tech Mono", display "Zen Dots"
+   motion: fast .12s  base .18s  slow .32s  (cubic-out for --ease-out / --ease-snap,
+   cubic-in-out for --ease-mech) */
+
+body { font-family: "Chakra Petch"; font-weight: bold; font-size: 15dp; color: #C3C7D1; pointer-events: none; }
+.fill { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.row { display: flex; flex-direction: row; align-items: center; }
+.col { display: flex; flex-direction: column; }
+.grow { flex: 1 1 auto; }
+.hide { display: none; }
+.mono { font-family: "Share Tech Mono"; font-weight: normal; }
+.display { font-family: "Zen Dots"; font-weight: normal; }
+.dim { color: #8A8F9C; }
+.hi { color: #F2F3F5; }
+.accent { color: #FFCC00; }
+.danger { color: #FF2E3C; }
+/* the page's text shadow over the world: 0 1px 3px #000 */
+.shadowed { font-effect: shadow(0dp 1dp #000000d0); }
+
+/* text roles */
+.readout { font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; letter-spacing: 0.14em; text-transform: uppercase; }
+.tag { font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; letter-spacing: 0.22em; text-transform: uppercase; }
+.label { font-size: 13dp; letter-spacing: 0.14em; text-transform: uppercase; }
+
+/* icons: <path class="ic" data-attr-d="icon"/> or d set from Lua (N.icon) */
+path.ic { display: block; flex: 0 0 auto; width: 16dp; height: 16dp; fill: transparent; stroke: #C3C7D1; stroke-width: 2dp; stroke-linecap: round; stroke-linejoin: round; }
+
+/* surfaces */
+.hud-plate { background-color: #060608B8; }
+.hud-glass { background-color: #060608B8; backdrop-filter: blur(8dp); }
+/* chamfered plates: fx(chamfer cut hairline fill _ color) draws the cut corners, the hairline and a dark fill */
+.chamfer-sm { decorator: fx(chamfer 6 1 0.72 0 #FFCC0047); }
+.chamfer-md { decorator: fx(chamfer 10 1 0.72 0 #FFCC0047); }
+.chamfer-lg { decorator: fx(chamfer 18 1 0.82 0 #FFCC0047); }
+.keycap { font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 16dp; padding: 0 5dp; min-width: 16dp; text-align: center; color: #050506; background-color: #FFCC00; }
+.keycap-quiet { font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 16dp; padding: 0 5dp; min-width: 16dp; text-align: center; color: #FFCC00; border-width: 1dp; border-color: #FFCC0047; background-color: #060608B8; }
+
+/* a status chip (design/components/hud.tsx StatusChip): icon, label, value */
+.chip { display: flex; flex-direction: row; align-items: center; height: 26dp; padding: 0 10dp 0 8dp; background-color: #060608B8; border-left-width: 2dp; border-left-color: #FFCC00; }
+.chip path.ic { width: 13dp; height: 13dp; stroke: #FFCC00; margin-right: 7dp; }
+.chip .chip-label { font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; letter-spacing: 0.14em; color: #8A8F9C; margin-right: 8dp; }
+.chip .chip-value { font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; letter-spacing: 0.08em; color: #F2F3F5; }
+.chip.is-danger { border-left-color: #FF2E3C; }
+.chip.is-danger path.ic, .chip.is-danger .chip-value { color: #FF2E3C; stroke: #FF2E3C; }
+.chip.is-ok { border-left-color: #8FE04A; }
+.chip.is-ok path.ic { stroke: #8FE04A; }
+
+/* a thin meter */
+.bar { position: relative; height: 4dp; background-color: #202127; }
+.bar > .bar-fill { position: absolute; left: 0; top: 0; bottom: 0; background-color: #FFCC00; transition: width 0.32s cubic-out; }
+
+/* the whole HUD of a document fades with the shell (client/native/host.lua):
+   hidden uses visibility too, a backdrop-filter is still drawn at opacity 0 */
+.shell { opacity: 0; visibility: hidden; transition: opacity 0.2s cubic-out; }
+.shell.is-ready { opacity: 1; visibility: visible; }
+.shell.is-ready.is-hidden, .shell.is-ready.is-quiet { opacity: 0; visibility: hidden; }
+
+@keyframes o77-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.15; } }
+@keyframes o77-pulse { 0% { opacity: 1; } 50% { opacity: 0.45; } 100% { opacity: 1; } }
+@keyframes o77-rise { from { opacity: 0; transform: translateY(8dp); } to { opacity: 1; transform: translateY(0dp); } }
+@keyframes o77-fade { from { opacity: 0; } to { opacity: 1; } }

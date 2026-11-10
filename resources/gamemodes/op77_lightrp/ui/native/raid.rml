@@ -1,0 +1,151 @@
+<rml>
+<head>
+    <title>Light RP raid</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="raid.rcss"/>
+</head>
+<!-- The raid on screen (ui/src/features/missions/RaidHud.tsx): the ready check, the launch
+     countdown, the intro's letterbox and title card, the strip under the boss's bar, the
+     target lock, announcements, the respawn timer and the result. client/native/raid.lua
+     fills the model from the raid state (page event lightrp:ui:raid) and counts down. -->
+<body data-model="raid">
+<div id="raid" class="shell" data-class-is-ready="ready" data-class-is-hidden="hidden" data-class-is-quiet="quiet">
+
+    <!-- the intro -->
+    <div id="intro" class="ri" data-class-is-on="introOn" data-class-is-out="introOut" data-class-is-jolt="introJolt">
+        <div class="ri-bar is-top"></div>
+        <div class="ri-bar is-bottom"></div>
+        <div class="ri-cut" data-class-is-on="cutOn"></div>
+        <div class="ri-flash" data-class-is-on="flashOn"></div>
+        <div class="ri-flash is-soft" data-class-is-on="flashSoftOn"></div>
+        <div class="ri-tele" data-class-is-on="teleOn">
+            <div class="ri-tele-line is-first">{{tele1}}</div>
+            <div class="ri-tele-line">{{tele2}}</div>
+            <div class="ri-tele-line">{{tele3}}</div>
+            <div class="ri-tele-line">{{tele4}}</div>
+        </div>
+        <div class="mline ri-warn-line" data-class-is-on="warnOn">
+            <div class="ri-warn"><path class="ic" view-box="0 0 24 24" data-attr-d="icSiren"/><span>HOSTILE WAR MACHINE DETECTED</span></div>
+        </div>
+        <div class="ri-scan" data-class-is-on="scanOn" data-class-is-confirmed="scanConfirmed">
+            <div class="ri-br is-tl"></div><div class="ri-br is-tr"></div><div class="ri-br is-bl"></div><div class="ri-br is-br"></div>
+            <div class="ri-scan-head"><span>{{scanHead}}</span><span class="ri-scan-pct">{{scanPct}}</span></div>
+            <div class="ri-scan-rows">
+                <div class="ri-scan-row"><div class="ri-scan-k">{{s1k}}</div><div class="ri-scan-v">{{s1v}}</div></div>
+                <div class="ri-scan-row"><div class="ri-scan-k">{{s2k}}</div><div class="ri-scan-v">{{s2v}}</div></div>
+                <div class="ri-scan-row"><div class="ri-scan-k">{{s3k}}</div><div class="ri-scan-v">{{s3v}}</div></div>
+            </div>
+        </div>
+        <div class="ri-card" data-class-is-on="cardOn">
+            <div class="ri-card-small">MILITECH · AV-HEAVY WAR MACHINE</div>
+            <div class="ri-name">CHIMERA<div class="ri-g is-red"><div class="ri-g-text">CHIMERA</div></div><div class="ri-g is-cyan"><div class="ri-g-text">CHIMERA</div></div></div>
+            <div class="ri-card-place">DOGTOWN // THE ARENA</div>
+            <div class="ri-meta">
+                <span class="ri-chip" data-class-is-hard="chipHard" data-class-is-critical="chipCritical">{{difficulty}}</span>
+                <span>THREAT</span>
+                <div class="ri-threat">
+                    <div class="ri-threat-cell is-lit"></div><div class="ri-threat-cell is-lit"></div><div class="ri-threat-cell is-lit"></div>
+                    <div class="ri-threat-cell" data-class-is-lit="threat4"></div><div class="ri-threat-cell" data-class-is-lit="threat5"></div>
+                </div>
+                <span>{{operators}}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- the ready check -->
+    <div class="mline rr-line">
+        <div id="ready" class="rr" data-class-is-on="readyOn" data-class-is-choosing="choosing">
+            <div class="rr-head"><span class="rr-tag">RAID</span><span class="rr-title">{{title}}</span><span class="grow"></span><span class="rr-diff">{{difficulty}}</span></div>
+            <div class="rr-h2">READY CHECK</div>
+            <div class="rr-timer"><div class="rr-timer-fill" data-style-width="timerPct + '%'"></div><span class="rr-timer-text">{{timerText}}</span></div>
+            <div class="rr-ops">
+                <div class="rr-op" data-for="o : ops" data-class-is-gone="o.gone" data-class-is-ready="o.ready" data-class-is-loading="o.loading">
+                    <path class="ic" view-box="0 0 24 24" data-attr-d="o.icon"/><span class="rr-op-name">{{o.name}}</span><span class="rr-op-state">{{o.state}}</span>
+                </div>
+            </div>
+            <div class="rk-list" data-if="hasKits" data-class-is-off="!choosing">
+                <div class="rk" data-for="k : kits" data-class-is-gone="k.gone" data-class-is-picked="k.picked">
+                    <div class="rk-keybox"><span class="rk-key">{{k.key}}</span></div>
+                    <div class="rk-ic"><path class="ic" view-box="0 0 24 24" data-attr-d="k.icon"/></div>
+                    <span class="rk-name">{{k.label}}</span>
+                    <span class="rk-blurb">{{k.blurb}}</span>
+                </div>
+            </div>
+            <div class="rr-foot">
+                <div class="rr-foot-text" data-if="mineReady">Loadout issued · waiting for the squad · {{readyCount}}</div>
+                <div class="rr-foot-text" data-if="footLoading">Loading the arena…</div>
+                <div class="rr-foot-text" data-if="footPick"><span>Pick a loadout (</span><span class="rr-kbd">1</span><span>-</span><span class="rr-kbd">{{kitMax}}</span><span>) · {{readyCount}} ready</span></div>
+                <div class="rr-go" data-if="!mineReady" data-class-is-off="loading">
+                    <div class="rr-go-a"></div><div class="rr-go-b"></div><path class="rr-go-c" view-box="0 0 7 7" d="M0 0H7L0 7Z"/>
+                    <div class="rr-go-row"><span>{{goLabel}}</span><span class="rr-go-kbd">{{readyKey}}</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- launch / placing -->
+    <div class="mline rl-line">
+        <div class="rl" data-class-is-on="launchOn">
+            <span class="rl-small">ALL OPERATORS READY</span>
+            <span class="rl-text">ENGAGING IN</span>
+            <span class="rl-num" data-class-is-a="launchA" data-class-is-b="launchB">{{launchNum}}</span>
+        </div>
+    </div>
+    <div class="mline rl-line">
+        <div class="rl" data-class-is-on="placingOn">
+            <span class="rl-small">MILITECH UPLINK</span>
+            <span class="rl-text is-pulse">DEPLOYING THE TARGET</span>
+        </div>
+    </div>
+
+    <!-- the raid's strip under the Chimera's own health bar (the game draws that one) -->
+    <div class="mline rb-line">
+        <div class="rb" data-class-is-on="bossOn">
+            <span class="rb-phase">{{bossPhase}}</span>
+            <div class="rb-item rb-enrage" data-if="bossEnraged"><path class="ic" view-box="0 0 24 24" data-attr-d="icFlame"/><span>OVERCLOCKED</span></div>
+            <div class="rb-item rb-shield" data-if="bossShielded"><path class="ic" view-box="0 0 24 24" data-attr-d="icShield"/><span>{{bossShield}}</span></div>
+            <div class="rb-item"><path class="ic" view-box="0 0 24 24" data-attr-d="icUsers"/><span>{{bossAdds}}</span></div>
+            <div class="rb-item"><path class="ic" view-box="0 0 24 24" data-attr-d="icHeart"/><span>{{bossLives}}</span></div>
+            <div class="rb-item"><path class="ic" view-box="0 0 24 24" data-attr-d="icTimer"/><span>{{bossClock}}</span></div>
+            <div class="rb-item" data-if="overclockOn" data-class-is-hot="overclockHot"><path class="ic" view-box="0 0 24 24" data-attr-d="icFlame"/><span>{{overclock}}</span></div>
+            <div class="rb-item is-hot" data-if="lockedOn"><path class="ic" view-box="0 0 24 24" data-attr-d="icAlert"/><span class="rb-locked">{{locked}}</span></div>
+        </div>
+    </div>
+
+    <!-- you are the target -->
+    <div class="mline rt-line">
+        <div class="rt" data-class-is-on="targetOn"><path class="ic" view-box="0 0 24 24" data-attr-d="icAlert"/><span>YOU ARE TARGETED</span><span class="rt-small">Break line of sight</span></div>
+    </div>
+
+    <!-- flatlined -->
+    <div class="mline rd-line">
+        <div class="rd" data-class-is-on="respawnOn">
+            <span class="rd-small">FLATLINED</span><span class="rd-text">REDEPLOYING IN</span><span class="rd-num">{{respawnNum}}</span>
+        </div>
+    </div>
+    <div class="mline rd-line">
+        <div class="rd" data-class-is-on="outOn">
+            <span class="rd-small">FLATLINED</span><span class="rd-text">OUT OF THE FIGHT</span><span class="rd-note">No respawns on this difficulty. Your squad fights on.</span>
+        </div>
+    </div>
+
+    <!-- announcements -->
+    <div class="mline rn-line">
+        <div class="rn" data-class-is-a="bannerA" data-class-is-b="bannerB" data-class-is-danger="bannerDanger" data-class-is-success="bannerSuccess" data-class-is-info="bannerInfo">
+            <div class="rn-title">{{bannerTitle}}</div>
+            <div class="rn-body">{{bannerBody}}</div>
+        </div>
+    </div>
+
+    <!-- the result -->
+    <div class="mline rz-line">
+        <div class="rz" data-class-is-on="resultOn" data-class-is-victory="resultVictory" data-class-is-failed="resultFailed">
+            <span class="rz-text">{{resultText}}</span>
+            <span class="rz-small" data-if="resultHasSmall">{{resultSmall}}</span>
+        </div>
+    </div>
+
+</div>
+</body>
+</rml>

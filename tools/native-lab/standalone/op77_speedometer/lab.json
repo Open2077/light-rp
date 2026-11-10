@@ -1,0 +1,6 @@
+{
+    "resource": "resources/standalone/op77_speedometer",
+    "scripts": ["shared/config.lua", "shared/speedo.lua", "client/ui.lua"],
+    "files": ["ui/*.rml", "ui/*.rcss", "ui/fonts/*"],
+    "permissions": ["input.actions"]
+}

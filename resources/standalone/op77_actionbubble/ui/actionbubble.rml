@@ -1,0 +1,16 @@
+<rml>
+<head>
+    <title>op77_actionbubble</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="actionbubble.rcss"/>
+</head>
+<body>
+<!-- One .ab per bubble, created by client/view.lua (ui:create):
+     .ab > .ab-fade > ( .ab-la > .ab-lf, .ab-lb > .ab-lf, .ab-dot, .ab-pin > ( .ab-ring, .ab-dia ),
+                        .ab-rig > .ab-hold > .ab-card > .ab-float > .ab-body >
+                            ( shape.ab-slab x3, .ab-face > ( shape.ab-plate, .ab-fx > .ab-sheen,
+                              .ab-text > ( path.ab-icon, .ab-star, .ab-t > ( .ab-sizer, .ab-type ), .ab-star ),
+                              .ab-timer > .ab-tbar ), .ab-corner x2 ) ) -->
+<div id="bubbles"></div>
+</body>
+</rml>

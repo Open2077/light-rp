@@ -136,32 +136,6 @@
 .o77-mic__range-m { opacity: .6; margin-left: 5px; }
 .o77-mic__hint { font: var(--type-hud-readout); color: var(--text-disabled); margin-left: var(--sp-2); }
 
-/* ---------- Notification / ToastStack ---------- */
-.o77-notice {
-  display: flex; width: 320px; overflow: hidden; background: var(--surface-hud); backdrop-filter: var(--blur-hud);
-  box-shadow: var(--shadow-hud); clip-path: var(--clip-notch);
-  animation: o77-wipe-in var(--dur-base) var(--ease-mech) both;
-}
-.o77-notice--dismissing { animation: o77-wipe-out var(--dur-base) var(--ease-mech) both; }
-.o77-notice__rule { width: 3px; flex: 0 0 auto; background: var(--notice-color); }
-.o77-notice__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5); }
-.o77-notice__head { display: flex; align-items: center; gap: var(--sp-3); color: var(--notice-color); }
-.o77-notice__source { font: var(--type-hud-readout); letter-spacing: var(--ls-tag); white-space: nowrap; }
-.o77-notice__time { margin-left: auto; font: var(--type-hud-readout); color: var(--text-disabled); }
-.o77-notice__close { margin-left: auto; background: transparent; border: 0; color: var(--text-disabled); display: flex; padding: 0; }
-.o77-notice__title { font: var(--type-label); text-transform: uppercase; letter-spacing: .08em; color: var(--text-hi); }
-.o77-notice__text { font: var(--type-body); font-size: var(--fs-label); color: var(--text-dim); }
-.o77-notice__life { display: block; height: 2px; background: var(--notice-color); opacity: .85; transition: width 100ms linear; }
-.o77-notice--info { --notice-color: var(--accent); }
-.o77-notice--success { --notice-color: var(--o77-green); }
-.o77-notice--warning { --notice-color: var(--o77-yellow-300); }
-.o77-notice--error { --notice-color: var(--o77-red); }
-.o77-notice--police { --notice-color: var(--o77-steel); }
-.o77-notice--money { --notice-color: var(--accent); }
-.o77-notice--item { --notice-color: var(--o77-ink-200); }
-.o77-notice--message { --notice-color: var(--o77-cyan); }
-.o77-notice--contract { --notice-color: var(--o77-magenta); }
-.o77-notice--staff { --notice-color: var(--o77-red); }
 .o77-stack { display: flex; flex-direction: column; gap: var(--hud-gap); }
 
 /* ---------- Input ---------- */

@@ -128,7 +128,10 @@ do
     local env = stubs()
     local anchors, nextAnchor, pageSent = {}, 0, {}
     Open77.anchors = {
-        create = function(o) nextAnchor = nextAnchor + 1; anchors[nextAnchor] = o; return nextAnchor end,
+        create = function(o)
+            assert(o.page == nil and o.render == "dot" and o.visible == false, "projected only: no page, nothing drawn")
+            nextAnchor = nextAnchor + 1; anchors[nextAnchor] = o; return nextAnchor
+        end,
         update = function(id, patch) for k, v in pairs(patch) do anchors[id][k] = v end return true end,
         remove = function(id) anchors[id] = nil return true end,
         clear = function() anchors = {} end,
@@ -139,14 +142,19 @@ do
         entity = function(id) if id == 9 then return 4242 end return nil, "player_not_streamed" end,
     }
     Open77.vehicles = { get = function(id) if id == 50 then return { entity = 777 } end end }
-    local pageHandlers = {}
-    _G.WebUI = { create = function() return { send = function(_, n, p) pageSent[#pageSent + 1] = { n, p } end, on = function(_, n, f) pageHandlers[n] = f end } end }
     ActionBubble = nil
     local threads = {}
     _G.CreateThread = function(fn) threads[#threads + 1] = fn end
-    load("shared/config.lua", "shared/bubble.lua", "client/main.lua")
+    load("shared/config.lua", "shared/bubble.lua", "client/view.lua", "client/main.lua")
+    -- no NativeUI on this client: one line, nothing drawn, the thread ends
+    local logs, realPrint = {}, print
+    _G.print = function(text) logs[#logs + 1] = tostring(text) end
     env.handlers.onClientResourceStart("op77_actionbubble")
-    threads[#threads](); pageHandlers["ab:ready"]()  -- the page
+    threads[#threads]()
+    _G.print = realPrint
+    assert(#logs == 1 and logs[1]:find("NativeUI"), "one line without Open77.ui")
+    -- the drawer (client/view.lua in game; tests/view_test.lua covers it)
+    ActionBubbleClient.attach({ send = function(_, n, p) pageSent[#pageSent + 1] = { n, p } end })
     local function last(name) for i = #pageSent, 1, -1 do if pageSent[i][1] == name then return pageSent[i][2] end end end
 
     -- on another player: an entity anchor on their body, with the player offset

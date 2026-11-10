@@ -1,15 +1,14 @@
 -- op77_speedometer client: reads the car the player sits in and feeds the holographic
--- speedometer page (web/). One small WebUI surface, cropped to the display's corner
--- (drawBounds), created visible and transparent: the page shows and hides its own
--- content (enter / exit animations), so the surface never goes through hide -> show.
+-- speedometer (client/ui.lua: a NativeUI document behind the page API the WebUI page had;
+-- it shows and hides its own content with its enter / exit animations).
 local S = Speedo
 local base = S.copy(SpeedoConfig)
 local config = S.copy(base)
 local pageConfig = S.pageConfig(config)
 
+-- NativeUI draws the display; a client without it gets none at all (and says so once).
+local available = type(Open77.ui) == "table" and type(Open77.ui.create) == "function"
 local page, pageReady = nil, false
-local boundsKey = nil
-local creating = false
 local shown = false          -- the page shows the display
 local lastShow = nil         -- the show payload (replayed when the page reloads)
 local lastData = nil
@@ -34,7 +33,7 @@ end
 -- Gamemode handshake: while this display is on, a gamemode with its own vehicle HUD
 -- (LightRP's cluster) stands it down. It asks with op77_speedometer:query.
 local function announce()
-    local active = config.enabled ~= false
+    local active = available and config.enabled ~= false
     if announced == active then return end
     announced = active
     TriggerEvent("op77_speedometer:state", { active = active })
@@ -46,7 +45,7 @@ end)
 
 -- The game's own speedometer stays hidden while this display is on.
 local function syncNative()
-    local want = config.enabled ~= false and config.hideNativeSpeedometer ~= false
+    local want = available and config.enabled ~= false and config.hideNativeSpeedometer ~= false
     if want == nativeHidden then return end
     if type(Open77.hud) ~= "table" or type(Open77.hud.setVisible) ~= "function" then return end
     local ok, accepted = pcall(Open77.hud.setVisible, "speedometer", not want)
@@ -54,34 +53,14 @@ local function syncNative()
 end
 
 -- ---------------------------------------------------------------------------
--- The surface
+-- The document
 
 local function createSurface()
-    if creating then return end
-    creating = true
-    local bounds = S.bounds(pageConfig)
-    local key = string.format("%d:%d:%d:%d", bounds.x, bounds.y, bounds.width, bounds.height)
     if page then pcall(page.destroy, page); page, pageReady = nil, false end
-    local options = {
-        entry = "web/index.html", layer = "hud", width = 1920, height = 1080, transparent = true,
-        visible = true, fps = math.max(10, math.min(60, math.floor(tonumber(config.fps) or 30))),
-        zIndex = math.floor(tonumber(config.zIndex) or 710), drawBounds = bounds,
-    }
-    local created, why
-    for _ = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
-        created, why = WebUI.create(options)
-        if created or why ~= "resource_preparing" then break end
-        Wait(250)
-    end
-    if not created and why == "invalid_webui_draw_bounds" then
-        warn("bounds", "crop refused, drawn on a full-screen surface")
-        options.drawBounds = nil
-        created, why = WebUI.create(options)
-    end
-    creating = false
-    if not created then print("[speedometer] no WebUI surface: " .. tostring(why)) return end
-    page, boundsKey = created, key
-    dbg("surface %s fps %d z %d", key, options.fps, options.zIndex)
+    local created, why = SpeedoUi.create({ zIndex = config.zIndex, fps = config.fps })
+    if not created then print("[speedometer] no NativeUI document: " .. tostring(why)) return end
+    page = created
+    dbg("document fps %s z %s", tostring(config.fps), tostring(config.zIndex))
     created:on("speedo:ready", function()
         pageReady = true
         send("speedo:config", pageConfig)
@@ -90,20 +69,18 @@ local function createSurface()
             if lastData then send("speedo:data", lastData) end
         end
     end)
-    created:on("speedo:log", function(p) dbg("page: %s", tostring(p and p.message)) end)
 end
 
 local function syncSurface()
+    if not available then return end
     if config.enabled == false then
-        if page then pcall(page.destroy, page); page, pageReady, boundsKey = nil, false, nil end
+        if page then pcall(page.destroy, page); page, pageReady = nil, false end
         shown = false
         return
     end
-    local b = S.bounds(pageConfig)
-    local key = string.format("%d:%d:%d:%d", b.x, b.y, b.width, b.height)
-    if (page == nil or key ~= boundsKey) and not creating then
+    if page == nil then
         shown = false
-        CreateThread(createSurface)
+        createSurface()
     end
 end
 
@@ -191,6 +168,7 @@ end
 AddEventHandler("onClientResourceStart", function(name)
     if name ~= GetCurrentResourceName() then return end
     announce()
+    if not available then print("[speedometer] NativeUI (Open77.ui) is not available on this client: no speedometer") return end
     syncNative()
     syncSurface()
     if type(TriggerServerEvent) == "function" then TriggerServerEvent("op77_speedometer:hello") end

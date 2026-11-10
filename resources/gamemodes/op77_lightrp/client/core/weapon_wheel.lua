@@ -1,6 +1,7 @@
 -- The weapon wheel (hold TAB): every weapon in the pockets on a GTA-style radial,
 -- plus "holster" (whatever is in the hands goes away: a gun, the fists, the blades).
--- It opens with empty pockets too: putting the fists down needs no weapon. The page draws it and picks with the mouse; releasing the key
+-- It opens with empty pockets too: putting the fists down needs no weapon. NativeUI draws it and picks with the mouse
+-- the page holds (client/native/weapon_wheel.lua); releasing the key
 -- commits the choice (server operation `select`). While it is open the mouse goes to
 -- the page, so the camera holds still, and the keyboard stays with the game, so the
 -- player keeps moving and the key release still reaches this mapping.
@@ -139,14 +140,19 @@ local function watch()
 end
 Wheel.watch = watch
 
+-- What the wheel's view reports: the aimed slot changed, a slot was chosen, the holster slot
+-- was picked, a click closed it. The view is client/native/weapon_wheel.lua (it calls this
+-- directly); the page's channel is still bound to it.
+function Wheel.message(p)
+    if type(p) ~= "table" then return end
+    if p.kind == "hover" then sound("hover")
+    elseif p.kind == "chosen" then sound(p.unarmed == true and "unarmed" or "equip")
+    elseif p.kind == "holster" then TriggerServerEvent("op77_lightrp:armament:holster")
+    elseif p.kind == "close" then close(p.commit == true, "page") end
+end
+
 function Wheel.bind(page)
-    page:on(PAGE, function(p)
-        if type(p) ~= "table" then return end
-        if p.kind == "hover" then sound("hover")
-        elseif p.kind == "chosen" then sound(p.unarmed == true and "unarmed" or "equip")
-        elseif p.kind == "holster" then TriggerServerEvent("op77_lightrp:armament:holster")
-        elseif p.kind == "close" then close(p.commit == true, "page") end
-    end)
+    page:on(PAGE, Wheel.message)
     local key = LightRpConfig.keys.weaponWheel
     local ok, effective = RegisterKeyMapping({ id = key.id, name = key.name, key = key.key, hold = true, consume = true,
         onPressed = openWheel, onReleased = released })

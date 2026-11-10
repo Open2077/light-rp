@@ -1,0 +1,69 @@
+/* Safe-zone tile (web/safezone/app.css): the voice plate's projection in green. A 38 dp tile
+   with a shield; a label that unfolds out of it to the right, between the tile and the
+   rental chip, and folds back. Amber while leaving. Nothing animates while it rests.
+   green #3DFF8A  amber #FFB547  core #ECFFF3
+   Never put a filter or a mask on #zone, .zone-rig or .zone-plane: it would flatten the tilt
+   (.zone-bloom and .zone-holo, inside the plane, carry them).
+
+   The place (app.js place(), 16:9): the tile's left edge 2 px inside the voice plate's
+   (the plate: 357 wide, its right edge 31 px from the screen's), its bottom 10 px above the
+   plate's top (91 px above the screen's bottom): 386 dp from the right, 101 dp from the
+   bottom. The label stops short of the rental chip: 157 dp. */
+#root.is-covered { visibility: hidden; }
+#anchor { position: absolute; right: 0; bottom: 101dp; width: 386dp; height: 0; }
+#zone { position: absolute; left: 0; bottom: 0; display: none; }
+#zone.is-live { display: block; }
+.zone-rig { perspective: 700dp; perspective-origin: 30% 40%; }
+.zone-plane { position: relative; transform: rotateX(8deg) rotateY(-16deg); transform-origin: 0% 60%; }
+.zone-haze
+{
+    position: absolute; left: -12dp; top: -10dp; right: -14dp; bottom: -10dp;
+    opacity: 0; transition: opacity 0.25s linear-in-out;
+    decorator: radial-gradient(ellipse 50% 56% at 50% 50%, #0406059E 0%, #04060566 55%, #04060500 100%);
+}
+#zone.is-open .zone-haze { opacity: 1; }
+/* the glow is applied outside the scanline mask (it spills past the tile) */
+.zone-bloom { position: relative; filter: drop-shadow(#3DFF8AE6 0dp 0dp 1.5dp) drop-shadow(#3DFF8A73 0dp 0dp 7dp); }
+#zone.is-leaving .zone-bloom { filter: drop-shadow(#FFB547E6 0dp 0dp 1.5dp) drop-shadow(#FFB54773 0dp 0dp 7dp); }
+/* scanlines: 2 dp full, 1 dp at .6. The box reaches 4 dp past the tile to hold its corner brackets. */
+.zone-holo
+{
+    position: relative; display: flex; flex-direction: row; align-items: center; gap: 8dp; height: 38dp;
+    padding: 4dp; margin: -4dp;
+    mask-image: repeating-linear-gradient(180deg, #FFFFFFFF 0dp, #FFFFFFFF 2dp, #FFFFFF99 2dp, #FFFFFF99 3dp);
+}
+
+/* the tile: an outlined square, a faint fill, the shield */
+.zone-tile
+{
+    position: relative; flex: 0 0 auto; width: 38dp; height: 38dp;
+    display: flex; flex-direction: row; align-items: center; justify-content: center;
+    background-color: #3DFF8A1A;
+    transform: scale(0); opacity: 0;
+    transition: background-color 0.2s linear-in-out;
+}
+.zone-frame { position: absolute; left: 0; top: 0; right: 0; bottom: 0; box-sizing: border-box; border-width: 1.5dp; border-color: #3DFF8AD9; transition: border-color 0.2s linear-in-out; }
+.zone-corner { position: absolute; width: 7dp; height: 7dp; box-sizing: border-box; border-width: 0dp; border-color: #3DFF8A; }
+.zone-corner-a { left: -3dp; top: -3dp; border-left-width: 2dp; border-top-width: 2dp; }
+.zone-corner-b { right: -3dp; bottom: -3dp; border-right-width: 2dp; border-bottom-width: 2dp; }
+path.zone-shield { display: block; position: relative; width: 22dp; height: 22dp; fill: transparent; stroke: #3DFF8A; stroke-width: 1.8dp; stroke-linecap: square; stroke-linejoin: miter; transition: stroke 0.2s linear-in-out; }
+#zone.is-shown .zone-tile { transform: scale(1); opacity: 1; }
+#zone.is-leaving .zone-tile { background-color: #FFB5471A; }
+#zone.is-leaving .zone-frame { border-color: #FFB547D9; }
+#zone.is-leaving .zone-corner { border-color: #FFB547; }
+#zone.is-leaving path.zone-shield { stroke: #FFB547; }
+
+/* the label: unfolds out of the tile, the title decodes, the hint types */
+.zone-label
+{
+    display: flex; flex-direction: column; justify-content: center; gap: 2dp; min-height: 38dp;
+    max-width: 0dp; overflow: hidden; white-space: nowrap; visibility: hidden;
+    transition: max-width 0.28s cubic-out;
+}
+/* is-label: from the unfolding to the end of the fold (a folded label still showed a sliver) */
+#zone.is-label .zone-label { visibility: visible; }
+#zone.is-open .zone-label { max-width: 157dp; }
+.zone-title { font-family: "Chakra Petch"; font-weight: bold; font-size: 15dp; line-height: 17dp; letter-spacing: 0.14em; color: #ECFFF3; white-space: nowrap; }
+#zone.is-leaving .zone-title { color: #FFB547; opacity: 0.9; font-size: 13dp; letter-spacing: 0.05em; }
+.zone-hint { font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 13dp; letter-spacing: 0.08em; color: #3DFF8AE6; white-space: normal; width: 157dp; }
+#zone.is-leaving .zone-hint { color: #FFB547E6; }

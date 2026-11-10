@@ -1,18 +1,19 @@
 /* Browser stand-in for the game's bridge. Installed by main.tsx when
    `window.Open77` is absent (vite dev, screenshots). Plays a plausible session:
-   state, ticking HUD, a notice, and answers to actions. Query flags:
+   state, the HUD state, a notice, and answers to actions. The HUD itself is NativeUI
+   (client/native): nothing of it shows in a browser. Query flags:
    `?menu=1` opens the player menu, `?staff=1` grants staff,
    `?registered=1` skips the wizard, `?step=appearance|confirm` starts the wizard
    at that step, `?vehicle=1` seats the player, `?welcome=1` shows the first-spawn briefing,
    `?dialog=rental` opens a rental desk, `?rental=1` starts with a car out,
-   `?interact=1` shows the proximity prompt, `?dialog=inventory` opens the inventory (with a trunk on the right),
+   `?dialog=inventory` opens the inventory (with a trunk on the right),
    `?dialog=halloffame` opens the Hall of Fame (features/halloffame/mock.ts),
    `?dialog=recap&recap=ffa|team|race|chase|turf|mission|boss|test|unranked|draw|big` opens an
    end-of-match recap (features/recap/mock.ts),
    `?tutorial=walk|edge|near|reveal` (with `?registered=1`) shows the first day guide's way to a stop (features/tutorial/mock.ts),
    `?dialog=dailies&tab=titles&dailies=mixed|fresh|budget|allpaid|off|loading&titles=shown|hidden|none&crew=1`
    opens Dailies (features/dailies/mock.ts),
-   `?death=1|downed|revive|loop` (with `?registered=1`) plays the flatline cover over a death (features/medical/mock.ts). */
+   (the downed screen and the flatline cover are NativeUI: tools/native-lab, scenes medical-*) */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
 import { itemCatalogue } from "./itemCatalogue";
@@ -27,7 +28,6 @@ import { safezonesMock } from "@/features/safezones/mock";
 import { missionEditorMock } from "@/features/missioneditor/mock";
 import { mapEditorMock } from "@/features/mapeditor/mock";
 import { armamentMock } from "@/features/inventory/armamentMock";
-import { activityHudMock } from "@/features/activityhud/mock";
 import { hallOfFameMock } from "@/features/halloffame/mock";
 import { recapMock } from "@/features/recap/mock";
 import { guideMock } from "@/features/guide/mock";
@@ -36,7 +36,6 @@ import { manekiMock } from "@/features/maneki/mock";
 import { parkourMock } from "@/features/parkour/mock";
 import { adminMock } from "@/features/support/mock";
 import { tutorialMock } from "@/features/tutorial/mock";
-import { deathMock } from "@/features/medical/mock";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -48,7 +47,6 @@ export function installMockBridge(): void {
   const handlers = new Map<string, Set<(payload: unknown) => void>>();
   const fire = (name: string, payload: unknown) => { for (const fn of handlers.get(name) ?? []) fn(payload); };
   const safezones = safezonesMock(fire, params);
-  const activityHud = activityHudMock(fire, params);
   const guide = guideMock(fire, params); // ?dialog=guide: the guide NPC's FAQ
   const missionEditor = missionEditorMock(fire, params);
   const mapEditor = mapEditorMock(fire, params);
@@ -56,11 +54,10 @@ export function installMockBridge(): void {
   const hallOfFame = hallOfFameMock(fire, params);
   const recap = recapMock(fire, params);
   const dailies = dailiesMock(fire, params);
-  const maneki = manekiMock(fire, params); // ?maneki=tool|desk
+  const maneki = manekiMock(fire, params); // ?maneki=desk|collection
   const parkour = parkourMock(fire, params); // ?parkour=hud|count|result|record|dnf|browser|editor
   const admin = adminMock(fire, params); // ?admin=1: the admin menu
   const firstDay = tutorialMock(fire, params); // ?tutorial=walk|edge|near|reveal: the first day guide's way to a stop
-  const death = deathMock(fire, params); // ?death=1|downed|revive|loop: the flatline cover over a death
 
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
@@ -192,7 +189,6 @@ export function installMockBridge(): void {
           missionEditor.boot();
           mapEditor.boot();
           armament.boot();
-          setTimeout(() => activityHud.boot(), 60); // ?activity=race|trial|arena|turf|lobby|countdown|result|editor|demo
   // ?wheel=N: hold Control to open the wheel (as the CTRL key mapping does), ?wheelopen=1 opens it at once
   if (params.has("wheel")) {
     let open = false;
@@ -204,33 +200,7 @@ export function installMockBridge(): void {
           if (firstDay.tutorial) state.tutorial = firstDay.tutorial;
           fire(PAGE_EVENTS.state, state);
           firstDay.boot();
-          // ?announce=listen|self[&radius=150]: a speaker on air, a speech-like voice level
-          const an = params.get("announce");
-          if (an) {
-            const self = an === "self";
-            const radius = params.get("radius");
-            fire("lightrp:ui:announce", { kind: "cast", speaker: 7, name: "Yuki", mode: radius ? "radius" : "server",
-              radius: radius ? Number(radius) : null, self, audience: 42 });
-            const t0 = performance.now();
-            window.setInterval(() => {
-              const t = (performance.now() - t0) / 1000;
-              // words: bursts of syllables, short pauses between phrases
-              const phrase = (Math.sin(t * 0.55) + Math.sin(t * 0.21 + 1.3)) > -0.6;
-              const syll = Math.max(0, Math.sin(t * 11.0) * 0.5 + Math.sin(t * 7.3 + 0.7) * 0.35 + 0.35);
-              const level = params.get("level") ? Number(params.get("level")) : (phrase ? Math.min(1, 0.25 + syll * 0.7) : 0);
-              fire("lightrp:ui:announce", { kind: "level", speaker: 7, level, talking: level > 0.02 });
-            }, 50);
-          }
-          const wb = params.get("worldboss");
-          if (wb) fire(PAGE_EVENTS.state, { worldBoss: {
-            id: "worldboss:1", title: "Burn Notice", location: "Kabuki", boss: "Militech Juggernaut", phase: wb === "fight" ? "fight" : "cleanup",
-            bossHealth: wb === "fight" ? 0.58 : 0, enemiesLeft: wb === "fight" ? 4 : 0, fighters: 11, endsInMs: 12 * 60000 + 30000,
-            share: wb === "unpaid" ? 2.4 : 17.3, minShare: 5, eligible: wb !== "unpaid", damage: wb === "unpaid" ? 150 : 8420, kills: wb === "unpaid" ? 1 : 3,
-            reward: 30000, inZone: true,
-            result: wb === "fight" ? null : { success: true, share: wb === "unpaid" ? 2.4 : 17.3, pay: wb === "unpaid" ? 0 : 5190, eligible: wb !== "unpaid", damage: 8420, kills: 3 },
-          } });
           fire(PAGE_EVENTS.hud, hud);
-          if (runKind) fire(PAGE_EVENTS.jobRun, { distance: params.get("near") === "1" ? 2 : 438, menuKey: "F1", gps: params.get("gps") !== "0" });
           if (params.get("dialog") === "shop") fire(PAGE_EVENTS.dialog, shop);
           if (params.get("dialog") === "garage") fire(PAGE_EVENTS.dialog, garage);
           if (params.get("dialog") === "dealership") fire(PAGE_EVENTS.dialog, dealership);
@@ -241,49 +211,13 @@ export function installMockBridge(): void {
           dailies.boot();
           maneki.boot();
           parkour.boot();
-          death.boot();
-          // ?arrival=1: the central square's camera tour caption (client/core/arrival_tour.lua)
-          if (params.get("arrival") === "1") setTimeout(() => fire(PAGE_EVENTS.arrivalTour, { title: "THE CROSSING", subtitle: "Your hub in Night City",
-            lines: ["Adam Smasher: activities and contracts", "Jackie Welles: game rooms", "Johnny Silverhand: your guide, any time"], durationMs: 11000, skip: "SPACE" }), 300);
-          // ?broadcast=1: the staff announcement banner
-          if (params.get("broadcast") === "1") setTimeout(() => fire(PAGE_EVENTS.staffAnnounce, { title: "Staff announcement", from: "Nightwolf",
-            text: "Server restart in 10 minutes. Finish your runs and park your cars: everything is saved.", durationMs: 12000 }), 300);
           admin.boot();
           if (params.get("dialog") === "activities") activities.boot();
           if (params.get("dialog") === "rooms") rooms.boot();
           if (params.get("dialog") === "mission") mission.open();
           else if (params.get("queue") === "1") mission.queueOnly();
           if (params.get("mission") === "1") mission.running();
-          const raidPhase = params.get("raid");
-          if (raidPhase) {
-            mission.running();
-            const ops = [{ id: 7, name: "Vi Asada", ready: true, down: false }, { id: 87, name: "Kei Mori", ready: raidPhase !== "ready", down: false },
-              { id: 132, name: "Rosa Vasquez", ready: false, down: raidPhase === "fight" }];
-            const kits = [{ id: "assault", label: "ASSAULT", blurb: "Militech Ajax rifle and a Lexington sidearm. Reliable at every range." },
-              { id: "breacher", label: "BREACHER", blurb: "Carnage shotgun and an Unity. Get close, hit its weak spots hard." },
-              { id: "marksman", label: "MARKSMAN", blurb: "Grad precision rifle and a Nue. Pick the parts off from cover." },
-              { id: "gunner", label: "GUNNER", blurb: "Defender light machine gun and a Lexington. Suppress the reinforcements." },
-              { id: "tech", label: "TECH", blurb: "Achilles tech rifle and a Copperhead. Charged shots through its plating." }];
-            if (raidPhase === "ready" && params.get("picked") !== "1") ops[0]!.ready = false;
-            if (params.get("loading") === "1") { (ops[0] as { loaded?: boolean }).loaded = false; (ops[2] as { loaded?: boolean }).loaded = false; }
-            const base = { instance: "mission:1", title: "Chimera Protocol", difficulty: "HARD", difficultyId: "hard", operators: ops, readyKey: "Y",
-              loadouts: raidPhase === "ready" ? kits : undefined, loadout: "breacher", loaded: params.get("loading") !== "1" };
-            const fight = { boss: { healthPercent: 58, phase: "exposed", label: "CHIMERA", enraged: params.get("enraged") === "1", target: params.get("lock") === "1" ? 7 : 87, targetName: "Kei Mori" },
-              adds: 4, lives: 5, fightSeconds: 214, enrageInMs: 386000 };
-            const state = raidPhase === "ready" ? { ...base, phase: "ready", readyEndsInMs: 31000 }
-              : raidPhase === "launch" ? { ...base, phase: "launch", launchInMs: 4000 }
-              : raidPhase === "intro" ? { ...base, phase: "intro", intro: { boss: { x: 0, y: 0, z: 0 }, durationMs: Number(params.get("introMs") ?? 60000), difficulty: "HARD", operators: 3 } }
-              : raidPhase === "victory" ? { ...base, phase: "victory", ...fight, boss: { ...fight.boss, healthPercent: 0 } }
-              : raidPhase === "wipe" ? { ...base, phase: "wipe", ...fight }
-              : { ...base, phase: "fight", ...fight, respawnInMs: params.get("dead") === "1" ? 12000 : undefined,
-                  announce: params.get("announce") === "1" ? { title: "ARMOR BREACHED", body: "Its plating is gone. Hit the exposed parts.", tone: "warning", at: 0 } : undefined };
-            setTimeout(() => fire(PAGE_EVENTS.raid, state), raidPhase === "intro" ? 0 : 100);
-          }
           if (params.get("menu") === "1") fire(PAGE_EVENTS.open, {});
-          if (params.get("interact") === "1") {
-            fire(PAGE_EVENTS.interact, { id: "rental.citycenter", prompt: "Rent a vehicle", key: "E" });
-            setInterval(() => fire("open77:anchors", { anchors: [{ id: "1", tag: "interact", kind: "position", x: 0.52 + Math.sin(Date.now() / 900) * 0.01, y: 0.55, depth: 3, distance: 3, onScreen: true }] }), 33);
-          }
           if (params.get("dialog") === "inventory" && params.get("weapons") !== "1") fire(PAGE_EVENTS.dialog, { kind: "inventory",
             left: { id: "player:1", kind: "player", label: "Yuki Tanaka", slots: 30, maxWeight: 40, weight: 6.3, items: [
               { slot: 1, name: "phone", label: "Phone", count: 1, weight: 0.3, icon: "smartphone", image: "img/items/phone.png", usable: false, stack: 1, description: "Your holo." },

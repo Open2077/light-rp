@@ -1,7 +1,7 @@
 -- op77_playermarks on a client with the native nameplate drawer (Open77.nameplates.style):
 -- the theme, no page, each player's label and hidden state through Open77.nameplates.set,
 -- the exports, world re-entry, stop, open77_nameplates standing down, and the fallbacks to
--- the page. Run from the resource folder with any Lua 5.4.
+-- the NativeUI document. Run: pwsh -NoProfile -File tests/run-lua.ps1 -Test native_test.lua
 local S -- the stubbed host of the current boot
 
 local function boot(options)
@@ -64,7 +64,11 @@ local function boot(options)
         voice = { talkers = function() return {} end },
         nameplates = nameplates,
     }
-    _G.WebUI = { create = function() S.pages = S.pages + 1; return { on = function() end, send = function() end } end }
+    Open77.ui = { create = function(spec)
+        assert(spec.document == "ui/playermarks.rml" and spec.layer == "hud")
+        S.pages = S.pages + 1
+        return { onEvent = function() end, destroy = function() end }
+    end }
     _G.GetResourceState = function(name)
         if name == "op77_map3d" then return "running" end
         if name == "open77_nameplates" then return S.platform.running and "running" or "missing" end
@@ -89,6 +93,8 @@ local function boot(options)
     _G.print = function(text) S.logs[#S.logs + 1] = tostring(text) end
     dofile("shared/config.lua")
     if options.config then options.config(PlayerMarksConfig) end
+    PlayerMarksView = nil
+    dofile("client/view.lua")
     dofile("client/main.lua")
     return PlayerMarks
 end
@@ -101,7 +107,7 @@ local function logged(pattern)
 end
 
 -- ---------------------------------------------------------------------------------------
--- Start: the Light RP theme, the drawer on, no page.
+-- Start: the Light RP theme, the drawer on, no document.
 local PM = boot()
 S.nearby = {
     { playerId = 7, isLocal = false, name = "  Archer Hella " },
@@ -112,7 +118,7 @@ S.all = { 3, 7, 8, 9 }
 S.handlers.onClientResourceStart("op77_playermarks")
 assert(#S.styles == 1, "the theme is set once at start")
 assert(S.renders[1] == true and #S.renders == 1, "the drawer is turned on")
-assert(S.pages == 0 and S.anchorsCreated == 0 and #S.threads == 1, "no page and no anchors with the native drawer, one sync loop")
+assert(S.pages == 0 and S.anchorsCreated == 0 and #S.threads == 1, "no document and no anchors with the native drawer, one sync loop")
 local t = S.styles[1]
 local expected = {
     font = "chakra", size = 13, letterSpacing = 0.08, uppercase = true,
@@ -250,22 +256,29 @@ boot({ styleRefusals = { "unknown_style_key:tipPulse" } })
 S.handlers.onClientResourceStart("op77_playermarks")
 assert(#S.styles == 1 and S.styles[1].tipPulse == nil and S.styles[1].accent == "#FFCC00" and S.pages == 0)
 assert(logged("tipPulse"))
--- A theme refused for another reason: the page.
+-- A theme refused for another reason: the document.
 boot({ styleRefusals = { "permission_denied:ui.nameplates" } })
 S.handlers.onClientResourceStart("op77_playermarks")
-assert(#S.styles == 0 and #S.renders == 0 and #S.threads == 3, "no render; the page's three threads")
+assert(#S.styles == 0 and #S.renders == 0 and #S.threads == 4, "no render; the document's four threads")
 S.threads[1]()
-assert(S.pages == 1 and PlayerMarks.native.on == false, "the page")
--- The drawer refused: the theme withdrawn, the page.
+assert(S.pages == 1 and PlayerMarks.native.on == false, "the document")
+-- The drawer refused: the theme withdrawn, the document.
 boot({ refuseRender = true })
 S.handlers.onClientResourceStart("op77_playermarks")
-assert(PlayerMarks.native.on == false and S.resets == 1 and #S.threads == 3)
--- An older client (no style) and native = false: the page, untouched.
+assert(PlayerMarks.native.on == false and S.resets == 1 and #S.threads == 4)
+-- A client without the drawer (no style) and native = false: the document.
 boot({ style = false })
 S.handlers.onClientResourceStart("op77_playermarks")
-assert(PlayerMarks.native.on == false and #S.renders == 0 and #S.threads == 3)
+assert(PlayerMarks.native.on == false and #S.renders == 0 and #S.threads == 4)
 boot({ config = function(c) c.native = false end })
 S.handlers.onClientResourceStart("op77_playermarks")
-assert(PlayerMarks.native.on == false and #S.styles == 0 and #S.renders == 0 and #S.threads == 3)
+assert(PlayerMarks.native.on == false and #S.styles == 0 and #S.renders == 0 and #S.threads == 4)
+-- No NativeUI on this client: one line, no document, and the loops end at once.
+boot({ style = false })
+Open77.ui = nil
+S.handlers.onClientResourceStart("op77_playermarks")
+S.threads[1]()
+assert(S.pages == 0 and logged("NativeUI") and S.anchorsCreated == 0)
+for i = 2, 4 do S.threads[i]() end
 
 io.write("native_test: ok\n")

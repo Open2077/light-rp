@@ -1,0 +1,279 @@
+/* op77_weaponhud on NativeUI: the holographic weapon HUD, op77_speedometer's projection
+   mirrored (the near edge is the left one, the plane faces the centre of the screen).
+   White-hot lit parts with a yellow bloom, ghost parts for the unlit ones, scanlines; red for
+   low ammo and an empty magazine, the cool colour while reloading. 1 dp = 1 px of a
+   1080-pixel-high screen.
+
+   ONE RULE PER LINE, colours as lowercase #rrggbb[aa]: client/ui.lua re-reads this file and
+   builds the theme layer (ui:stylesheet "theme") from the lines that hold a theme colour
+   (accent #ffcc00, core #fff7da, warn #ff3b3b, cool #7fd8ff), swapping them for the config's.
+   Keyframes hold no colour (a runtime layer only carries plain rules).
+
+   RmlUi notes: opacity is inherited, not multiplied (one level sets it on any branch; the
+   theme's opacity is an opacity() filter on #holo); a filter only composites its element's
+   box plus its own overflow, hence #holo and .flash 48 dp larger than the plane on every
+   side; animations do not keep their last frame, so the base style is the end state.
+   Set by client/ui.lua (config): #stage left / bottom / scale, #plane tilt, #holo filter
+   (bloom, scanlines, opacity: lengths follow the scale), #edge-front filter, #haze opacity. */
+
+body { width: 100%; height: 100%; pointer-events: none; font-family: "Chakra Petch"; font-weight: bold; font-size: 16dp; color: #fff7da; }
+
+/* ---- placement: bottom left, scaled from its bottom-left corner, lifted by the inset ---- */
+#lift { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.stage { position: absolute; width: 420dp; height: 210dp; left: 36dp; bottom: 142dp; transform-origin: 0% 100%; transform: scale(0.6); display: none; }
+.stage.is-live { display: block; }
+.stage.is-covered { visibility: hidden; }
+.kick { position: absolute; left: 0; top: 0; width: 420dp; height: 210dp; }
+.rig { position: absolute; left: 0; top: 0; width: 420dp; height: 210dp; perspective: 900dp; perspective-origin: 30% 40%; }
+.plane { position: absolute; left: 0; top: 0; width: 420dp; height: 210dp; transform-origin: 0% 60%; transform: rotateX(8deg) rotateY(16deg); }
+.fold { position: absolute; left: 0; top: 0; width: 420dp; height: 210dp; transform-origin: 0% 60%; opacity: 0; }
+
+/* draw / switch: unfold from a line (in-a and in-b are the same motion: alternating them
+   restarts it); holster: fold back into one */
+.stage.in-a .fold { opacity: 1; animation: 0.6s cubic-out wh-in-a; }
+.stage.in-b .fold { opacity: 1; animation: 0.6s cubic-out wh-in-b; }
+.stage.is-instant .fold { opacity: 1; }
+.stage.is-off .fold { opacity: 0; transform: scale(0.001, 0.01); animation: 0.34s cubic-in wh-out; }
+@keyframes wh-in-a { 0% { opacity: 0; transform: scale(0.35, 0.012); } 14% { opacity: 1; transform: scale(1.06, 0.018); } 38% { opacity: 1; transform: scale(1, 1.08); } 56% { opacity: 1; transform: scale(1, 0.96); } 100% { opacity: 1; transform: scale(1, 1); } }
+@keyframes wh-in-b { 0% { opacity: 0; transform: scale(0.35, 0.012); } 14% { opacity: 1; transform: scale(1.06, 0.018); } 38% { opacity: 1; transform: scale(1, 1.08); } 56% { opacity: 1; transform: scale(1, 0.96); } 100% { opacity: 1; transform: scale(1, 1); } }
+@keyframes wh-out { 0% { opacity: 1; transform: scale(1, 1); } 45% { opacity: 1; transform: scale(1.04, 0.015); } 100% { opacity: 0; transform: scale(0.001, 0.01); } }
+.flash { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.stage.in-a .flash { animation: 0.6s linear-in-out wh-flash-a; }
+.stage.in-b .flash { animation: 0.6s linear-in-out wh-flash-b; }
+.stage.is-off .flash { animation: 0.34s linear-in-out wh-flash-out; }
+@keyframes wh-flash-a { 0% { filter: brightness(3); } 25% { filter: brightness(0.5); } 45% { filter: brightness(1.7); } 100% { filter: brightness(1); } }
+@keyframes wh-flash-b { 0% { filter: brightness(3); } 25% { filter: brightness(0.5); } 45% { filter: brightness(1.7); } 100% { filter: brightness(1); } }
+@keyframes wh-flash-out { 0% { filter: brightness(1); } 40% { filter: brightness(2.6); } 100% { filter: brightness(3); } }
+
+/* recoil: a short kick up and toward the centre, then back */
+.kick.kick-a { animation: 0.15s back-out wh-kick-a; }
+.kick.kick-b { animation: 0.15s back-out wh-kick-b; }
+@keyframes wh-kick-a { 0% { transform: translate(0dp, 0dp) rotate(0deg); } 25% { transform: translate(4dp, -4dp) rotate(0.8deg); } 100% { transform: translate(0dp, 0dp) rotate(0deg); } }
+@keyframes wh-kick-b { 0% { transform: translate(0dp, 0dp) rotate(0deg); } 25% { transform: translate(4dp, -4dp) rotate(0.8deg); } 100% { transform: translate(0dp, 0dp) rotate(0deg); } }
+
+/* ---- the hologram: bloom + scanlines on #holo, a soft dark backdrop outside the bloom ---- */
+.holo-layer { position: absolute; left: -48dp; top: -48dp; right: -48dp; bottom: -48dp; filter: drop-shadow(#ffcc00d9 0dp 0dp 1.2dp) drop-shadow(#ffcc006b 0dp 0dp 5.4dp) scanlines(0.3 2 0 0); }
+.holo-layer.is-glitch { opacity: 0.5; transform: translateX(-2dp) skewX(3deg); }
+.face { position: absolute; left: 48dp; top: 48dp; width: 420dp; height: 210dp; }
+.haze { position: absolute; left: -40dp; top: -30dp; right: -40dp; bottom: -26dp; decorator: radial-gradient(ellipse 50% 50% at 50% 50%, #0404069e 0%, #04040675 48%, #04040629 76%, #04040600 100%), radial-gradient(ellipse 46% 44% at 50% 50%, #ffcc000d 0%, #ffcc0000 100%); }
+.stage.is-off .haze { opacity: 0; transition: opacity 0.3s linear-in-out; }
+.corner { position: absolute; width: 15dp; height: 15dp; border-color: #ffcc0099; }
+.corner-tl { left: -12dp; top: -10dp; border-left-width: 3dp; border-top-width: 3dp; }
+.corner-tr { right: -18dp; top: -10dp; border-right-width: 3dp; border-top-width: 3dp; }
+.corner-bl { left: -12dp; bottom: -4dp; border-left-width: 3dp; border-bottom-width: 3dp; }
+.corner-br { right: -18dp; bottom: -4dp; border-right-width: 3dp; border-bottom-width: 3dp; }
+.stage.is-empty .corner { border-color: #ff3b3bbf; }
+
+/* ---- head: name, class, type ---- */
+.head { position: absolute; left: 0; top: 0; width: 420dp; height: 22dp; display: flex; flex-direction: row; align-items: center; justify-content: space-between; }
+.name { position: relative; flex: 0 1 auto; min-width: 0; height: 22dp; margin-right: 12dp; overflow: hidden; }
+.name-bar { position: absolute; left: 0; top: 8.5dp; width: 22dp; height: 5dp; background-color: #ffcc00; }
+.name-text { display: block; margin-left: 32dp; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "Share Tech Mono"; font-weight: normal; font-size: 19dp; line-height: 22dp; letter-spacing: 0.14em; color: #ffcc00eb; }
+.badges { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; gap: 10dp; }
+.badge { display: block; flex: 0 0 auto; padding: 0dp 5.5dp 0dp 5.5dp; border-width: 1.5dp; border-color: #ffcc00cc; white-space: nowrap; font-family: "Share Tech Mono"; font-weight: normal; font-size: 15dp; line-height: 16dp; letter-spacing: 0.14em; color: #fff7da; }
+.badge.is-smart { color: #7fd8ff; border-color: #7fd8ffcc; }
+.badge.is-tech { color: #c9a6ff; border-color: #c9a6ffcc; }
+.kind { display: block; flex: 0 0 auto; white-space: nowrap; font-family: "Share Tech Mono"; font-weight: normal; font-size: 15dp; line-height: 18dp; letter-spacing: 0.14em; color: #fff7da8c; }
+
+/* ---- magazine bar: slanted cells, one per round (or per group of rounds) ---- */
+.cells { position: absolute; left: 6dp; top: 32dp; width: 410dp; height: 14dp; display: flex; flex-direction: row; gap: 3dp; transform: skewX(-28deg); }
+.cell { position: relative; flex: 1 1 0; height: 14dp; }
+.cell-fill { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: #ffcc0016; transition: background-color 0.12s linear-in-out; }
+.cell-fill.on { background-color: #ffcc00f2; }
+.cell-fill.on.tip { background-color: #fff7da; }
+.stage.is-low .cell-fill.on { background-color: #ff3b3b; }
+.stage.is-empty .cell-fill { background-color: #ff3b3b8c; animation: 0.8s sine-in-out infinite wh-pulse; }
+.stage.is-reloading .cells .cell-fill { background-color: #ffcc0016; }
+.stage.is-test .cells .cell-fill { background-color: #fff7da; transition: none; }
+.cell-cool { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: #7fd8ff; opacity: 0; }
+.stage.is-reloading .cell-cool { animation: 0.9s linear-in-out infinite wh-sweep; }
+@keyframes wh-pulse { 0% { opacity: 0.364; } 50% { opacity: 1; } 100% { opacity: 0.364; } }
+@keyframes wh-sweep { 0% { opacity: 0; } 12% { opacity: 0.9; } 30% { opacity: 0.25; } 100% { opacity: 0; } }
+.ejects { position: absolute; left: 6dp; top: 32dp; width: 410dp; height: 14dp; transform: skewX(-28deg); }
+.eject { position: absolute; left: 0; top: 0; width: 0; height: 14dp; background-color: #fff7da; opacity: 0; }
+.eject.fly-a { animation: 0.3s cubic-out wh-eject-a; }
+.eject.fly-b { animation: 0.3s cubic-out wh-eject-b; }
+@keyframes wh-eject-a { 0% { opacity: 1; transform: translate(0dp, 0dp) scale(1, 1); } 100% { opacity: 0; transform: translate(10dp, -26dp) scale(0.6, 1.4); } }
+@keyframes wh-eject-b { 0% { opacity: 1; transform: translate(0dp, 0dp) scale(1, 1); } 100% { opacity: 0; transform: translate(10dp, -26dp) scale(0.6, 1.4); } }
+
+/* ---- magazine digits + reserve + state ---- */
+.readout { position: absolute; left: 0; top: 56dp; width: 420dp; height: 112dp; }
+.digits { position: absolute; left: 0; top: 0; width: 240dp; height: 112dp; }
+.dg { position: absolute; top: 0; width: 76dp; height: 112dp; }
+.dg1 { left: 0dp; }
+.dg2 { left: 82dp; }
+.dg3 { left: 164dp; }
+.dg path { position: absolute; left: 0; top: 0; width: 76dp; height: 112dp; }
+.digits .dg-off { fill: #ffcc0016; }
+.digits .dg-on { fill: #fff7da; }
+.digits .dg.is-lead .dg-on { fill: #fff7da4d; }
+.stage.is-low .digits .dg-on, .stage.is-empty .digits .dg-on { fill: #ff3b3b; }
+.stage.zeros-lit .digits .dg.is-lead .dg-on { fill: #fff7da; }
+.stage.zeros-off .digits .dg.is-lead .dg-on { fill: #ffcc0016; }
+.stage.is-reloading .digits .dg-on { fill: #7fd8ff; }
+.digits.hit-a { animation: 0.11s linear-in-out wh-hit-a; }
+.digits.hit-b { animation: 0.11s linear-in-out wh-hit-b; }
+.stage.is-empty .digits { animation: 1s sine-in-out infinite wh-red; }
+@keyframes wh-hit-a { 0% { opacity: 0.35; transform: translate(-2dp, 1dp); } 50% { opacity: 1; transform: translate(-1dp, 0.5dp); } 75% { opacity: 0.6; transform: translate(-0.5dp, 0.25dp); } 100% { opacity: 1; transform: translate(0dp, 0dp); } }
+@keyframes wh-hit-b { 0% { opacity: 0.35; transform: translate(-2dp, 1dp); } 50% { opacity: 1; transform: translate(-1dp, 0.5dp); } 75% { opacity: 0.6; transform: translate(-0.5dp, 0.25dp); } 100% { opacity: 1; transform: translate(0dp, 0dp); } }
+@keyframes wh-red { 0% { opacity: 1; } 50% { opacity: 0.45; } 100% { opacity: 1; } }
+
+.side { position: absolute; left: 250dp; top: 0; width: 170dp; height: 112dp; }
+.side-label { font-family: "Share Tech Mono"; font-weight: normal; font-size: 16dp; line-height: 18dp; letter-spacing: 0.16em; color: #ffcc00bf; }
+.side-count { font-family: "Share Tech Mono"; font-weight: normal; font-size: 46dp; line-height: 52dp; letter-spacing: 0.04em; color: #fff7da; }
+.side-count.is-out { color: #ff3b3b; }
+.tag { margin-top: 6dp; height: 30dp; white-space: nowrap; font-family: "Chakra Petch"; font-weight: bold; font-size: 26dp; line-height: 30dp; letter-spacing: 0.08em; color: #ff3b3b; }
+.tag.tag-reload { animation: 0.5s linear-in-out infinite wh-blink; }
+.tag.tag-reloading { color: #7fd8ff; }
+/* steps(2, end) around "50% { opacity: .2 }": 1, .6, .2, .6 */
+@keyframes wh-blink { 0% { opacity: 1; } 24% { opacity: 1; } 25% { opacity: 0.6; } 49% { opacity: 0.6; } 50% { opacity: 0.2; } 74% { opacity: 0.2; } 75% { opacity: 0.6; } 100% { opacity: 0.6; } }
+
+/* ---- foot: magazine line / reload progress, the left hand ---- */
+.foot { position: absolute; left: 0; top: 176dp; width: 420dp; height: 30dp; }
+.progress { position: absolute; left: 0; top: 0; width: 420dp; height: 4dp; background-color: #ffcc0029; overflow: hidden; }
+.progress-fill { position: absolute; left: 0; top: 0; width: 420dp; height: 4dp; decorator: linear-gradient(90deg, #ffcc00cc 0%, #fff7da 100%); transform-origin: 0% 50%; transform: scaleX(0); }
+.stage.is-low .progress-fill, .stage.is-empty .progress-fill { decorator: none; background-color: #ff3b3b; }
+.stage.is-reloading .progress-fill { display: none; }
+.progress-run { position: absolute; left: 0; top: 0; width: 143dp; height: 4dp; display: none; decorator: linear-gradient(90deg, #7fd8ff00 0%, #7fd8ff 50%, #7fd8ff00 100%); }
+.stage.is-reloading .progress-run { display: block; animation: 0.7s linear-in-out infinite wh-progress; }
+@keyframes wh-progress { 0% { transform: translateX(-143dp); } 100% { transform: translateX(420dp); } }
+.lefthand { position: absolute; right: 0; top: 10dp; white-space: nowrap; font-family: "Share Tech Mono"; font-weight: normal; font-size: 16dp; line-height: 18dp; letter-spacing: 0.12em; color: #fff7dabf; }
+
+/* a faint band sweeping down the projection */
+.sweep { position: absolute; left: -18dp; right: -22dp; top: -14dp; height: 34dp; opacity: 0; decorator: linear-gradient(180deg, #fff7da00 0%, #fff7da12 50%, #fff7da00 100%); }
+.stage.in-a .sweep, .stage.in-b .sweep, .stage.is-instant .sweep { animation: 4.6s 1s linear-in-out infinite wh-scan; }
+@keyframes wh-scan { 0% { transform: translateY(0dp); opacity: 0; } 10% { opacity: 1; } 70% { transform: translateY(210dp); opacity: 1; } 71% { transform: translateY(210dp); opacity: 0; } 100% { transform: translateY(210dp); opacity: 0; } }
+
+/* ---- melee: an edge instead of the magazine (blades, blunt, arm cyberware) ---- */
+.melee { position: absolute; left: 0; top: 56dp; width: 420dp; height: 112dp; display: none; }
+.stage.is-melee .melee { display: block; }
+.stage.is-melee .digits, .stage.is-melee .cells, .stage.is-melee .ejects, .stage.is-melee .side, .stage.is-melee .progress { display: none; }
+.melee path { position: absolute; left: 0; top: 0; width: 228dp; height: 112dp; }
+.edge-back { fill: #ffcc001f; stroke: #ffcc0073; stroke-width: 1.5dp; }
+.edge-front { fill: transparent; stroke: #fff7da; stroke-width: 3dp; stroke-linecap: round; filter: drop-shadow(#ffcc00cc 0dp 0dp 3.6dp); animation: 2.4s sine-in-out infinite wh-edge; }
+.edge-guard { fill: transparent; stroke: #ffcc00b3; stroke-width: 3dp; }
+@keyframes wh-edge { 0% { trim-end: 0; opacity: 1; } 45% { trim-end: 1; } 70% { opacity: 1; } 85% { opacity: 0.55; } 100% { trim-end: 1; opacity: 1; } }
+.melee-text { position: absolute; left: 250dp; top: 0; width: 170dp; }
+.melee-class { font-family: "Chakra Petch"; font-weight: bold; font-size: 40dp; line-height: 46dp; letter-spacing: 0.08em; color: #fff7da; }
+.melee-hint { margin-top: 6dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 13dp; line-height: 16dp; letter-spacing: 0.14em; color: #ffcc00b3; }
+
+/* ---- per-cell delays (the page's --i): a change runs along the bar 14 ms per cell, the
+        reload sweep 24 ms per cell. Up to 60 cells (maxCells). ---- */
+.cell:nth-child(2) .cell-fill { transition: background-color 0.12s 0.014s linear-in-out; }
+.cell:nth-child(3) .cell-fill { transition: background-color 0.12s 0.028s linear-in-out; }
+.cell:nth-child(4) .cell-fill { transition: background-color 0.12s 0.042s linear-in-out; }
+.cell:nth-child(5) .cell-fill { transition: background-color 0.12s 0.056s linear-in-out; }
+.cell:nth-child(6) .cell-fill { transition: background-color 0.12s 0.070s linear-in-out; }
+.cell:nth-child(7) .cell-fill { transition: background-color 0.12s 0.084s linear-in-out; }
+.cell:nth-child(8) .cell-fill { transition: background-color 0.12s 0.098s linear-in-out; }
+.cell:nth-child(9) .cell-fill { transition: background-color 0.12s 0.112s linear-in-out; }
+.cell:nth-child(10) .cell-fill { transition: background-color 0.12s 0.126s linear-in-out; }
+.cell:nth-child(11) .cell-fill { transition: background-color 0.12s 0.140s linear-in-out; }
+.cell:nth-child(12) .cell-fill { transition: background-color 0.12s 0.154s linear-in-out; }
+.cell:nth-child(13) .cell-fill { transition: background-color 0.12s 0.168s linear-in-out; }
+.cell:nth-child(14) .cell-fill { transition: background-color 0.12s 0.182s linear-in-out; }
+.cell:nth-child(15) .cell-fill { transition: background-color 0.12s 0.196s linear-in-out; }
+.cell:nth-child(16) .cell-fill { transition: background-color 0.12s 0.210s linear-in-out; }
+.cell:nth-child(17) .cell-fill { transition: background-color 0.12s 0.224s linear-in-out; }
+.cell:nth-child(18) .cell-fill { transition: background-color 0.12s 0.238s linear-in-out; }
+.cell:nth-child(19) .cell-fill { transition: background-color 0.12s 0.252s linear-in-out; }
+.cell:nth-child(20) .cell-fill { transition: background-color 0.12s 0.266s linear-in-out; }
+.cell:nth-child(21) .cell-fill { transition: background-color 0.12s 0.280s linear-in-out; }
+.cell:nth-child(22) .cell-fill { transition: background-color 0.12s 0.294s linear-in-out; }
+.cell:nth-child(23) .cell-fill { transition: background-color 0.12s 0.308s linear-in-out; }
+.cell:nth-child(24) .cell-fill { transition: background-color 0.12s 0.322s linear-in-out; }
+.cell:nth-child(25) .cell-fill { transition: background-color 0.12s 0.336s linear-in-out; }
+.cell:nth-child(26) .cell-fill { transition: background-color 0.12s 0.350s linear-in-out; }
+.cell:nth-child(27) .cell-fill { transition: background-color 0.12s 0.364s linear-in-out; }
+.cell:nth-child(28) .cell-fill { transition: background-color 0.12s 0.378s linear-in-out; }
+.cell:nth-child(29) .cell-fill { transition: background-color 0.12s 0.392s linear-in-out; }
+.cell:nth-child(30) .cell-fill { transition: background-color 0.12s 0.406s linear-in-out; }
+.cell:nth-child(31) .cell-fill { transition: background-color 0.12s 0.420s linear-in-out; }
+.cell:nth-child(32) .cell-fill { transition: background-color 0.12s 0.434s linear-in-out; }
+.cell:nth-child(33) .cell-fill { transition: background-color 0.12s 0.448s linear-in-out; }
+.cell:nth-child(34) .cell-fill { transition: background-color 0.12s 0.462s linear-in-out; }
+.cell:nth-child(35) .cell-fill { transition: background-color 0.12s 0.476s linear-in-out; }
+.cell:nth-child(36) .cell-fill { transition: background-color 0.12s 0.490s linear-in-out; }
+.cell:nth-child(37) .cell-fill { transition: background-color 0.12s 0.504s linear-in-out; }
+.cell:nth-child(38) .cell-fill { transition: background-color 0.12s 0.518s linear-in-out; }
+.cell:nth-child(39) .cell-fill { transition: background-color 0.12s 0.532s linear-in-out; }
+.cell:nth-child(40) .cell-fill { transition: background-color 0.12s 0.546s linear-in-out; }
+.cell:nth-child(41) .cell-fill { transition: background-color 0.12s 0.560s linear-in-out; }
+.cell:nth-child(42) .cell-fill { transition: background-color 0.12s 0.574s linear-in-out; }
+.cell:nth-child(43) .cell-fill { transition: background-color 0.12s 0.588s linear-in-out; }
+.cell:nth-child(44) .cell-fill { transition: background-color 0.12s 0.602s linear-in-out; }
+.cell:nth-child(45) .cell-fill { transition: background-color 0.12s 0.616s linear-in-out; }
+.cell:nth-child(46) .cell-fill { transition: background-color 0.12s 0.630s linear-in-out; }
+.cell:nth-child(47) .cell-fill { transition: background-color 0.12s 0.644s linear-in-out; }
+.cell:nth-child(48) .cell-fill { transition: background-color 0.12s 0.658s linear-in-out; }
+.cell:nth-child(49) .cell-fill { transition: background-color 0.12s 0.672s linear-in-out; }
+.cell:nth-child(50) .cell-fill { transition: background-color 0.12s 0.686s linear-in-out; }
+.cell:nth-child(51) .cell-fill { transition: background-color 0.12s 0.700s linear-in-out; }
+.cell:nth-child(52) .cell-fill { transition: background-color 0.12s 0.714s linear-in-out; }
+.cell:nth-child(53) .cell-fill { transition: background-color 0.12s 0.728s linear-in-out; }
+.cell:nth-child(54) .cell-fill { transition: background-color 0.12s 0.742s linear-in-out; }
+.cell:nth-child(55) .cell-fill { transition: background-color 0.12s 0.756s linear-in-out; }
+.cell:nth-child(56) .cell-fill { transition: background-color 0.12s 0.770s linear-in-out; }
+.cell:nth-child(57) .cell-fill { transition: background-color 0.12s 0.784s linear-in-out; }
+.cell:nth-child(58) .cell-fill { transition: background-color 0.12s 0.798s linear-in-out; }
+.cell:nth-child(59) .cell-fill { transition: background-color 0.12s 0.812s linear-in-out; }
+.cell:nth-child(60) .cell-fill { transition: background-color 0.12s 0.826s linear-in-out; }
+.stage.is-reloading .cell:nth-child(2) .cell-cool { animation: 0.9s 0.024s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(3) .cell-cool { animation: 0.9s 0.048s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(4) .cell-cool { animation: 0.9s 0.072s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(5) .cell-cool { animation: 0.9s 0.096s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(6) .cell-cool { animation: 0.9s 0.120s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(7) .cell-cool { animation: 0.9s 0.144s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(8) .cell-cool { animation: 0.9s 0.168s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(9) .cell-cool { animation: 0.9s 0.192s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(10) .cell-cool { animation: 0.9s 0.216s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(11) .cell-cool { animation: 0.9s 0.240s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(12) .cell-cool { animation: 0.9s 0.264s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(13) .cell-cool { animation: 0.9s 0.288s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(14) .cell-cool { animation: 0.9s 0.312s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(15) .cell-cool { animation: 0.9s 0.336s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(16) .cell-cool { animation: 0.9s 0.360s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(17) .cell-cool { animation: 0.9s 0.384s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(18) .cell-cool { animation: 0.9s 0.408s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(19) .cell-cool { animation: 0.9s 0.432s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(20) .cell-cool { animation: 0.9s 0.456s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(21) .cell-cool { animation: 0.9s 0.480s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(22) .cell-cool { animation: 0.9s 0.504s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(23) .cell-cool { animation: 0.9s 0.528s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(24) .cell-cool { animation: 0.9s 0.552s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(25) .cell-cool { animation: 0.9s 0.576s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(26) .cell-cool { animation: 0.9s 0.600s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(27) .cell-cool { animation: 0.9s 0.624s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(28) .cell-cool { animation: 0.9s 0.648s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(29) .cell-cool { animation: 0.9s 0.672s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(30) .cell-cool { animation: 0.9s 0.696s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(31) .cell-cool { animation: 0.9s 0.720s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(32) .cell-cool { animation: 0.9s 0.744s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(33) .cell-cool { animation: 0.9s 0.768s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(34) .cell-cool { animation: 0.9s 0.792s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(35) .cell-cool { animation: 0.9s 0.816s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(36) .cell-cool { animation: 0.9s 0.840s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(37) .cell-cool { animation: 0.9s 0.864s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(38) .cell-cool { animation: 0.9s 0.888s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(39) .cell-cool { animation: 0.9s 0.912s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(40) .cell-cool { animation: 0.9s 0.936s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(41) .cell-cool { animation: 0.9s 0.960s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(42) .cell-cool { animation: 0.9s 0.984s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(43) .cell-cool { animation: 0.9s 1.008s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(44) .cell-cool { animation: 0.9s 1.032s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(45) .cell-cool { animation: 0.9s 1.056s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(46) .cell-cool { animation: 0.9s 1.080s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(47) .cell-cool { animation: 0.9s 1.104s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(48) .cell-cool { animation: 0.9s 1.128s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(49) .cell-cool { animation: 0.9s 1.152s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(50) .cell-cool { animation: 0.9s 1.176s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(51) .cell-cool { animation: 0.9s 1.200s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(52) .cell-cool { animation: 0.9s 1.224s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(53) .cell-cool { animation: 0.9s 1.248s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(54) .cell-cool { animation: 0.9s 1.272s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(55) .cell-cool { animation: 0.9s 1.296s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(56) .cell-cool { animation: 0.9s 1.320s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(57) .cell-cool { animation: 0.9s 1.344s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(58) .cell-cool { animation: 0.9s 1.368s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(59) .cell-cool { animation: 0.9s 1.392s linear-in-out infinite wh-sweep; }
+.stage.is-reloading .cell:nth-child(60) .cell-cool { animation: 0.9s 1.416s linear-in-out infinite wh-sweep; }

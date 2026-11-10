@@ -1,0 +1,6 @@
+{
+  "resource": "resources/standalone/op77_actionbubble",
+  "scripts": ["shared/config.lua", "client/view.lua"],
+  "files": ["ui/*.rml", "ui/*.rcss"],
+  "permissions": []
+}

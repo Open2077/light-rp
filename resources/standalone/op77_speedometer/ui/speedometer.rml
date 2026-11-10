@@ -1,0 +1,106 @@
+<rml>
+<head>
+    <title>op77_speedometer</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="speedometer.rcss"/>
+</head>
+<!-- The holographic speedometer. Driven by client/ui.lua through the data model "sp" (only the
+     values that changed are merged). #stage is placed at the bottom right (right / bottom and
+     scale from the config), #shake carries the high-speed shake, #rig the eye (perspective),
+     #plane the 3D tilt, #fold the unfold / fold, #holo the glow, the scanlines and the flicker.
+     Everything inside .face is laid out on a flat 420 x 232 dp plane. -->
+<body data-model="sp">
+<div id="stage" class="stage"
+     data-class-is-live="live" data-class-is-covered="covered"
+     data-class-in-a="enter == 1" data-class-in-b="enter == 2" data-class-is-instant="enter == 3" data-class-is-off="leaving"
+     data-class-no-name="!hasName" data-class-is-over="over" data-class-is-idle="idle"
+     data-class-zeros-lit="zeros == 'lit'" data-class-zeros-off="zeros == 'off'">
+<div id="shake" class="shake" data-style-transform="shake">
+<div id="rig" class="rig">
+<div id="plane" class="plane">
+<div id="fold" class="fold">
+    <div id="haze" class="haze"></div>
+    <div id="holo" class="holo-layer" data-class-is-glitch="glitch">
+    <div class="flash">
+    <div class="face">
+        <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+        <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+
+        <div class="name"><div class="name-bar"></div><span class="name-text">{{name}}</span></div>
+
+        <!-- RPM strip: 30 cells lit from one number, the last five are the redline -->
+        <div class="rpm" data-class-is-shift="shift">
+            <div class="rpm-cells">
+                <div class="rc" data-class-on="rpmLit > 0" data-class-hot="rpmLit > 0 &amp;&amp; 2 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 1" data-class-hot="rpmLit > 1 &amp;&amp; 3 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 2" data-class-hot="rpmLit > 2 &amp;&amp; 4 >= rpmLit"></div>
+                <div class="rc" data-class-on="rpmLit > 3" data-class-hot="rpmLit > 3 &amp;&amp; 5 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 4" data-class-hot="rpmLit > 4 &amp;&amp; 6 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 5" data-class-hot="rpmLit > 5 &amp;&amp; 7 >= rpmLit"></div>
+                <div class="rc" data-class-on="rpmLit > 6" data-class-hot="rpmLit > 6 &amp;&amp; 8 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 7" data-class-hot="rpmLit > 7 &amp;&amp; 9 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 8" data-class-hot="rpmLit > 8 &amp;&amp; 10 >= rpmLit"></div>
+                <div class="rc" data-class-on="rpmLit > 9" data-class-hot="rpmLit > 9 &amp;&amp; 11 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 10" data-class-hot="rpmLit > 10 &amp;&amp; 12 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 11" data-class-hot="rpmLit > 11 &amp;&amp; 13 >= rpmLit"></div>
+                <div class="rc" data-class-on="rpmLit > 12" data-class-hot="rpmLit > 12 &amp;&amp; 14 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 13" data-class-hot="rpmLit > 13 &amp;&amp; 15 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 14" data-class-hot="rpmLit > 14 &amp;&amp; 16 >= rpmLit"></div>
+                <div class="rc" data-class-on="rpmLit > 15" data-class-hot="rpmLit > 15 &amp;&amp; 17 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 16" data-class-hot="rpmLit > 16 &amp;&amp; 18 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 17" data-class-hot="rpmLit > 17 &amp;&amp; 19 >= rpmLit"></div>
+                <div class="rc" data-class-on="rpmLit > 18" data-class-hot="rpmLit > 18 &amp;&amp; 20 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 19" data-class-hot="rpmLit > 19 &amp;&amp; 21 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 20" data-class-hot="rpmLit > 20 &amp;&amp; 22 >= rpmLit"></div>
+                <div class="rc" data-class-on="rpmLit > 21" data-class-hot="rpmLit > 21 &amp;&amp; 23 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 22" data-class-hot="rpmLit > 22 &amp;&amp; 24 >= rpmLit"></div><div class="rc" data-class-on="rpmLit > 23" data-class-hot="rpmLit > 23 &amp;&amp; 25 >= rpmLit"></div>
+                <div class="rc" data-class-on="rpmLit > 24" data-class-hot="rpmLit > 24 &amp;&amp; 26 >= rpmLit"></div><div class="rc red" data-class-on="rpmLit > 25"></div><div class="rc red" data-class-on="rpmLit > 26"></div>
+                <div class="rc red" data-class-on="rpmLit > 27"></div><div class="rc red" data-class-on="rpmLit > 28"></div><div class="rc red" data-class-on="rpmLit > 29"></div>
+            </div>
+            <div class="rpm-label">RPM</div>
+        </div>
+
+        <div class="readout">
+            <!-- seven-segment digits: per digit, the unlit segments and the lit ones as two paths -->
+            <div class="digits">
+                <div class="dg dg1" data-class-is-lead="lead1"><path class="dg-off" view-box="0 0 76 112" data-attr-d="d1off"/><path class="dg-on" view-box="0 0 76 112" data-attr-d="d1on"/></div>
+                <div class="dg dg2" data-class-is-lead="lead2"><path class="dg-off" view-box="0 0 76 112" data-attr-d="d2off"/><path class="dg-on" view-box="0 0 76 112" data-attr-d="d2on"/></div>
+                <div class="dg dg3"><path class="dg-off" view-box="0 0 76 112" data-attr-d="d3off"/><path class="dg-on" view-box="0 0 76 112" data-attr-d="d3on"/></div>
+            </div>
+            <div class="tags">
+                <div class="tag tag-warn" data-class-on="tagHbk">HBK</div>
+                <div class="tag" data-class-on="tagAbs" data-class-blink="blinkAbs">ABS</div>
+                <div class="tag" data-class-on="tagTcs" data-class-blink="blinkTcs">TCS</div>
+            </div>
+            <div class="gauges">
+                <!-- fuel, condition: ten cells each, drawn top down (the top cell is the tenth) -->
+                <div class="vgauge vgauge-fuel" data-class-is-none="fuelNone" data-class-is-low="fuelLow" data-class-is-empty="fuelEmpty">
+                    <div class="vg-cells">
+                        <div class="vc" data-class-on="fuelLit > 9"></div><div class="vc" data-class-on="fuelLit > 8"></div><div class="vc" data-class-on="fuelLit > 7"></div><div class="vc" data-class-on="fuelLit > 6"></div><div class="vc" data-class-on="fuelLit > 5"></div>
+                        <div class="vc" data-class-on="fuelLit > 4"></div><div class="vc" data-class-on="fuelLit > 3"></div><div class="vc" data-class-on="fuelLit > 2"></div><div class="vc" data-class-on="fuelLit > 1"></div><div class="vc" data-class-on="fuelLit > 0"></div>
+                    </div>
+                    <path class="vg-icon" view-box="0 0 24 24" d="M4 21V5l2-2h7l2 2v16M3 21h13M7 8h5M15 10h2l2 2v6a1.5 1.5 0 0 0 3 0V9l-3-3"/>
+                </div>
+                <div class="vgauge vgauge-cond" data-class-is-low="condLow">
+                    <div class="vg-cells">
+                        <div class="vc" data-class-on="condLit > 9"></div><div class="vc" data-class-on="condLit > 8"></div><div class="vc" data-class-on="condLit > 7"></div><div class="vc" data-class-on="condLit > 6"></div><div class="vc" data-class-on="condLit > 5"></div>
+                        <div class="vc" data-class-on="condLit > 4"></div><div class="vc" data-class-on="condLit > 3"></div><div class="vc" data-class-on="condLit > 2"></div><div class="vc" data-class-on="condLit > 1"></div><div class="vc" data-class-on="condLit > 0"></div>
+                    </div>
+                    <path class="vg-icon" view-box="0 0 24 24" d="M14.5 6.5a4 4 0 0 0 5 5L21 13l-8 8-4-4 8-8M9.5 17.5 4 23M14.5 6.5 13 5l3-3 2 1"/>
+                </div>
+            </div>
+        </div>
+
+        <div class="sub">
+            <div class="gear" data-class-is-r="gear == 'R'" data-class-is-n="gear == 'N'"><span class="gear-label">GEAR</span><span class="gear-num" data-class-pop-a="pop == 1" data-class-pop-b="pop == 2">{{gear}}</span></div>
+            <div class="unit">{{unit}}</div>
+            <div class="icons">
+                <div class="ico ico-lights" data-class-on="lightsOn" data-class-cool="lightsCool" data-class-warn="lightsWarn"><path view-box="0 0 24 24" d="M10 6c-4 0-6 2.6-6 6s2 6 6 6c1.5 0 2-1 2-6s-.5-6-2-6ZM15 8h6M15 12h6M15 16h6"/></div>
+                <div class="ico ico-engine" data-class-on="engineOn" data-class-warn="engineWarn"><path view-box="0 0 24 24" d="M7 8h7l2 2h3v3h2v-2M19 13v3h-3l-2 2H8l-2-2H3v-6h2V8h2ZM9 5h5M11.5 5v3"/></div>
+                <div class="ico ico-tires" data-class-warn="tiresWarn"><path view-box="0 0 24 24" d="M4 12a8 8 0 1 0 16 0a8 8 0 1 0 -16 0ZM9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0ZM12 4v5M12 15v5M4 12h5M15 12h5"/><div class="ico-count">{{tires}}</div></div>
+            </div>
+        </div>
+
+        <div class="bar">
+            <div class="bar-track"></div>
+            <div class="bar-fill" data-style-transform="barFill"></div>
+            <div class="bar-head" data-style-transform="barHead"></div>
+            <div class="bar-ticks"><div class="tick-slot" data-for="t : ticks"><div class="bar-tick" data-class-major="t.major" data-style-left="t.x"></div></div></div>
+        </div>
+
+        <div class="sweep"></div>
+    </div>
+    </div>
+    </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body>
+</rml>

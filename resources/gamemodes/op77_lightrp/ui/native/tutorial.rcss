@@ -1,0 +1,343 @@
+/* The first day's overlays (ui/src/features/tutorial/tutorial.css, demos.css, lessons.css),
+   value for value, in the guide's own colours: gold #f4d655 on deep green-black.
+   The page's root: color #f4f2e9, Chakra Petch 15px / 1.45. Its `font: <size> monospace`
+   is Share Tech Mono here (the page's browser monospace), its line-height `normal` 1.2.
+   Lucide strokes are 2 in 24: an icon of size s draws s / 12 dp.
+   Entrances (the card's slide, the task, the rows, the reveal) are ui:animate calls of
+   client/native/tutorial.lua; what is drawn before them is here. */
+#root { color: #f4f2e9; font-size: 15dp; line-height: 21.75dp; }
+
+.fd-eyebrow, .fd-eyebrow-text { font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 13.2dp; letter-spacing: 0.12em; color: #f4d655; white-space: nowrap; }
+
+/* ================================ the objective card ================================ */
+.fd-card-col { display: none; flex-direction: column; justify-content: center; align-items: flex-end; padding-right: 46dp; }
+.fd-card-col.is-on { display: flex; }
+.fd-card
+{
+    flex: 0 0 auto; width: 372dp; box-sizing: border-box;
+    border-right-width: 2dp; border-right-color: #f4d655;
+    decorator: linear-gradient(200deg, #0c1413f4 0%, #0c1413d8 100%);
+    box-shadow: #00000055 0dp 10dp 44dp 0dp;
+}
+.fd-head { display: flex; flex-direction: row; justify-content: space-between; align-items: flex-end; padding: 16dp 20dp 12dp 20dp; }
+.fd-count { font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 13.2dp; letter-spacing: 0.08em; color: #809087; white-space: nowrap; }
+.fd-count-now { color: #f4f2e9; font-size: 15dp; }
+
+/* the run of steps: done, now (pulsing), to come */
+.fd-steps { display: flex; flex-direction: row; gap: 4dp; padding: 0 20dp; }
+.fd-scell { flex: 1 1 0dp; height: 3dp; }
+.fd-step { height: 3dp; background-color: #ffffff16; transition: background-color 0.5s quadratic-in-out; }
+.fd-step.is-done { background-color: #f4d65599; }
+.fd-step.is-now { background-color: #f4d655; animation: 1.6s sine-in-out infinite fd-now; }
+
+.fd-task { padding: 18dp 20dp 14dp 20dp; }
+.fd-title { margin: 0 0 14dp 0; font-size: 22dp; line-height: 26.4dp; color: #f4f2e9; }
+.fd-hint { font-size: 14dp; line-height: 23.1dp; color: #bec7bf; }
+
+/* the to-do rows: a key cap (the player's binding) or a bullet, then the words */
+.fd-todo { display: flex; flex-direction: column; gap: 10dp; }
+.fd-row { display: flex; flex-direction: row; align-items: center; gap: 12dp; font-size: 14dp; line-height: 19.6dp; color: #d7ddd4; opacity: 0; }
+.fd-row-text { flex: 1 1 0dp; }
+/* the key: its face presses down a pixel while a gold ring spreads 7 px and fades
+   (first-day-key: box-shadows 0 3px 0 #9c8523 and 0 0 0 0..7px #f4d65577, translate 0..1px) */
+.fd-key { position: relative; flex: 0 0 auto; }
+.fd-key-ring { position: absolute; left: 0; top: 0; right: 0; bottom: 0; border-radius: 4dp; background-color: #f4d65577; animation: 1.8s sine-in-out infinite fd-key-ring; }
+.fd-key-base { position: absolute; left: 0; right: 0; top: 3dp; bottom: -3dp; border-radius: 4dp; background-color: #9c8523; }
+.fd-key-face
+{
+    position: relative; display: block; min-width: 34dp; height: 30dp; padding: 0 9dp; box-sizing: border-box; border-radius: 4dp;
+    background-color: #f4d655; color: #141912; font-size: 14dp; line-height: 30dp; text-align: center; white-space: nowrap;
+    animation: 1.8s sine-in-out infinite fd-key-face;
+}
+.fd-bullet
+{
+    flex: 0 0 auto; width: 34dp; height: 30dp; box-sizing: border-box; border-width: 1dp; border-color: #f4d65540; border-radius: 4dp;
+    display: flex; flex-direction: row; align-items: center; justify-content: center;
+}
+.fd-bullet path.ic { width: 14dp; height: 14dp; stroke: #f4d655; stroke-width: 1.17dp; }
+
+/* the way line */
+.fd-way
+{
+    display: flex; flex-direction: row; align-items: center; gap: 10dp; margin: 0 20dp 14dp 20dp; padding: 9dp 12dp;
+    background-color: #f4d65512; border-width: 1dp; border-color: #f4d65530; font-size: 12dp; line-height: 17.4dp; color: #aab5aa;
+}
+.fd-beacon { flex: 0 0 auto; width: 14dp; height: 14dp; animation: 1.1s sine-in-out infinite fd-bob; }
+.fd-beacon-turn { width: 14dp; height: 14dp; }
+path.fd-beacon-glyph { display: block; width: 14dp; height: 14dp; fill: #f4d655; }
+.fd-way-dist { display: block; flex: 0 0 auto; min-width: 52dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 15dp; line-height: 18dp; color: #f4d655; white-space: nowrap; }
+.fd-way-label { display: block; flex: 1 1 0dp; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* the guide's quote */
+.fd-quote { margin: 0 20dp 16dp 20dp; padding-top: 12dp; border-top-width: 1dp; border-top-color: #ffffff12; font-size: 12dp; line-height: 20.4dp; color: #99a69c; }
+.fd-quote-who { display: block; margin-bottom: 7dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 12dp; letter-spacing: 0.1em; color: #edce65; }
+
+/* "Press F6 to skip the tutorial" */
+.fd-skip
+{
+    display: flex; flex-direction: row; align-items: center; gap: 8dp; margin: 0 20dp 14dp 20dp; padding: 9dp 12dp;
+    border-width: 1dp; border-color: #f4d65544; background-color: #f4d65512; color: #e9dfae; font-size: 12dp; line-height: 15dp; letter-spacing: 0.04em;
+}
+.fd-skip > span { display: block; flex: 0 0 auto; }
+.fd-waykey
+{
+    flex: 0 0 auto; min-width: 20dp; height: 18dp; padding: 0 5dp; box-sizing: border-box; border-width: 1dp; border-color: #f4d65577; border-radius: 3dp;
+    background-color: #f4d65522; color: #f4d655; font-family: "Chakra Petch"; font-weight: bold; font-size: 11dp; line-height: 16dp; text-align: center; white-space: nowrap;
+}
+
+/* the footer: the way key, or where the guide lives, or the step's key; /tutorial pause */
+.fd-foot { display: flex; flex-direction: row; justify-content: space-between; gap: 10dp; padding: 11dp 20dp; background-color: #ffffff05; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 12dp; color: #85978c; }
+.fd-foot > span { display: block; }
+.fd-foot-way { display: flex; flex-direction: row; align-items: center; gap: 8dp; color: #c9cfc6; }
+.fd-foot-way > span { display: block; }
+.fd-foot-menu { display: flex; flex-direction: row; align-items: flex-start; }
+.fd-foot-menu > span { display: block; }
+/* the page's "→" (not in Share Tech Mono) */
+.fd-foot-menu path.ic { width: 8dp; height: 8dp; margin: 2dp 5dp 0 5dp; stroke: #85978c; stroke-width: 0.9dp; }
+.fd-foot-kbd { color: #eee0a0; }
+
+/* ======================= the step's example (demos.tsx StepDemo) ======================= */
+.fd-demo { margin: 14dp 0 0 0; padding: 12dp; background-color: #050a08aa; border-width: 1dp; border-color: #ffffff12; }
+.fd-mini { display: flex; flex-direction: row; align-items: center; gap: 12dp; min-height: 64dp; }
+.fd-spacer { flex: 1 1 0dp; }
+
+/* the key cap (demo-cap under the card's `kbd { font: inherit; color: #eee0a0 }`) */
+.fd-cap
+{
+    flex: 0 0 auto; min-width: 30dp; height: 28dp; padding: 0 8dp; box-sizing: border-box; border-width: 1dp; border-color: #f4d65566; border-radius: 4dp;
+    background-color: #1b2420; color: #eee0a0; font-size: 15dp; line-height: 26dp; text-align: center; white-space: nowrap;
+    box-shadow: #0a0f0d 0dp 3dp 0dp 0dp;
+    transition: transform 0.12s quadratic-in-out, background-color 0.12s quadratic-in-out, color 0.12s quadratic-in-out;
+}
+.fd-cap.is-wide { min-width: 42dp; }
+.fd-cap.is-on { background-color: #f4d655; color: #141912; transform: translateY(2dp); box-shadow: #9c8523 0dp 1dp 0dp 0dp, #f4d65522 0dp 0dp 0dp 6dp; }
+
+/* an item tile (demo-item) */
+.fd-item
+{
+    position: relative; flex: 0 0 auto; width: 40dp; height: 40dp; box-sizing: border-box; border-width: 1dp; border-color: #ffffff1c; border-radius: 4dp;
+    background-color: #ffffff0d; display: flex; flex-direction: row; align-items: center; justify-content: center;
+}
+.fd-item img { width: 34dp; height: 34dp; }
+.fd-item-count { position: absolute; right: 2dp; bottom: 0; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 12dp; color: #f4f2e9; font-effect: shadow(0dp 1dp #000000); }
+
+/* a thin meter (demo-bar) */
+.fd-bar { position: relative; flex: 1 1 0dp; height: 6dp; background-color: #ffffff14; border-radius: 3dp; overflow: hidden; }
+.fd-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; background-color: #f4d655; border-radius: 3dp; transition: width 0.6s cubic-out; }
+.fd-bar-fill.is-full { width: 100%; }
+.fd-bar-fill.is-run { transition: width 2.1s linear-in-out; }
+
+/* menu */
+.fd-menu
+{
+    flex: 1 1 0dp; display: flex; flex-direction: column; gap: 2dp; padding: 4dp; background-color: #0f1714; border-width: 1dp; border-color: #ffffff14;
+    opacity: 0; transform: translateX(-6dp); transition: opacity 0.3s quadratic-in-out, transform 0.3s quadratic-in-out;
+}
+.fd-menu.is-open { opacity: 1; transform: translateX(0dp); }
+.fd-menu-row
+{
+    display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 3dp 8dp; font-size: 11dp; line-height: 16dp; color: #9fab9f;
+    transition: background-color 0.25s quadratic-in-out, color 0.25s quadratic-in-out;
+}
+.fd-menu-row > span { display: block; }
+.fd-menu-row.is-on { background-color: #f4d65522; color: #f4f2e9; }
+.fd-menu-row.is-picked { background-color: #f4d655; color: #141912; }
+.fd-menu-row path.ic { width: 13dp; height: 13dp; stroke: #141912; stroke-width: 1.08dp; }
+
+/* inventory */
+.fd-grid { flex: 1 1 0dp; display: flex; flex-direction: row; gap: 4dp; opacity: 0; transform: scale(0.96); transition: opacity 0.3s quadratic-in-out, transform 0.3s quadratic-in-out; }
+.fd-grid.is-open { opacity: 1; transform: scale(1); }
+.fd-gcell { flex: 1 1 0dp; }
+.fd-gcell .fd-item { width: auto; }
+.fd-gempty { height: 40dp; box-sizing: border-box; border-width: 1dp; border-color: #ffffff10; border-radius: 4dp; background-color: #ffffff06; }
+
+/* shop */
+.fd-shop { flex: 1 1 0dp; display: flex; flex-direction: row; align-items: center; gap: 8dp; }
+.fd-shop-item { position: relative; flex: 0 0 auto; opacity: 0.5; transition: opacity 0.3s quadratic-in-out; }
+.fd-shop-item.is-on { opacity: 1; }
+.fd-shop-plus { position: absolute; top: -6dp; right: -6dp; width: 16dp; height: 16dp; border-radius: 8dp; background-color: #f4d655; display: flex; flex-direction: row; align-items: center; justify-content: center; }
+.fd-shop-plus path.ic { width: 12dp; height: 12dp; stroke: #141912; stroke-width: 1dp; }
+.fd-pay { flex: 0 0 auto; display: flex; flex-direction: row; border-width: 1dp; border-color: #ffffff1c; }
+.fd-pay-opt { padding: 4dp 7dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 12dp; color: #8d9a90; transition: background-color 0.25s quadratic-in-out, color 0.25s quadratic-in-out; }
+.fd-pay-opt.is-on { background-color: #f4d65533; color: #f4f2e9; }
+.fd-confirm
+{
+    flex: 0 0 auto; min-width: 74dp; height: 28dp; padding: 0 8dp; box-sizing: border-box; border-width: 1dp; border-color: #f4d65566;
+    display: flex; flex-direction: row; align-items: center; justify-content: center;
+    font-size: 10dp; line-height: 12dp; letter-spacing: 0.08em; color: #f4d655;
+    transition: background-color 0.25s quadratic-in-out, color 0.25s quadratic-in-out, border-color 0.25s quadratic-in-out;
+}
+.fd-confirm > span { display: block; }
+.fd-confirm.is-on { background-color: #f4d655; color: #141912; animation: 0.5s quadratic-in-out fd-press; }
+.fd-confirm.is-done { background-color: #7fd38a; border-color: #7fd38a; color: #0c1413; }
+.fd-confirm path.ic { width: 14dp; height: 14dp; stroke: #0c1413; stroke-width: 1.17dp; }
+
+/* drink */
+.fd-use { position: relative; flex: 0 0 auto; opacity: 0.5; transition: opacity 0.3s quadratic-in-out; }
+.fd-use.is-on { opacity: 1; }
+.fd-use-tag { position: absolute; left: -20dp; right: -20dp; bottom: -9dp; display: flex; flex-direction: row; justify-content: center; opacity: 0; transition: opacity 0.25s quadratic-in-out; }
+.fd-use.is-on .fd-use-tag { opacity: 1; }
+.fd-use-tag span { display: block; padding: 0 5dp; background-color: #f4d655; color: #141912; font-size: 9dp; line-height: 11dp; }
+/* the action ring: a 3 px band filling clockwise, then green */
+.fd-ring { position: relative; flex: 0 0 auto; width: 36dp; height: 36dp; border-radius: 18dp; }
+path.fd-ring-track, path.fd-ring-fill { position: absolute; left: 0; top: 0; width: 36dp; height: 36dp; fill: transparent; stroke-width: 3dp; }
+path.fd-ring-track { stroke: #ffffff14; }
+path.fd-ring-fill { stroke: #f4d655; trim-end: 0; }
+.fd-ring.is-run path.fd-ring-fill { trim-end: 1; animation: 2s linear-in-out fd-ring; }
+.fd-ring-hole { position: absolute; left: 3dp; top: 3dp; width: 30dp; height: 30dp; border-radius: 15dp; background-color: #0c1413; }
+.fd-ring path.fd-ring-ic { position: absolute; left: 11dp; top: 11dp; width: 14dp; height: 14dp; stroke: #8d9a90; stroke-width: 1.17dp; }
+.fd-ring.is-run path.fd-ring-ic { stroke: #f4d655; }
+.fd-ring.is-done { background-color: #7fd38a; }
+.fd-ring.is-done path.fd-ring-track, .fd-ring.is-done path.fd-ring-fill, .fd-ring.is-done .fd-ring-hole { display: none; }
+.fd-ring.is-done path.fd-ring-ic { stroke: #0c1413; }
+.fd-vital { flex: 1 1 0dp; display: flex; flex-direction: row; align-items: center; gap: 8dp; }
+.fd-vital path.ic { width: 14dp; height: 14dp; stroke: #72cbd5; stroke-width: 1.17dp; }
+.fd-vital-fill { width: 38%; background-color: #72cbd5; }
+.fd-vital-fill.is-full { width: 78%; }
+
+/* collect / process / sell: the token pops on the outer box, fades on the inner one
+   (a transition and an animation of one property cannot share an element) */
+.fd-progress { flex: 1 1 0dp; display: flex; flex-direction: column; gap: 6dp; }
+.fd-progress .fd-bar { flex: 0 0 auto; }
+.fd-progress-label { display: block; font-size: 11dp; line-height: 16dp; color: #bcc6bd; white-space: nowrap; }
+.fd-token { position: relative; flex: 0 0 auto; width: 38dp; height: 38dp; }
+.fd-token.is-new { animation: 0.45s quadratic-in-out fd-pop; }
+.fd-token-box
+{
+    width: 38dp; height: 38dp; box-sizing: border-box; border-width: 1dp; border-color: #ffffff22;
+    display: flex; flex-direction: row; align-items: center; justify-content: center;
+    transition: opacity 0.35s quadratic-in-out, transform 0.35s quadratic-in-out, border-color 0.35s quadratic-in-out;
+}
+.fd-token-box path.ic { width: 18dp; height: 18dp; stroke: #f4d655; stroke-width: 1.5dp; transition: stroke 0.35s quadratic-in-out; }
+.fd-token.is-gone .fd-token-box { opacity: 0.2; transform: scale(0.8); }
+.fd-token.is-wait .fd-token-box { opacity: 0.3; }
+.fd-token.is-new .fd-token-box { border-color: #7fd38a; }
+.fd-token.is-new .fd-token-box path.ic { stroke: #7fd38a; }
+.fd-token-pay { position: absolute; left: -20dp; right: -20dp; top: -14dp; text-align: center; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 12dp; color: #7fd38a; white-space: nowrap; }
+
+/* ============================ the Alt lesson (ContextLesson) ============================ */
+.fd-lesson { margin-top: 16dp; padding-top: 14dp; border-top-width: 1dp; border-top-color: #ffffff17; }
+.fd-gesture { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 9dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 12dp; color: #b9c9bd; }
+.fd-gesture > span { display: block; }
+.fd-gesture .fd-gesture-key { padding: 7dp 9dp; background-color: #f4d655; color: #141912; }
+.fd-gesture path.ic { width: 26dp; height: 26dp; stroke: #f4d655; stroke-width: 2.17dp; }
+.fd-scene { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 18dp; margin: 18dp 0; }
+.fd-target { position: relative; flex: 0 0 auto; width: 54dp; height: 54dp; }
+.fd-target path.ic { width: 54dp; height: 54dp; stroke: #97b9a5; stroke-width: 4.5dp; }
+.fd-target-mark { position: absolute; left: 22dp; top: 22dp; width: 12dp; height: 12dp; box-sizing: border-box; border-width: 1dp; border-color: #f4d655; }
+.fd-cmenu { flex: 0 0 auto; min-width: 155dp; box-sizing: border-box; padding: 9dp; background-color: #0a100e; border-width: 1dp; border-color: #6f806b; display: flex; flex-direction: column; gap: 9dp; }
+.fd-cmenu-title { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 9dp; line-height: 13dp; color: #829488; }
+.fd-cmenu-back { display: flex; flex-direction: row; gap: 5dp; font-size: 10dp; line-height: 14.5dp; color: #99ada0; }
+.fd-cmenu-back > span { display: block; }
+.fd-cmenu-back path.ic { width: 12dp; height: 12dp; stroke: #99ada0; stroke-width: 1dp; }
+.fd-cmenu-action { display: flex; flex-direction: row; align-items: center; gap: 7dp; padding: 7dp; background-color: #f4d6551c; color: #f4d655; font-size: 10dp; line-height: 14.5dp; }
+.fd-cmenu-action > span { display: block; }
+.fd-cmenu-action path.ic { width: 14dp; height: 14dp; stroke: #f4d655; stroke-width: 1.17dp; }
+.fd-lesson-p { margin: 12dp 0; font-size: 11dp; line-height: 17.6dp; color: #c0cabe; }
+.fd-strong { font-weight: bold; }
+.fd-scope { display: flex; flex-direction: row; gap: 13dp; font-size: 10dp; line-height: 14.5dp; color: #8ea695; }
+.fd-scope-item { display: flex; flex-direction: row; align-items: center; gap: 5dp; }
+.fd-scope-item > span { display: block; }
+.fd-scope path.ic { width: 13dp; height: 13dp; stroke: #8ea695; stroke-width: 1.08dp; }
+.fd-lesson-small { display: block; margin-top: 9dp; font-size: 10dp; line-height: 15dp; color: #8ea695; }
+
+/* ================================== STEP COMPLETE ================================== */
+.fd-done-row { position: absolute; left: 0; right: 0; top: 162dp; display: none; flex-direction: row; justify-content: center; }
+.fd-done-row.is-on { display: flex; }
+/* resting invisible: the banner is only seen while first-day-done plays (2.6 s) */
+.fd-done
+{
+    flex: 0 0 auto; display: flex; flex-direction: row; align-items: center; gap: 18dp; padding: 16dp 26dp 16dp 18dp;
+    decorator: linear-gradient(100deg, #10201af4 0%, #0c1413ea 100%);
+    border-bottom-width: 2dp; border-bottom-color: #7fd38a; box-shadow: #00000088 0dp 16dp 60dp 0dp; white-space: nowrap; opacity: 0;
+}
+.fd-done-row.is-on .fd-done { animation: 2.6s quartic-out fd-done; }
+.fd-tick { position: relative; flex: 0 0 auto; width: 46dp; height: 46dp; }
+.fd-tick-disc { position: absolute; left: 2.65dp; top: 2.65dp; width: 40.7dp; height: 40.7dp; border-radius: 20.35dp; background-color: #7fd38a1f; }
+path.fd-tick-ring { position: absolute; left: 0; top: 0; width: 46dp; height: 46dp; fill: transparent; stroke: #7fd38a; stroke-width: 2.2dp; trim-end: 1; }
+path.fd-tick-mark { position: absolute; left: 0; top: 0; width: 46dp; height: 46dp; fill: transparent; stroke: #7fd38a; stroke-width: 3.54dp; stroke-linecap: round; stroke-linejoin: round; trim-end: 1; }
+.fd-done-row.is-on path.fd-tick-ring { animation: 0.65s quadratic-out fd-draw-ring; }
+.fd-done-row.is-on path.fd-tick-mark { animation: 0.9s quadratic-out fd-draw-mark; }
+.fd-done-text { flex: 0 0 auto; }
+.fd-done-eyebrow { height: 21.75dp; }
+.fd-done-eyebrow .fd-eyebrow-text { color: #7fd38a; line-height: 21.75dp; }
+.fd-done-title { margin-top: 4dp; font-size: 22dp; line-height: 31.9dp; color: #f4f2e9; }
+.fd-done-steps { flex: 0 0 auto; display: flex; flex-direction: row; gap: 4dp; margin-left: 10dp; align-self: flex-end; }
+.fd-dcell { width: 14dp; height: 4dp; }
+.fd-dstep { height: 4dp; background-color: #ffffff1c; }
+.fd-dstep.is-done { background-color: #7fd38a; }
+.fd-dstep.is-now { background-color: #f4d655; animation: 1s sine-in-out infinite fd-now; }
+
+/* ============================ the flight to the next stop ============================ */
+.fd-reveal { display: none; }
+.fd-reveal.is-on { display: block; }
+.fd-bar { position: absolute; left: 0; right: 0; height: 97.2dp; background-color: #030605; }
+.fd-bar-top { top: 0; }
+.fd-bar-bottom { bottom: 0; }
+/* the place, lower left (left 6vw, bottom 9vh + 5vh); the page's text-shadow 0 2px 18px #000c */
+.fd-reveal-title { position: absolute; left: 115.2dp; bottom: 151.2dp; max-width: 883.2dp; font-effect: glow(0dp 9dp 0dp 2dp #000000CC); opacity: 0; }
+.fd-reveal-eyebrow { display: flex; flex-direction: row; align-items: center; gap: 8dp; height: 21.75dp; }
+.fd-reveal-eyebrow > span { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 13.2dp; letter-spacing: 0.12em; color: #f4d655; white-space: nowrap; }
+.fd-reveal-eyebrow path.ic { width: 13dp; height: 13dp; stroke: #f4d655; stroke-width: 1.08dp; }
+.fd-reveal-name { margin: 12dp 0 8dp 0; font-size: 64dp; line-height: 64dp; letter-spacing: -0.02em; color: #f4f2e9; }
+.fd-reveal-line { margin: 0 0 16dp 0; font-size: 16dp; line-height: 23.2dp; color: #c7cec7; }
+.fd-reveal-dist { font-family: "Share Tech Mono"; font-weight: normal; color: #f4d655; }
+.fd-reveal-time { position: relative; width: 260dp; height: 2dp; background-color: #ffffff22; }
+.fd-reveal-fill { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: #f4d655; transform-origin: 0% 50%; }
+/* the hall from above, lower right (right 5vw, bottom 9vh + 4vh) */
+.fd-reveal-map
+{
+    position: absolute; right: 96dp; bottom: 140.4dp; width: 250dp; box-sizing: border-box; padding: 12dp 14dp;
+    background-color: #0c1413cc; border-top-width: 2dp; border-top-color: #f4d655; opacity: 0;
+}
+.fd-map-eyebrow { height: 21.75dp; }
+.fd-map-eyebrow .fd-eyebrow-text { line-height: 21.75dp; }
+.fd-map { position: relative; margin-top: 8dp; width: 222dp; }
+.fd-map-ground { position: absolute; box-sizing: border-box; border-color: #ffffff14; background-color: #ffffff07; }
+.fd-map-avenue { position: absolute; background-color: #ffffff10; }
+path.fd-map-route { position: absolute; left: 0; top: 0; width: 222dp; height: 190dp; fill: transparent; stroke: #f4d65555; }
+.fd-map-cell { display: block; height: 0; }
+.fd-map-dot { position: absolute; box-sizing: border-box; background-color: #0c1413; border-color: #8d9a90; transition: background-color 0.4s quadratic-in-out, border-color 0.4s quadratic-in-out; }
+.fd-map-stop.is-done .fd-map-dot { background-color: #f4d65588; border-color: #f4d655; }
+.fd-map-stop.is-now .fd-map-dot { background-color: #f4d655; border-color: #fff6c8; }
+.fd-map-ping { position: absolute; box-sizing: border-box; border-color: #f4d655; animation: 1.4s quadratic-out infinite fd-ping; }
+.fd-map-label { position: absolute; width: 200dp; text-align: center; white-space: nowrap; color: #f4f2e9; font-effect: outline(1dp #0c1413); }
+.fd-map-stop.is-next .fd-map-label { color: #9fab9f; }
+/* the skip key, upper right (right 5vw, top 9vh + 3vh): the card's key cap without its pulse, 60 wide */
+.fd-reveal-skip
+{
+    position: absolute; right: 96dp; top: 129.6dp; display: flex; flex-direction: row; align-items: center; gap: 10dp;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 14dp; letter-spacing: 0.08em; color: #c7cec7; opacity: 0;
+}
+.fd-reveal-skip > span { display: block; }
+.fd-keycap
+{
+    flex: 0 0 auto; min-width: 60dp; height: 30dp; padding: 0 9dp; box-sizing: border-box; border-radius: 4dp;
+    background-color: #f4d655; box-shadow: #9c8523 0dp 3dp 0dp 0dp;
+    font-family: "Chakra Petch"; font-weight: bold; font-size: 14dp; line-height: 30dp; color: #141912; text-align: center; white-space: nowrap;
+}
+
+@keyframes fd-now { 0% { opacity: 1; } 50% { opacity: 0.45; } 100% { opacity: 1; } }
+@keyframes fd-key-face { 0% { transform: translateY(0dp); } 50% { transform: translateY(1dp); } 100% { transform: translateY(0dp); } }
+@keyframes fd-key-ring
+{
+    0% { left: 0dp; top: 0dp; right: 0dp; bottom: 0dp; border-radius: 4dp; opacity: 1; }
+    50% { left: -7dp; top: -7dp; right: -7dp; bottom: -7dp; border-radius: 11dp; opacity: 0; }
+    100% { left: 0dp; top: 0dp; right: 0dp; bottom: 0dp; border-radius: 4dp; opacity: 1; }
+}
+@keyframes fd-bob { 0% { transform: translateY(0dp); } 50% { transform: translateY(3dp); } 100% { transform: translateY(0dp); } }
+@keyframes fd-press { 0% { transform: scale(1); } 40% { transform: scale(0.92); } 100% { transform: scale(1); } }
+@keyframes fd-pop { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes fd-ring { 0% { trim-end: 0; } 100% { trim-end: 1; } }
+@keyframes fd-ping { 0% { opacity: 0.9; transform: scale(0.6); } 100% { opacity: 0; transform: scale(1.5); } }
+/* first-day-done: in, held, out (2.6 s) */
+@keyframes fd-done
+{
+    0% { opacity: 0; transform: translateY(-14dp) scale(0.96); }
+    12% { opacity: 1; transform: translateY(0dp) scale(1); }
+    82% { opacity: 1; transform: translateY(0dp) scale(1); }
+    100% { opacity: 0; transform: translateY(-10dp) scale(1); }
+}
+/* first-day-draw: the circle .55 s after .1 s, the tick .35 s after .55 s */
+@keyframes fd-draw-ring { 0% { trim-end: 0; } 15.4% { trim-end: 0; } 100% { trim-end: 1; } }
+@keyframes fd-draw-mark { 0% { trim-end: 0; } 61.1% { trim-end: 0; } 100% { trim-end: 1; } }

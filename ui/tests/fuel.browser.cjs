@@ -51,9 +51,6 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     const last = await page.evaluate(() => window.testBridge.sent.filter(x=>x.name==='lightrp:ui:action').at(-1).payload);
     assert.equal(last.type,'fuel.jerrycan'); assert.equal(last.pay,'bank','bank payment without a nearby vehicle');
     await fire('dialog:close',{kind:'fuel'});
-    await fire('fuel:state',{phase:'approach',label:car.label,expiresMs:45000});
-    await page.locator('.pump-route').waitFor(); assert.match(await page.locator('.pump-route').innerText(),/E.*Start filling/);
-    await fire('fuel:state',{phase:'finished'}); assert.equal(await page.locator('.pump-route').count(),0);
     for (const [width,height] of [[1280,720],[2560,1440]]) {
       await page.setViewportSize({width,height}); await fire('dialog',payload);
       const bounds = await page.locator('.pump').boundingBox(); assert(bounds.x>=0 && bounds.y>=0 && bounds.y+bounds.height<=height+1);

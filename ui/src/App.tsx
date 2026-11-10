@@ -1,32 +1,25 @@
 import { useEffect } from "react";
 import { announceReady, on, requestClose } from "@/bridge/open77";
-import { PAGE_EVENTS, type DialogPayload, type HudState, type InventorySnapshot, type NoticePayload, type ResultPayload, type UiStatePatch } from "@/bridge/protocol";
+import { PAGE_EVENTS, type DialogPayload, type HotbarState, type HudState, type InventorySnapshot, type ResultPayload, type UiStatePatch } from "@/bridge/protocol";
 import { useStore } from "@/state/store";
-import { Hud } from "@/features/hud/Hud";
 import { PlayerMenu } from "@/features/menu/PlayerMenu";
 import { CharacterWizard } from "@/features/character/CharacterWizard";
-import { NoticeLane } from "@/features/notices/NoticeLane";
 import { WelcomeModal } from "@/features/welcome/WelcomeModal";
 import { Tutorial } from "@/features/tutorial/Tutorial";
 import { SupportDesk } from "@/features/support/SupportDesk";
 import { RentalDialog } from "@/features/rental/RentalDialog";
 import { InventoryDialog } from "@/features/inventory/Inventory";
 import { JobCenterDialog } from "@/features/jobs/JobCenterDialog";
-import { JobRunHud } from "@/features/jobs/JobRunHud";
 import { JobGuide } from "@/features/jobs/JobGuide";
 import { ErrorBoundary } from "@/design/ErrorBoundary";
-import { ArrivalTour } from "@/features/arrival/ArrivalTour";
-import { InteractPrompt } from "@/features/hud/InteractPrompt";
 import { Actions } from "@/features/actions/Actions";
 import { ShopDialog } from "@/features/shop/ShopDialog";
 import { VehicleCustomization } from "@/features/customization/VehicleCustomization";
 import { GarageDialog } from "@/features/garage/GarageDialog";
 import { HousingDialog } from "@/features/housing/HousingDialog";
 import { DealershipDialog } from "@/features/dealership/DealershipDialog";
-import { FuelDialog, FuelApproach } from "@/features/fuel/FuelDialog";
+import { FuelDialog } from "@/features/fuel/FuelDialog";
 import { AnimationMenu } from "@/features/animations/AnimationMenu";
-import { Freecam } from "@/features/freecam/Freecam";
-import { ManekiTool } from "@/features/maneki/ManekiTool";
 import { ManekiCollection } from "@/features/maneki/ManekiCollection";
 import { ParkourHud } from "@/features/parkour/ParkourHud";
 import { ParkourBrowser } from "@/features/parkour/ParkourBrowser";
@@ -38,26 +31,18 @@ import { HallOfFameDialog } from "@/features/halloffame/HallOfFameDialog";
 import { RecapDialog } from "@/features/recap/RecapDialog";
 import { GuideDialog } from "@/features/guide/GuideDialog";
 import { DailiesDialog } from "@/features/dailies/DailiesDialog";
-import { MissionQueueHud } from "@/features/missions/MissionQueueHud";
-import { QueuePanel } from "@/features/queue/QueuePanel";
-import { FixerGigHud } from "@/features/missions/FixerGigHud";
-import { WorldBossHud } from "@/features/missions/WorldBossHud";
-import { AnnounceHalo } from "@/features/announce/AnnounceHalo";
-import { StaffBroadcast } from "@/features/announce/StaffBroadcast";
-import { RaidHud } from "@/features/missions/RaidHud";
-import { ActivityHud } from "@/features/activityhud/ActivityHud";
-import { DogtownHud } from "@/features/dogtown/DogtownHud";
-import { Medical } from "@/features/medical/Medical";
-import { DeathCover } from "@/features/medical/DeathCover";
 import { Safezones } from "@/features/safezones/Safezones";
 import { MissionEditor } from "@/features/missioneditor/MissionEditor";
 import { MapEditor } from "@/features/mapeditor/MapEditor";
-import { MissionObjectiveHud } from "@/features/missions/MissionObjectiveHud";
-import { WeaponWheel } from "@/features/weaponwheel/WeaponWheel";
 import { TableBar } from "@/features/board-games/TableBar";
 
-/* The one surface of the framework. Lua -> page events land in the store; the
-   features read the store and raise actions back through the bridge. */
+/* The page of the framework: menus, dialogs, editors, the tutorial. Lua -> page events land in
+   the store; the features read the store and raise actions back through the bridge. The HUD
+   (vitals, weapon, crew, hotbar, notices, announcements, mission and activity trackers, the
+   action bar, the weapon wheel...) is drawn on NativeUI, above this page (client/native,
+   docs/native-hud.md). */
+/** The quick-use bar's state (client/core/hotbar.lua); the bar is native, the inventory shows its keys. */
+interface HotbarWire { kind: string; state?: Omit<HotbarState, "visible">; visible?: boolean; showKey?: string; slotKeys?: string[] }
 /* State keys too large for one page message (more than 1024 values) come as JSON text in
    numbered parts (client/core/ui.lua, Ui.sendState); a newer id for the same key drops
    the older, unfinished one. */
@@ -80,9 +65,9 @@ export function App() {
   const boardGamesActive = useStore(s => s.boardGamesActive);
   const applyState = useStore((s) => s.applyState);
   const setHud = useStore((s) => s.setHud);
+  const setHotbar = useStore((s) => s.setHotbar);
   const openMenu = useStore((s) => s.openMenu);
   const closeMenu = useStore((s) => s.closeMenu);
-  const pushNotice = useStore((s) => s.pushNotice);
   const setResult = useStore((s) => s.setResult);
   const setConnected = useStore((s) => s.setConnected);
   const openDialog = useStore((s) => s.openDialog);
@@ -108,21 +93,17 @@ export function App() {
         openMenu();
       }),
       on(PAGE_EVENTS.closed, () => closeMenu()),
-      on<NoticePayload>(PAGE_EVENTS.notice, (n) => pushNotice({
-        id: n?.id, kind: n?.kind ?? "info", title: n?.title, body: n?.body, source: n?.source, durationMs: n?.durationMs ?? 8000,
-      })),
-      on<ResultPayload>(PAGE_EVENTS.result, (r) => {
-        if (!r) return;
-        setResult(r.ok, r.text, r.action);
-        if (r.ok && r.action === "dailies.claim") return; // dailies.lua already sent the "+€$ N" money notice
-        pushNotice({ kind: r.ok ? "success" : "error", title: r.ok ? undefined : "DENIED", body: r.text, source: "LIGHT RP", durationMs: 6000 });
+      // notices and the toast of a result are drawn by Lua from the same events (client/native/notices.lua)
+      on<ResultPayload>(PAGE_EVENTS.result, (r) => { if (r) setResult(r.ok, r.text, r.action); }),
+      on<HotbarWire>("lightrp:ui:hotbar", (p) => {
+        if (p?.kind === "state" && p.state) setHotbar({ ...p.state, visible: p.visible === true, showKey: p.showKey, slotKeys: p.slotKeys });
       }),
       on<DialogPayload>(PAGE_EVENTS.dialog, (d) => { if (d?.kind) openDialog(d); }),
       on<{ inventories?: InventorySnapshot[] }>(PAGE_EVENTS.inventory, (p) => { if (Array.isArray(p?.inventories)) updateInventories(p.inventories); }),
     ];
     announceReady();
     return () => offs.forEach((off) => off());
-  }, [applyState, setHud, openMenu, closeMenu, pushNotice, setResult, setConnected, openDialog, updateInventories]);
+  }, [applyState, setHud, setHotbar, openMenu, closeMenu, setResult, setConnected, openDialog, updateInventories]);
 
   return (
     <>
@@ -131,25 +112,7 @@ export function App() {
       <ErrorBoundary name="mission-editor"><MissionEditor /></ErrorBoundary>
       <ErrorBoundary name="map-editor"><MapEditor /></ErrorBoundary>
       <ErrorBoundary name="parkour-editor"><ParkourEditor /></ErrorBoundary>
-      <ErrorBoundary name="hud"><Hud /></ErrorBoundary>
-      <ErrorBoundary name="work-order"><JobRunHud /></ErrorBoundary>
-      <ErrorBoundary name="fuel-route"><FuelApproach /></ErrorBoundary>
-      <ErrorBoundary name="mission-queue"><MissionQueueHud /></ErrorBoundary>
-      <ErrorBoundary name="queue"><QueuePanel /></ErrorBoundary>
-      <ErrorBoundary name="fixer-gig"><FixerGigHud /></ErrorBoundary>
-      <ErrorBoundary name="world-boss"><WorldBossHud /></ErrorBoundary>
-      <ErrorBoundary name="announce"><AnnounceHalo /></ErrorBoundary>
-      <ErrorBoundary name="staff-broadcast"><StaffBroadcast /></ErrorBoundary>
-      <ErrorBoundary name="arrival-tour"><ArrivalTour /></ErrorBoundary>
-      <ErrorBoundary name="mission-objective"><MissionObjectiveHud /></ErrorBoundary>
-      <ErrorBoundary name="raid"><RaidHud /></ErrorBoundary>
-      <ErrorBoundary name="activity-hud"><ActivityHud /></ErrorBoundary>
       <ErrorBoundary name="parkour-hud"><ParkourHud /></ErrorBoundary>
-      <ErrorBoundary name="dogtown"><DogtownHud /></ErrorBoundary>
-      <ErrorBoundary name="interact"><InteractPrompt /></ErrorBoundary>
-      <ErrorBoundary name="weapon-wheel"><WeaponWheel /></ErrorBoundary>
-      <ErrorBoundary name="freecam"><Freecam /></ErrorBoundary>
-      <ErrorBoundary name="maneki-tool"><ManekiTool /></ErrorBoundary>
       <ErrorBoundary name="wizard"><CharacterWizard /></ErrorBoundary>
       <ErrorBoundary name="welcome"><WelcomeModal /></ErrorBoundary>
       <ErrorBoundary name="tutorial"><Tutorial /></ErrorBoundary>
@@ -173,13 +136,11 @@ export function App() {
       <ErrorBoundary name="jobcenter"><JobCenterDialog /></ErrorBoundary>
       <ErrorBoundary name="job-guide"><JobGuide /></ErrorBoundary>
       <ErrorBoundary name="menu"><PlayerMenu /></ErrorBoundary>
+      {/* the action bar is native (client/native/actions.lua): this only relays its keys */}
       <ErrorBoundary name="actions"><Actions /></ErrorBoundary>
-      <ErrorBoundary name="medical"><Medical /></ErrorBoundary>
       <ErrorBoundary name="animations"><AnimationMenu /></ErrorBoundary>
       </div>
       {/* outside the gameplay interface: a death at a table or in the workshop is covered too */}
-      <ErrorBoundary name="death-cover"><DeathCover /></ErrorBoundary>
-      <div hidden={customizationActive}><ErrorBoundary name="notices"><NoticeLane /></ErrorBoundary></div>
       <ErrorBoundary name="customization"><VehicleCustomization /></ErrorBoundary>
       <ErrorBoundary name="board-games"><TableBar /></ErrorBoundary>
     </>

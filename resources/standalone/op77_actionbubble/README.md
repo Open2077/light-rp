@@ -4,7 +4,7 @@ Roleplay action bubbles: a short line such as *Opens the trunk* or *Unlocks the 
 
 - **Starts:** on its own (add `"op77_actionbubble"` to `resources.load`, before the resources that use it)
 - **Needs:** nothing
-- **Runs on:** server (relay) and client (bubbles, page)
+- **Runs on:** server (relay) and client (bubbles, a NativeUI document)
 
 ## Client API (any client resource)
 
@@ -81,7 +81,9 @@ Console (restricted): `actionbubble.test <playerId> <text>`.
 
 ## How it draws
 
-One transparent HUD page (`web/`, plain HTML/CSS/JS). Each bubble is an `Open77.anchors` anchor fed to that page: the plugin projects it on every game frame and pushes the screen position (`open77:anchors`), the page only writes transforms. A body or a vehicle is followed through its entity. The local player's own body has no entity id an anchor accepts, so a bubble on yourself is a position anchor the client moves every frame. A bubble whose body is not streamed waits, unplaced, until it is (or until it ends). At most 24 bubbles per client (the platform allows 32 anchors per resource); the oldest goes first.
+One NativeUI document (`ui/actionbubble.rml` + `.rcss`, drawn by the client on the game's own device; no browser page since 0.2.0), driven by `client/view.lua`. Each bubble is an `Open77.anchors` anchor (`render = "dot"`, `visible = false`: the plugin projects it on every game frame and draws nothing) and a group of elements made with `ui:create`. NativeUI's own anchors only follow `<scene3d>` points, so every frame the view reads the projections back (`Open77.anchors.frame()`) and places the bubbles in one `ui:batch`: transforms and opacity only, only the values that changed (a still camera writes nothing), no layout redone. The entrance and the exit are RCSS animations, the card's float, its duration bar and the sheen are native motion started once (`ui:keyframes`, `ui:animate`). A bubble off screen or past `maxDistance` fades and is then `display: none`. A body or a vehicle is followed through its entity. The local player's own body has no entity id an anchor accepts, so a bubble on yourself is a position anchor the client moves every frame. A bubble whose body is not streamed waits, unplaced, until it is (or until it ends). At most 24 bubbles per client (the platform allows 32 anchors per resource); the oldest goes first.
+
+NativeUI draws over every WebUI page, so the bubbles step aside while another interface holds the cursor (`hideUnderMenus` in `shared/config.lua`, `Open77.input.isCaptured()`). Without `Open77.ui` the client logs one line and draws nothing; the exports and the relay still answer.
 
 ## Files
 
@@ -91,5 +93,6 @@ One transparent HUD page (`web/`, plain HTML/CSS/JS). Each bubble is an `Open77.
 | `shared/bubble.lua` | validation of definitions, patches, network options |
 | `server/main.lua` | the relay and the server exports |
 | `client/main.lua` | bubbles, anchors, lifetimes, client exports |
-| `web/` | the page |
-| `tests/bubble_test.lua` | `pwsh -NoProfile -File tests/run-lua.ps1 -Test bubble_test.lua` |
+| `client/view.lua` | the document's driver: elements, placing, entrance, typing |
+| `ui/actionbubble.rml`, `.rcss` | the NativeUI document |
+| `tests/bubble_test.lua`, `tests/view_test.lua` | `pwsh -NoProfile -File tests/run-lua.ps1 -Test bubble_test.lua` (pass `-LuaDll` when `lua54.dll` is not four folders up) |

@@ -1,0 +1,17 @@
+<rml>
+<head>
+    <title>Light RP notices</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="notices.rcss"/>
+</head>
+<!-- The notice lane (ui/src/features/notices/NoticeLane.tsx): centre-left, stacked downwards
+     from the middle, six deep. client/native/notices.lua inserts one .nt per notice (the
+     card of design/components/hud.tsx Notification) and removes it; nothing is bound here.
+     Never hidden by the shell: a notice stays over a dialog. -->
+<body>
+<div id="root" class="fill">
+    <div id="lane"></div>
+</div>
+</body>
+</rml>

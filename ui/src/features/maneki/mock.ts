@@ -1,6 +1,6 @@
 import { PAGE_EVENTS } from "@/bridge/protocol";
 
-/* Dev mock (no Open77 bridge): ?maneki=tool shows the placement tool's bar,
+/* Dev mock (no Open77 bridge):
    ?maneki=desk opens the staff desk on the Maneki-neko list with plausible answers. */
 type Fire = (name: string, payload: unknown) => void;
 const SPOTS = [
@@ -12,7 +12,6 @@ export function manekiMock(fire: Fire, params: URLSearchParams) {
   const mode = params.get("maneki");
   return {
     boot() {
-      if (mode === "tool") fire(PAGE_EVENTS.maneki, { active: true, scale: 1.5, yaw: 15, aim: true, nearby: 3, message: "Maneki-neko mk6a1f3c2e01 placed (3 in the city).", ok: true });
       if (mode === "desk") fire(PAGE_EVENTS.dialog, { kind: "support", scope: "staff" });
       // ?maneki=collection[&intro=1]: F1 > Maneki-neko with 7 of 18 found
       if (mode === "collection") {

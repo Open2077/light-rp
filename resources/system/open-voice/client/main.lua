@@ -56,7 +56,7 @@ local function publish(status)
     local inputLevel = tonumber(status.inputLevel or status.microphoneActivity) or 0
     inputLevel = math.max(0, math.min(1, inputLevel))
     -- Two decimals are enough for a twelve-segment HUD meter and avoid
-    -- repainting the page for inaudible native capture noise.
+    -- updating the document for inaudible native capture noise.
     inputLevel = math.floor(inputLevel * 100 + 0.5) / 100
     local available = status.available == true
     local captureEnabled = status.captureEnabled == true
@@ -74,7 +74,7 @@ local function publish(status)
     end
     -- Send the level the twelve-segment meter can actually display. Keep the
     -- state decision above at its original threshold (voice activity is not
-    -- quantized); sub-segment capture noise needs no new CEF frame.
+    -- quantized); sub-segment capture noise needs no document update.
     inputLevel = math.floor(inputLevel * 12 + 0.5) / 12
     local payload = {
         visible = visible,
@@ -145,10 +145,10 @@ local function applyHudVisibility(immediate)
     publish(Open77.voice.status() or {})
     if not visible and page then
         local target = page
-        -- Full-screen flows must not leave this higher WebUI over their buttons.
+        -- Full-screen flows must not leave this HUD (drawn over every page) on their buttons.
         if immediate then target:hide(); return end
         CreateThread(function()
-            Wait(220) -- Let the existing 200 ms fade finish before suspending CEF.
+            Wait(220) -- Let the 180 ms fade finish before hiding the document.
             if page == target and not visible and revision == visibilityRevision then target:hide() end
         end)
     end
@@ -191,19 +191,10 @@ end)
 AddEventHandler("onClientResourceStart", function(name)
     if name ~= GetCurrentResourceName() then return end
     local reason
-    page, reason = WebUI.create({
-        entry = "web/index.html",
-        layer = "hud",
-        width = 1920,
-        height = 1080,
-        -- Full logical layout, but only this padded bottom-right rectangle is
-        -- composited over the game. Includes long mode labels, errors/shadows.
-        drawBounds = { x = -768, y = -160, width = 768, height = 160 },
-        fps = 60,
-        zIndex = 760,
-        transparent = true,
-        visible = visible,
-    })
+    -- The HUD is a NativeUI document (client/ui.lua, ui/voice.rml) drawn by the game's
+    -- renderer; it speaks the page API the WebUI page did. Without NativeUI: one line
+    -- below, no HUD, and the voice (presets, F11, range ring) keeps working.
+    page, reason = OpenVoiceHud.create({ visible = visible })
     if not page then
         print("[open-voice] HUD unavailable: " .. tostring(reason))
     else
@@ -253,6 +244,7 @@ end)
 AddEventHandler("onClientResourceStop", function(name)
     if name ~= GetCurrentResourceName() then return end
     OpenVoiceRangePreview.reset()
+    if page and page.destroy then page:destroy() end
     page, pageReady = nil, false
 end)
 

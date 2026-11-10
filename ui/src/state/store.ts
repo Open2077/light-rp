@@ -4,18 +4,20 @@ import { normalizeRooms } from "@/features/rooms/model";
 import { normalizeDailies, normalizeDailiesDialog, normalizeTitles } from "@/features/dailies/model";
 import { normalizeQueue as normalizeQueuePanel } from "@/features/queue/model";
 import { create } from "zustand";
+import { emit } from "@/bridge/open77";
+import { PAGE_EVENTS } from "@/bridge/protocol";
 import type { ArmamentPending, ArmamentState, GrenadeState, HotbarState, DialogPayload, HudState, InventorySnapshot, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
 import type { ExtraSafezoneRules } from "@/features/safezones/model";
 
-export interface Notice {
-  id: string;
+/** A notice raised inside the page (an editor that closed, a shop that shut). The lane is a
+    NativeUI document: the page hands it to Lua (client/core/ui.lua -> LightRpNativeNotices.push). */
+export interface PageNotice {
+  id?: string;
   kind: NoticeKindWire;
   title?: string;
   body?: string;
   source?: string;
-  createdAt: number;
   durationMs: number;
-  dismissing?: boolean;
 }
 
 /** Authoritative safezone presence, including the combined rules of overlapping zones. */
@@ -69,7 +71,6 @@ interface Store {
   armamentPending?: ArmamentPending;
   armamentFeedback?: { text: string; error: boolean };
   menuOpen: boolean; // the F1 player menu
-  notices: Notice[];
   lastResult?: { ok: boolean; text: string; at: number; action?: string };
   dialog?: DialogPayload;      // the open server dialog (rental desk...)
   rentalReceivedAt: number;    // when `rental` last arrived, to count the time down
@@ -90,9 +91,7 @@ interface Store {
   setArmamentFeedback(value: { text: string; error: boolean } | undefined): void;
   openMenu(): void;
   closeMenu(): void;
-  pushNotice(notice: Omit<Notice, "id" | "createdAt"> & { id?: string }): void;
-  dismissNotice(id: string): void;
-  removeNotice(id: string): void;
+  pushNotice(notice: PageNotice): void;
   setResult(ok: boolean, text: string, action?: string): void;
   openDialog(payload: DialogPayload): void;
   closeDialog(): void;
@@ -131,7 +130,6 @@ export const useStore = create<Store>((set) => ({
   hud: EMPTY_HUD,
   safezone: undefined,
   menuOpen: false,
-  notices: [],
   welcomeReplay: false,
   rentalReceivedAt: Date.now(),
   setConnected: (value) => set({ connected: value }),
@@ -177,10 +175,9 @@ export const useStore = create<Store>((set) => ({
   setArmamentFeedback: (armamentFeedback) => set({ armamentFeedback }),
   openMenu: () => set({ menuOpen: true }),
   closeMenu: () => set({ menuOpen: false }),
-  pushNotice: (notice) => set((s) => ({
-    notices: [...s.notices.slice(-5), { ...notice, id: notice.id ?? `n${++noticeSequence}`, createdAt: Date.now() }],
-  })),
-  dismissNotice: (id) => set((s) => ({ notices: s.notices.map((n) => (n.id === id ? { ...n, dismissing: true } : n)) })),
-  removeNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
+  // nothing is stored: Lua owns the lane (FIFO, lifetime, dismissal)
+  pushNotice: (notice) => emit(PAGE_EVENTS.noticePush, {
+    id: notice.id ?? `n${++noticeSequence}`, kind: notice.kind, title: notice.title, body: notice.body, source: notice.source, durationMs: notice.durationMs,
+  }),
   setResult: (ok, text, action) => set({ lastResult: { ok, text, action, at: Date.now() } }),
 }));

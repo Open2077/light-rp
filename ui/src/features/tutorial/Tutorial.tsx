@@ -3,19 +3,19 @@ import { useStore } from "@/state/store";
 import { emit, on } from "@/bridge/open77";
 import { PAGE_EVENTS } from "@/bridge/protocol";
 import { Icon } from "@/design/components";
-import { DialogueDemo, HallMap, StepDemo } from "./demos";
+import { DialogueDemo } from "./demos";
 import "./tutorial.css";
 import { VoiceTutorial, type VoiceSetup } from "./VoiceTutorial";
-import { ContextLesson } from "./ContextLesson";
-import { GuidePointer, GuideReadout } from "./GuidePointer";
-import { useGuideFeed } from "./guide";
+
+/* The first day's dialogs: the opening, the conversations (and the examples beside them),
+   the options, "Skip the first day?" and the voice setup. They take the cursor. What the
+   player reads while playing (the objective card, "STEP COMPLETE", the flight to the next
+   stop, the way to the objective) is NativeUI: client/native/tutorial.lua and
+   client/native/guide_pointer.lua (docs/native-hud.md). */
 
 type Keys = { menu: string; inventory: string; interact: string; context?: string; lock?: string; skip?: string; way?: string; quit?: string };
-/** The flight to a new destination (client/core/tutorial.lua, startReveal). */
-type Reveal = { name: string; direction?: string; distance: number; index?: number; total?: number; durationMs: number };
-type Presentation = { phase?: string; options?: boolean; skipAsk?: boolean; keys?: Keys; reveal?: Reveal | false; voice?: VoiceSetup; voiceError?: string };
+type Presentation = { phase?: string; options?: boolean; skipAsk?: boolean; keys?: Keys; voice?: VoiceSetup; voiceError?: string };
 const control = (operation: string) => emit(PAGE_EVENTS.tutorial, { operation });
-const pad = (n: number) => String(n).padStart(2, "0");
 
 /** The line being said, written out at reading pace; `finish` shows it whole. */
 function useTyping(text: string): [number, boolean, () => void] {
@@ -36,21 +36,6 @@ function useTyping(text: string): [number, boolean, () => void] {
   return [shown, shown >= text.length, () => setProgress({ text, shown: text.length })];
 }
 
-/** The way to the next stop, while the camera flies it: letterbox, the place, the hall from above. */
-function RevealCard({ reveal, map, skip }: { reveal: Reveal; map?: Parameters<typeof HallMap>[0]["stops"]; skip?: string }) {
-  return <div className="first-day__reveal" role="status" aria-label={`Next stop: ${reveal.name}`}>
-    <i className="first-day__bar first-day__bar--top" /><i className="first-day__bar first-day__bar--bottom" />
-    <div className="first-day__reveal-title">
-      <span className="first-day__eyebrow"><Icon name="route" size={13} />NEXT STOP{reveal.index ? ` · ${pad(reveal.index)} / ${pad(reveal.total ?? 10)}` : ""}</span>
-      <h2>{reveal.name}</h2>
-      <p>{reveal.direction ? `${reveal.direction} · ` : ""}<b>{reveal.distance} m</b> on foot</p>
-      <span className="first-day__reveal-time"><i style={{ animationDuration: `${reveal.durationMs}ms` }} /></span>
-    </div>
-    {map && map.length > 0 && <div className="first-day__reveal-map"><span className="first-day__eyebrow">ARRIVAL HALL</span><HallMap stops={map} compact /></div>}
-    {skip && <div className="first-day__reveal-skip"><kbd className="first-day__key">{skip}</kbd>Skip</div>}
-  </div>;
-}
-
 export function Tutorial() {
   const guide = useStore(s => s.state.tutorial);
   const character = useStore(s => s.state.character);
@@ -58,17 +43,12 @@ export function Tutorial() {
   const connected = useStore(s => s.connected);
   const result = useStore(s => s.lastResult);
   const [presentation, setPresentation] = useState<Presentation>({ phase: "waiting" });
-  // The way to the objective (client/core/tutorial_guide.lua): heard here, always, for the pointer and the card.
-  useGuideFeed();
   const [options, setOptions] = useState(false);
   // "Skip the first day?": asked once more before the guide ends, from the arrival or the options.
   const [skipAsk, setSkipAsk] = useState(false);
   const [line, setLine] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  // The step just finished, shown for a moment over the card when the next one arrives.
-  const [done, setDone] = useState("");
-  const previous = useRef<{ key?: string; step?: string; title?: string }>({});
   const root = useRef<HTMLDivElement>(null);
   const readOn = useRef<() => void>(() => undefined);
   const current = connected && character.status === "active";
@@ -77,20 +57,16 @@ export function Tutorial() {
   const voiceLesson = !!guide?.active && guide.step === "voice";
   const asking = skipAsk && !!guide?.active;
   const modal = current && !otherDialog && (intro || dialogue || options || voiceLesson || asking);
-  const visible = current && !!guide?.active && !otherDialog;
   const lines = (Array.isArray(guide?.lines) ? guide.lines : []).map(l => typeof l === "string" ? { text: l, demo: undefined } : { text: l?.text ?? "", demo: l?.demo });
   const last = line >= lines.length - 1;
   const said = lines[line]?.text ?? "";
   const [typed, complete, finishTyping] = useTyping(said);
   const keys: Keys = { menu: "F1", inventory: "I", interact: "E", context: "ALT", lock: "L", skip: "SPACE", way: "G", quit: "F6", ...presentation.keys };
-  const reveal = presentation.phase === "reveal" && presentation.reveal ? presentation.reveal : null;
   // Who speaks: the contact of the step (the arrival hall has several), the guide for everything else.
   const guideName = guide?.guide ?? "Mara";
   const speaker = guide?.contact ?? guideName;
   const opening = guide?.opening;
   const openingTitle = opening?.title ?? ["Your first", "day."];
-  const todo = Array.isArray(guide?.todo) ? guide.todo : [];
-  const total = Math.max(1, guide?.total ?? 10), index = Math.min(total, Math.max(1, guide?.index ?? 1));
 
   useEffect(() => on<Presentation>(PAGE_EVENTS.tutorial, p => {
     const { skipAsk: ask, ...rest } = p;
@@ -107,14 +83,6 @@ export function Tutorial() {
   useEffect(() => { setLine(0); setBusy(false); setError(""); }, [guide?.key, guide?.step, guide?.revision, guide?.dialogue]);
   // A skip (or a pause) ends the guide on the same step: nothing above clears the pending click.
   useEffect(() => { if (!guide?.active) { setSkipAsk(false); setBusy(false); } }, [guide?.active, guide?.key]);
-  useEffect(() => {
-    const before = previous.current;
-    previous.current = { key: guide?.key, step: guide?.active ? guide.step : undefined, title: guide?.title };
-    if (!guide?.active || !before.step || before.key !== guide.key || before.step === guide.step || before.step === "intro" || !before.title) return;
-    setDone(before.title);
-    const timer = setTimeout(() => setDone(""), 2600);
-    return () => clearTimeout(timer);
-  }, [guide?.active, guide?.key, guide?.step, guide?.title]);
   useEffect(() => { if (!current) { setOptions(false); setSkipAsk(false); setBusy(false); } }, [current]);
   useEffect(() => {
     if (result?.action === "tutorial.control" && !result.ok) { setBusy(false); setError(result.text); }
@@ -155,15 +123,12 @@ export function Tutorial() {
   const issue = (operation: string) => { if (busy && !(operation === "intro" && presentation.phase === "intro_retry")) return; setBusy(true); setError(""); control(operation); };
   const goOn = () => { if (!last) setLine(n => n + 1); else issue(guide?.step === "outro" ? "finish" : "next"); };
   readOn.current = () => { if (!dialogue || options || asking) return; if (!complete) finishTyping(); else goOn(); };
-  if (!current || (!visible && !options) || otherDialog) return null;
+  if (!modal) return null;
   const pause = () => { control("pause"); setOptions(false); setBusy(false); };
   const askSkip = () => { setOptions(false); setError(""); setSkipAsk(true); };
   const skip = () => { if (busy) return; setBusy(true); setError(""); control("skip"); };
-  const keyHint = guide?.step === "identity" ? `${keys.menu} · IDENTITY`
-    : guide?.step === "inventory" || guide?.step === "drink" ? `${keys.inventory} · INVENTORY`
-    : `${keys.interact} · INTERACT`;
-  return <div className={`first-day${modal ? " first-day--modal o77-interactive" : ""}${intro ? " first-day--intro" : ""}`}>
-    {modal && <div className="first-day__modal" role="dialog" aria-modal="true" aria-label={asking ? "Skip the first day" : options ? "First day guide options" : intro ? "Your first day" : voiceLesson ? "Voice setup guide" : `Conversation with ${speaker}`} tabIndex={-1} ref={root}>
+  return <div className={`first-day first-day--modal o77-interactive${intro ? " first-day--intro" : ""}`}>
+    <div className="first-day__modal" role="dialog" aria-modal="true" aria-label={asking ? "Skip the first day" : options ? "First day guide options" : intro ? "Your first day" : voiceLesson ? "Voice setup guide" : `Conversation with ${speaker}`} tabIndex={-1} ref={root}>
       {intro && !options && !asking && <>
         <div className={`first-day__curtain${["opening", "confirming", "intro_retry"].includes(presentation.phase ?? "") ? " is-open" : ""}`} />
         <div className="first-day__opening"><span>{opening?.eyebrow ?? "LIGHT/RP · CHAPTER 02"}</span><h1>{openingTitle[0]}<br /><em>{openingTitle[1]}</em></h1><p>{opening?.subtitle ?? "A name. A guide. A place to start."}</p></div>
@@ -190,38 +155,6 @@ export function Tutorial() {
         </section>
       </div>}
       {error && <div className="first-day__error" role="alert">{error}</div>}
-    </div>}
-    {visible && !modal && done && <div className="first-day__done" key={done} role="status">
-      <svg className="first-day__tick" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="23" /><path d="M15 27l7 7 15-16" /></svg>
-      <div><span className="first-day__eyebrow">STEP COMPLETE</span><b>{done}</b></div>
-      <ol aria-hidden="true">{Array.from({ length: total }, (_, i) => <li key={i} className={i + 1 < index ? "is-done" : i + 1 === index ? "is-now" : ""} />)}</ol>
-    </div>}
-    {visible && !modal && !reveal && guide?.objective && <GuidePointer />}
-    {visible && !modal && reveal && <RevealCard reveal={reveal} map={guide?.map} skip={keys.skip} />}
-    {visible && !modal && !reveal && <aside className="first-day__objective" aria-label="First day objective">
-      <header>
-        <span className="first-day__eyebrow">FIRST DAY</span>
-        <span className="first-day__count"><b>{String(guide?.index ?? 1).padStart(2, "0")}</b> / {String(total).padStart(2, "0")}</span>
-      </header>
-      <ol className="first-day__steps" aria-hidden="true">{Array.from({ length: total }, (_, i) =>
-        <li key={i} className={i + 1 < index ? "is-done" : i + 1 === index ? "is-now" : ""} />)}</ol>
-      <div className="first-day__task" key={guide?.step} aria-live="polite">
-        <h2>{guide?.title}</h2>
-        {todo.length > 0 ? <ul className="first-day__todo">{todo.map((row, i) =>
-          <li key={i} style={{ animationDelay: `${120 + i * 90}ms` }}>
-            {row.key ? <kbd className="first-day__key">{keys[row.key] ?? row.key}</kbd>
-              : <span className="first-day__bullet"><Icon name={i === 0 && guide?.objective ? "map-pin" : "chevron-right"} size={14} /></span>}
-            <span>{row.text}</span>
-          </li>)}</ul> : <p>{guide?.hint}</p>}
-        {guide?.demo === "context" ? <ContextLesson step={guide.step} alt={keys.context} /> : guide?.demo && <StepDemo id={guide.demo} keys={keys} />}
-        {guide?.practiceError && <p role="alert">{guide.practiceError} Type /tutorial resume to retry.</p>}
-      </div>
-      {guide?.objective && <GuideReadout />}
-      {guide?.line && <blockquote><span>{guideName.toUpperCase()}</span>{guide.line}</blockquote>}
-      {/* Always in sight while the guide runs: its own key (F6 by default) opens the "Skip the first day?" confirmation. */}
-      <div className="first-day__skip">Press <kbd className="first-day__waykey">{keys.quit}</kbd> to skip the tutorial</div>
-      <footer>{guide?.objective ? <span className="first-day__way"><kbd className="first-day__waykey">{keys.way}</kbd>Show me the way</span>
-        : todo.length > 0 ? <span>{keys.menu} → First day guide</span> : <kbd>{keyHint}</kbd>}<span>/tutorial pause</span></footer>
-    </aside>}
+    </div>
   </div>;
 }

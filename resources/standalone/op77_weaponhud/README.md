@@ -13,7 +13,22 @@ drawing or switching unfolds it with a self-test, holstering folds it away.
 - **Starts:** on its own (add `"op77_weaponhud"` to `resources.load`; a new name needs a server restart)
 - **Needs:** nothing. With `op77_lightrp`, the gamemode's weapon readout stands down while it runs,
   the HUD is lifted above LightRP's grenade chip and shows the RP names of the weapons.
-- **Runs on:** client (the page, the samples) and server (runtime configuration)
+- **Runs on:** client (the NativeUI document, the samples) and server (runtime configuration)
+
+## How it is drawn
+
+A NativeUI document (`Open77.ui`: RmlUi on the game's own Direct3D device, no browser):
+`ui/weaponhud.rml` + `ui/weaponhud.rcss`, driven by `client/ui.lua` through one data model (only
+the values that changed are merged). `client/ui.lua` offers `client/main.lua` the page API the
+former WebUI page had (`on`, `send`, `destroy`), so the sampling code did not change. The tilt
+is RCSS 3D (a perspective on `#rig`, `rotateX` / `rotateY` on `#plane` from `layout.tiltX` /
+`tiltY`); the bloom and the scanlines are filters on `#holo`; the theme's colours are a
+stylesheet layer built from the sheet itself. Fonts: Chakra Petch (built into the client) and
+Share Tech Mono (`ui/fonts`). A client without NativeUI logs one line and shows nothing
+(the gamemode's own readout and the game's HUD stay).
+
+NativeUI draws above every WebUI page: besides `hideUnderMenus` (the fold), the display steps
+aside at once for as long as another interface holds the mouse cursor.
 
 ## Data, and what the API does not give
 
@@ -31,19 +46,20 @@ tech weapon's charge. A record equipped by another pipeline may come back withou
 
 ## Placement
 
-Default `layout.left = 36`, `layout.bottom = 142`, `layout.scale = 0.6` (CSS px of a 1080-high
+Default `layout.left = 36`, `layout.bottom = 142`, `layout.scale = 0.6` (dp: px of a 1080-high
 screen): just above LightRP's circular gauges (y 950), left of op77_map3d's holo GPS. A gamemode
 whose bottom-left stack grows lifts it with `TriggerEvent("op77_weaponhud:inset", owner, px)` or
 `exports.op77_weaponhud:setInset(px)` (up to `layout.maxInset`; LightRP sends 30 while its grenade
-chip shows). Surface cropped to that corner, 30 fps, zIndex 705. Kept in vehicles (drive-by): the
-speedometer is on the other side.
+chip shows). `zIndex` 705 among the NativeUI documents of the `hud` layer; a layout change moves
+the same document. Kept in vehicles (drive-by): the speedometer is on the other side.
 
 ## Configuration
 
 `shared/config.lua`: `enabled`, `hideNativeWeaponHud`, `hideUnderMenus`, `showInVehicles`, `layout`
 (left, bottom, offsetX, offsetY, scale, tilt, tiltX, tiltY, maxInset), `theme` (accent, core, warn,
 cool, glow, opacity, scanlines, flicker), `leadingZeros`, `lowAmmo`, `lowAmmoMax`, `maxCells`,
-`weaponNames`, `pollMs`, `idleMs`, `fps`, `zIndex`, `debug`.
+`weaponNames`, `pollMs`, `hotMs`, `restMs`, `idleMs`, `backoffMs`, `backoffMaxMs`, `zIndex`,
+`debug` (`fps` is unused since NativeUI).
 
 ## API
 
@@ -57,6 +73,9 @@ Events (client, local): `op77_weaponhud:state { active }`, `op77_weaponhud:query
 
 ## Development
 
-- Tests: `pwsh -NoProfile -File tests/run-lua.ps1`.
-- Preview without the game: `web/index.html?mag=18&cap=21&reserve=120&state=low|empty|reloading|melee&left=8&demo=1`;
-  `window.__weaponPreview.fire(n) / reload("start"|"end") / holster()`.
+- Tests: `pwsh -NoProfile -File tests/run-lua.ps1` (`-LuaDll <path to lua54.dll>` when the
+  server's is not four folders up): the shared logic, the adapter (digits, cells, theme layer,
+  every name the document binds), the client with the host and NativeUI stubbed, LightRP.
+- `ui/weaponhud.rcss` keeps one rule per line with lowercase `#rrggbb[aa]` colours: the theme
+  layer is derived from those lines (see its header).
+- In game: `nui.reload` re-reads the document; `nui.debug <id>` inspects it.

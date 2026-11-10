@@ -1,9 +1,10 @@
--- The bubbles on this client: their anchors, lifetimes and the page that draws
--- them. Every bubble gets one `Open77.anchors` anchor fed to the page: the
--- plugin projects it on every game frame (an entity anchor follows the body)
--- and pushes the screen position to the page, which only animates. The local
--- player's own body has no entity id an anchor accepts, so a bubble on it is a
--- position anchor this script moves every frame.
+-- The bubbles on this client: their anchors, lifetimes and the NativeUI document
+-- that draws them (ui/actionbubble.rml, client/view.lua). Every bubble gets one
+-- `Open77.anchors` anchor: the plugin projects it on every game frame (an entity
+-- anchor follows the body) and draws nothing of its own; the view reads the
+-- projections back every frame and places the bubbles. The local player's own
+-- body has no entity id an anchor accepts, so a bubble on it is a position
+-- anchor this script moves every frame.
 --
 -- API (client exports, any resource) -- README.md has the whole reference:
 --   local id = exports.op77_actionbubble:show({ text = "Opens the trunk", vehicle = vehId, duration = 4, network = true })
@@ -12,7 +13,9 @@
 --   exports.op77_actionbubble:me("Unlocks the vehicle", { duration = 3 })   -- on yourself, replicated
 local C = ActionBubbleConfig
 local AB = ActionBubble
+local View = ActionBubbleView
 
+-- What draws the bubbles: client/view.lua once its document exists (a test attaches its own).
 local page, pageReady = nil, false
 local bubbles = {}        -- id -> bubble
 local order = {}          -- ids, oldest first
@@ -102,7 +105,8 @@ local function syncAnchor(b)
         end
         if b.anchor then return true end
     end
-    local options = { page = page, tag = "actionbubble", maxDistance = b.def.maxDistance, minDistance = 0.0 }
+    -- A native style needs no page; hidden, the plugin only projects it (the bubble is the document's).
+    local options = { tag = "actionbubble", maxDistance = b.def.maxDistance, minDistance = 0.0, render = "dot", visible = false }
     if entity then options.entity = entity; options.offset = b.def.anchor.offset else options.position = point end
     local id, why = Open77.anchors.create(options)
     if not id then
@@ -141,7 +145,7 @@ local function forget(id)
     for i, other in ipairs(order) do if other == id then table.remove(order, i) break end end
 end
 
--- Ends a bubble: the page plays its exit, the anchor stays a moment for it.
+-- Ends a bubble: the document plays its exit, the anchor stays a moment for it.
 local function leave(b, instant)
     if b.leaving then return end
     b.leaving = now() + (instant and 0 or 0.75)
@@ -218,39 +222,44 @@ CreateThread(function()
 end)
 
 -- ---------------------------------------------------------------------------
--- The page
+-- The document
 
-local function createPage()
-    local created, why
-    for _ = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
-        created, why = WebUI.create({
-            entry = "web/index.html", layer = "hud", width = 1920, height = 1080,
-            fps = 60, zIndex = 640, transparent = true, visible = true,
-        })
-        if created or why ~= "resource_preparing" then break end
-        Wait(250)
+local function createDocument()
+    if type(Open77.ui) ~= "table" or type(Open77.ui.create) ~= "function" then
+        print("[actionbubble] NativeUI (Open77.ui) unavailable on this client: bubbles are not drawn")
+        return
     end
-    if not created then print("[actionbubble] no WebUI surface: " .. tostring(why)) return end
-    page = created
-    page:on("ab:ready", function()
-        pageReady = true
-        send("ab:config", { kinds = C.kinds })
-        for _, id in ipairs(order) do
-            local b = bubbles[id]
-            if b and not b.leaving then send("ab:add", pageDef(b)) end
-        end
-    end)
     if not anchorsOk then warn("anchors", "Open77.anchors unavailable on this client: bubbles cannot be placed") end
+    local ok, why = View.start({ hideUnderMenus = C.hideUnderMenus })
+    if not ok then print("[actionbubble] no NativeUI document: " .. tostring(why)) return end
+    page, pageReady = View, true
+    for _, id in ipairs(order) do
+        local b = bubbles[id]
+        if b and not b.leaving then
+            syncAnchor(b)
+            send("ab:add", pageDef(b))
+        end
+    end
 end
 
 AddEventHandler("onClientResourceStart", function(name)
     if name ~= GetCurrentResourceName() then return end
-    CreateThread(createPage)
+    CreateThread(function()
+        createDocument()
+        -- The bubbles follow their anchors every frame; none: ten looks a second.
+        while page do
+            local ok, busy = pcall(View.frame)
+            if not ok then warn("frame", "frame failed: " .. tostring(busy)) end
+            Wait((ok and busy) and 0 or 100)
+        end
+    end)
 end)
 
 AddEventHandler("onClientResourceStop", function(name)
     if name == GetCurrentResourceName() then
         if anchorsOk then pcall(Open77.anchors.clear) end
+        page, pageReady = nil, false
+        View.stop()
         return
     end
     for _, b in pairs(bubbles) do
@@ -369,3 +378,6 @@ exports("list", function()
     end
     return out
 end)
+
+-- For the offline tests: another drawer in place of the view.
+ActionBubbleClient = { attach = function(p) page, pageReady = p, true end }

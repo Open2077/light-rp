@@ -1,0 +1,136 @@
+/* Parkour run HUD (ui/src/features/parkour/parkour.css, the .pk-hud part) on NativeUI.
+   pk-cyan #00F0FF  pk-gold #FFCC00  pk-green #3DDC84  pk-red #FF4D4D  pk-good #4DFF9A
+   1920 x 1080: flash at 26 + 132 = 158dp, splits at 32% = 346dp, 3-2-1 at 34% = 367dp,
+   the banner at 36% = 389dp, the keys 26 + 120 = 146dp from the bottom. */
+
+#pk { position: absolute; left: 0; top: 0; right: 0; bottom: 0; visibility: hidden; font-size: 15dp; line-height: 22dp; color: #C3C7D1; transition: opacity 0.2s cubic-out; }
+/* An absolutely positioned element that toggles `display` comes back 0 x 0 (seen in game):
+   the root and the positioned wrappers stay laid out and toggle `visibility`. */
+#pk.is-quiet { opacity: 0; }
+#pk .is-off { display: none; }
+
+/* the activity HUD's plates: near-black, scanlines, hairline, accent rail (chamfer top-left / bottom-right) */
+.plate-bg { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform: scaleX(-1); decorator: fx(chamfer 10 1 0.86 0 #FFCC0024); box-shadow: #000000A6 0 2dp 14dp 0; }
+.plate-bg.plate-sm { decorator: fx(chamfer 6 1 0.86 0 #FFCC0024); }
+.plate-scan { position: absolute; left: 2dp; top: 0; right: 0; bottom: 0; decorator: repeating-linear-gradient(180deg, #FFFFFF09 0dp, #FFFFFF09 1dp, #FFFFFF00 1dp, #FFFFFF00 3dp); }
+.plate-rail { position: absolute; left: 0; top: 10dp; bottom: 0; width: 2dp; background-color: #FFCC00; }
+.plate-rail.plate-sm { top: 6dp; }
+.cut-bg { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform: scaleX(-1); decorator: fx(chamfer 6 0 0.72 0 #00000000); }
+.key-bg { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform: scaleX(-1); decorator: fx(chamfer 6 0 0.86 0 #00000000); box-shadow: #000000A6 0 2dp 14dp 0; }
+.kc { display: block; position: relative; flex: 0 0 auto; min-width: 16dp; padding: 1dp 5dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 11dp; letter-spacing: 0.06em; text-transform: uppercase; text-align: center; color: #C3C7D1; decorator: fx(chamfer 4 1 1 0 #FFCC0047); }
+
+/* ---- the clock, top centre ---- */
+.pk-head-pos { position: absolute; left: 0; right: 0; top: 26dp; visibility: hidden; display: flex; flex-direction: row; justify-content: center; }
+#pk.is-on .pk-head-pos { visibility: visible; }
+.pk-head { display: flex; flex-direction: column; align-items: center; gap: 6dp; }
+#pk.is-on .pk-head { animation: 0.32s cubic-out pk-drop; }
+.pk-plate { position: relative; }
+.pk-plate-in { position: relative; display: flex; flex-direction: row; align-items: center; gap: 20dp; padding: 8dp 20dp 8dp 18dp; }
+.pk-id { display: flex; flex-direction: column; gap: 4dp; min-width: 150dp; flex: 0 0 auto; }
+.pk-name { display: block; color: #F2F3F5; font-size: 15dp; line-height: 15dp; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260dp; }
+.pk-sub { display: block; color: #8A8F9C; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
+.pk-clock { flex: 0 0 auto; }
+.pk-clock-digits { display: block; min-width: 190dp; text-align: center; color: #F2F3F5; font-family: "Share Tech Mono"; font-weight: normal; font-size: 44dp; line-height: 44dp; letter-spacing: 0.02em; white-space: nowrap; font-effect: glow(1dp 8dp 0dp 0dp #FFCC0040); }
+#pk.is-finished .pk-clock-digits { color: #FFCC00; }
+.pk-cp { display: flex; flex-direction: column; align-items: flex-end; gap: 4dp; min-width: 110dp; flex: 0 0 auto; }
+.pk-cp-label { display: block; color: #565A66; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 10dp; letter-spacing: 0.14em; }
+.pk-cp-value { display: flex; flex-direction: row; align-items: flex-end; }
+.pk-cp-n { color: #FFCC00; font-family: "Share Tech Mono"; font-weight: normal; font-size: 26dp; line-height: 26dp; }
+.pk-cp-of { color: #8A8F9C; font-family: "Share Tech Mono"; font-weight: normal; font-size: 16dp; line-height: 21dp; }
+
+.pk-refs { display: flex; flex-direction: row; gap: 6dp; }
+.pk-ref { position: relative; display: flex; flex-direction: row; align-items: flex-end; gap: 6dp; padding: 4dp 10dp; color: #F2F3F5; }
+.pk-ref-k { display: block; position: relative; color: #8A8F9C; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 12dp; letter-spacing: 0.14em; white-space: nowrap; }
+.pk-ref-v { display: block; position: relative; font-family: "Share Tech Mono"; font-weight: normal; font-size: 13dp; line-height: 13dp; white-space: nowrap; }
+.pk-ref.is-record .pk-ref-v { color: #FFCC00; }
+.pk-delta.is-good .pk-ref-v { color: #4DFF9A; }
+.pk-delta.is-bad .pk-ref-v { color: #FF4D4D; }
+
+.pk-pips { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 3dp; max-width: 520dp; }
+.pk-pip { flex: 0 0 auto; width: 16dp; height: 5dp; background-color: #ffffff1c; transform: skewX(-22deg); transition: background-color 0.2s cubic-out; }
+.pk-pip.is-done { background-color: #FFCC00; }
+.pk-pip.is-good { background-color: #4DFF9A; }
+.pk-pip.is-bad { background-color: #FF4D4D; }
+.pk-pip.is-next { background-color: #FFCC00; }
+#pk.is-on .pk-pip.is-next { animation: 0.9s linear-in-out infinite pk-blink; }
+.pk-pip.is-finish { width: 22dp; background-color: #3ddc8440; }
+.pk-pip.is-finish.is-done { background-color: #3DDC84; }
+
+/* the bearing to the next point, under the checkpoint pips */
+.pk-bearing { position: relative; display: flex; flex-direction: row; align-items: center; gap: 6dp; padding: 4dp 12dp 4dp 8dp; color: #FFCC00; }
+.pk-bearing-rail { position: absolute; left: 0; top: 6dp; bottom: 0; width: 2dp; background-color: #FFCC00; }
+.pk-bearing-arrow { position: relative; flex: 0 0 auto; width: 26dp; height: 26dp; transition: transform 0.12s linear-in-out; filter: drop-shadow(#FFCC00 0dp 0dp 6dp); }
+.pk-bearing-arrow path { display: block; width: 22dp; height: 22dp; margin: 2dp; fill: #FFCC00; }
+.pk-bearing-label { position: relative; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 12dp; letter-spacing: 0.14em; white-space: nowrap; }
+.pk-bearing-dist { display: block; position: relative; min-width: 52dp; color: #F2F3F5; font-family: "Share Tech Mono"; font-weight: normal; font-size: 15dp; line-height: 15dp; white-space: nowrap; }
+.pk-rise { position: relative; display: flex; flex-direction: row; align-items: center; gap: 4dp; color: #8A8F9C; }
+.pk-rise path { display: none; flex: 0 0 auto; width: 9dp; height: 9dp; fill: #8A8F9C; }
+.pk-rise .pk-rise-down { display: block; }
+.pk-rise.is-up { color: #00F0FF; }
+.pk-rise.is-up .pk-rise-down { display: none; }
+.pk-rise.is-up .pk-rise-up { display: block; fill: #00F0FF; }
+.pk-rise-text { font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; letter-spacing: 0.06em; white-space: nowrap; }
+.pk-bearing.is-finish { color: #3DDC84; }
+.pk-bearing.is-finish .pk-bearing-rail { background-color: #3DDC84; }
+.pk-bearing.is-finish .pk-bearing-arrow { filter: drop-shadow(#3DDC84 0dp 0dp 6dp); }
+.pk-bearing.is-finish .pk-bearing-arrow path { fill: #3DDC84; }
+
+/* ---- the delta flash under the clock ---- */
+.pk-flash-pos { position: absolute; left: 0; right: 0; top: 158dp; display: flex; visibility: hidden; flex-direction: row; justify-content: center; }
+#pk.is-on .pk-flash-pos.is-in { visibility: visible; }
+.pk-flash { display: flex; flex-direction: row; opacity: 0; }
+.pk-flash.is-a { animation: 2.6s cubic-in-out pk-flash-a; }
+.pk-flash.is-b { animation: 2.6s cubic-in-out pk-flash-b; }
+.pk-flash-text { display: block; height: 34dp; box-sizing: border-box; padding: 6dp 10dp 6dp 18dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 22dp; line-height: 22dp; letter-spacing: 0.04em; white-space: nowrap; }
+.pk-flash-tail { display: block; flex: 0 0 auto; width: 8dp; height: 34dp; }
+.pk-flash.is-good .pk-flash-text { color: #031a0c; background-color: #4DFF9A; }
+.pk-flash.is-good .pk-flash-tail { fill: #4DFF9A; }
+.pk-flash.is-bad .pk-flash-text { color: #ffffff; background-color: #FF4D4D; }
+.pk-flash.is-bad .pk-flash-tail { fill: #FF4D4D; }
+.pk-flash.is-info .pk-flash-text { height: 27dp; color: #050506; background-color: #FFCC00; font-size: 15dp; line-height: 15dp; }
+.pk-flash.is-info .pk-flash-tail { height: 27dp; fill: #FFCC00; }
+
+/* ---- splits, right ---- */
+.pk-splits { position: absolute; right: 32dp; top: 346dp; width: 240dp; visibility: hidden; }
+#pk.is-on .pk-splits.is-in { visibility: visible; }
+.pk-splits-in { position: relative; padding: 8dp 12dp 8dp 16dp; }
+.pk-splits-title { display: block; margin-bottom: 6dp; color: #8A8F9C; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 10dp; letter-spacing: 0.14em; }
+.pk-split { display: flex; flex-direction: row; align-items: flex-end; gap: 6dp; padding: 4dp 0; border-top-width: 1dp; border-top-color: #ffffff10; font-family: "Share Tech Mono"; font-weight: normal; font-size: 13dp; line-height: 13dp; animation: 0.25s cubic-out pk-in; }
+.pk-split-cp { display: block; flex: 0 0 auto; width: 46dp; color: #8A8F9C; white-space: nowrap; }
+.pk-split-time { display: block; flex: 1 1 0; color: #F2F3F5; white-space: nowrap; }
+.pk-split-delta { display: block; flex: 0 0 auto; text-align: right; white-space: nowrap; }
+.pk-split-delta.is-good { color: #4DFF9A; }
+.pk-split-delta.is-bad { color: #FF4D4D; }
+
+/* ---- 3-2-1-GO ---- */
+.pk-count-pos { position: absolute; left: 0; right: 0; top: 367dp; display: flex; visibility: hidden; flex-direction: row; justify-content: center; }
+#pk.is-on .pk-count-pos.is-in { visibility: visible; }
+.pk-count { display: flex; flex-direction: column; align-items: center; gap: 6dp; }
+.pk-count-digit { display: block; color: #FFCC00; font-family: "Zen Dots"; font-weight: normal; font-size: 150dp; line-height: 150dp; white-space: nowrap; opacity: 0.2; transform: scale(0.85); font-effect: glow(2dp 16dp 0dp 0dp #FFCC0073), shadow(0dp 4dp #000000); }
+.pk-count-digit.is-a { animation: 0.9s cubic-in-out pk-pop-a; }
+.pk-count-digit.is-b { animation: 0.9s cubic-in-out pk-pop-b; }
+.pk-count-digit.is-go { color: #3DDC84; font-effect: glow(2dp 20dp 0dp 0dp #3DDC8499), shadow(0dp 4dp #000000); }
+.pk-count-small { display: block; color: #F2F3F5; font-family: "Share Tech Mono"; font-weight: normal; font-size: 13dp; line-height: 13dp; letter-spacing: 0.3em; white-space: nowrap; font-effect: shadow(0dp 2dp #000000); }
+/* GO: held a moment after the start, then gone */
+.pk-go .pk-count-digit { opacity: 0; transform: scale(1.25); }
+#pk.is-on .pk-count-pos.is-in .pk-go .pk-count-digit { animation: 1.1s cubic-out pk-go; }
+
+.pk-banner-pos { position: absolute; left: 0; right: 0; top: 389dp; display: flex; visibility: hidden; flex-direction: row; justify-content: center; }
+#pk.is-on .pk-banner-pos.is-in { visibility: visible; }
+.pk-banner { display: block; color: #F2F3F5; font-family: "Zen Dots"; font-weight: normal; font-size: 34dp; line-height: 34dp; letter-spacing: 0.12em; white-space: nowrap; font-effect: shadow(0dp 2dp #000000); }
+#pk.is-on .pk-banner-pos.is-in .pk-banner { animation: 1s linear-in-out infinite pk-blink; }
+
+/* ---- keys, bottom centre ---- */
+.pk-keys-pos { position: absolute; left: 0; right: 0; bottom: 146dp; display: flex; visibility: hidden; flex-direction: row; justify-content: center; gap: 6dp; }
+#pk.is-on .pk-keys-pos.is-in { visibility: visible; }
+.pk-key { position: relative; display: flex; flex-direction: row; align-items: center; gap: 6dp; padding: 4dp 10dp 4dp 6dp; }
+.pk-key-text { position: relative; color: #8A8F9C; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; letter-spacing: 0.14em; white-space: nowrap; }
+
+@keyframes pk-drop { from { opacity: 0; transform: translateY(-14dp); } to { opacity: 1; transform: translateY(0dp); } }
+@keyframes pk-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.3; } }
+@keyframes pk-in { from { opacity: 0; transform: translateX(10dp); } to { opacity: 1; transform: translateX(0dp); } }
+@keyframes pk-flash-a { 0% { opacity: 0; transform: translateY(-8dp) scale(1.15); } 8% { opacity: 1; transform: translateY(0dp) scale(1); } 85% { opacity: 1; transform: translateY(0dp) scale(1); } 100% { opacity: 0; transform: translateY(0dp) scale(1); } }
+@keyframes pk-flash-b { 0% { opacity: 0; transform: translateY(-8dp) scale(1.15); } 8% { opacity: 1; transform: translateY(0dp) scale(1); } 85% { opacity: 1; transform: translateY(0dp) scale(1); } 100% { opacity: 0; transform: translateY(0dp) scale(1); } }
+@keyframes pk-pop-a { 0% { opacity: 0; transform: scale(1.7); } 18% { opacity: 1; transform: scale(1); } 80% { opacity: 1; transform: scale(1); } 100% { opacity: 0.2; transform: scale(0.85); } }
+@keyframes pk-pop-b { 0% { opacity: 0; transform: scale(1.7); } 18% { opacity: 1; transform: scale(1); } 80% { opacity: 1; transform: scale(1); } 100% { opacity: 0.2; transform: scale(0.85); } }
+@keyframes pk-go { 0% { opacity: 0; transform: scale(1.8); } 15% { opacity: 1; transform: scale(1); } 70% { opacity: 1; transform: scale(1.04); } 100% { opacity: 0; transform: scale(1.25); } }

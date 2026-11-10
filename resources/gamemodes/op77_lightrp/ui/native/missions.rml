@@ -1,0 +1,129 @@
+<rml>
+<head>
+    <title>Light RP missions</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="raid.rcss"/>
+    <link type="text/rcss" href="missions.rcss"/>
+</head>
+<!-- The mission heads-up panels of the page (ui/src/features/missions): the running
+     mission's chip and a fixer gig's (top centre), the world boss (under them), an authored
+     mission's objective tracker (left), its out-of-zone warning, its respawn chips and its
+     kit choice. client/native/missions.lua fills the model from the state keys
+     missionQueue, fixerGig and worldBoss. raid.rcss brings the ready check's look (.rr, .rk). -->
+<body data-model="hud">
+<div id="missions" class="shell fill" data-class-is-ready="ready" data-class-is-hidden="hidden" data-class-is-quiet="quiet">
+
+    <!-- MissionQueueHud: the running mission -->
+    <div class="mline mq-line">
+        <div class="mq is-running" data-if="runOn">
+            <div class="mq-plate"><div class="mq-a"></div><div class="mq-b"></div><path class="mq-c" view-box="0 0 8 8" d="M0 0H8L0 8Z"/><div class="mq-lt"></div><div class="mq-ll"></div><div class="mq-lb"></div><div class="mq-lr"></div></div>
+            <div class="mq-row">
+                <span class="mq-tag">MISSION</span>
+                <span class="mq-title">{{runTitle}}</span>
+                <span class="mq-dim">{{runDifficulty}}</span>
+                <span class="mq-text">{{runClock}}</span>
+                <span class="mq-dim">/mission leave</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- FixerGigHud: a gig taken, before it runs -->
+    <div class="mline mq-line">
+        <div class="mq is-gig" data-if="gigOn" data-class-is-countdown="gigCountdown">
+            <div class="mq-plate"><div class="mq-a"></div><div class="mq-b"></div><path class="mq-c" view-box="0 0 8 8" d="M0 0H8L0 8Z"/><div class="mq-lt"></div><div class="mq-ll"></div><div class="mq-lb"></div><div class="mq-lr"></div></div>
+            <div class="mq-row">
+                <span class="mq-tag">GIG</span>
+                <span class="mq-title">{{gigTitle}}</span>
+                <span class="mq-dim">{{gigFixer}}</span>
+                <span class="mq-text mq-count">{{gigCount}}</span>
+                <div class="mq-meter"><div class="mq-cell" data-for="c : gigCells" data-class-is-gone="c.gone" data-class-is-on="c.on" data-class-is-half="c.half"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WorldBossHud -->
+    <div class="mline wb-line">
+        <div class="wb" data-if="bossOn" data-class-is-away="bossAway">
+            <div class="wb-plate"><div class="wb-a"></div><div class="wb-b"></div><path class="wb-c" view-box="0 0 10 10" d="M0 0H10L0 10Z"/><div class="wb-lt"></div><div class="wb-ll"></div><div class="wb-lb"></div><div class="wb-lr"></div></div>
+            <div class="wb-body">
+                <div class="wb-head">
+                    <span class="wb-tag">{{bossTag}}</span>
+                    <span class="wb-name">{{bossName}}</span>
+                    <span class="wb-dim">{{bossLocation}}</span>
+                    <span class="grow"></span>
+                    <span class="wb-clock" data-if="bossHasClock">{{bossClock}}</span>
+                </div>
+                <div class="wb-bar"><div class="wb-bar-fill" data-style-width="bossHealth + '%'"></div><span class="wb-bar-text">{{bossHealthText}}</span></div>
+                <div class="wb-text"><span>{{bossLine}}</span><span class="wb-out" data-if="bossOut">OUT OF THE ZONE</span></div>
+                <div class="wb-share" data-class-is-eligible="bossEligible">
+                    <span class="wb-label">YOUR SHARE</span>
+                    <div class="wb-meter"><div class="wb-meter-fill" data-style-width="bossShare + '%'"></div><div class="wb-meter-min" data-style-left="bossMin + '%'"></div></div>
+                    <span class="wb-pct">{{bossShareText}}</span>
+                    <span class="wb-stats">{{bossStats}}</span>
+                </div>
+                <div class="wb-result" data-if="bossHasResult" data-class-is-paid="bossPaid"><span>{{bossResultA}}</span><span class="wb-result-b" data-if="bossPaid">{{bossResultB}}</span><span>{{bossResultC}}</span></div>
+                <div class="wb-hint" data-if="!bossHasResult">{{bossHint}}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MissionObjectiveHud: the tracker -->
+    <div class="ob" data-if="objOn" data-class-is-waves="objWaves">
+        <div class="ob-head"><path class="ic" view-box="0 0 24 24" data-attr-d="objIcon"/><span>OBJECTIVE</span></div>
+        <div class="ob-title">{{objHeadline}}</div>
+        <div class="ob-detail" data-if="objHasDetail">{{objDetail}}</div>
+        <div class="ob-waves" data-if="objHasCells"><div class="ob-wave" data-for="c : objCells" data-class-is-gone="c.gone" data-class-is-done="c.done" data-class-is-live="c.live"></div></div>
+        <div class="ob-list" data-if="objHasChecks">
+            <div class="ob-li" data-for="c : objChecks" data-class-is-gone="c.gone" data-class-is-reached="c.reached">
+                <path class="ic" view-box="0 0 24 24" data-attr-d="c.icon"/><span class="ob-li-text">{{c.label}}</span><span class="grow"></span><span class="ob-optional" data-if="c.optional">OPTIONAL</span>
+            </div>
+        </div>
+        <div class="ob-foot"><span>KILLS {{objKills}}</span><span>RESPAWNS {{objLives}}</span></div>
+    </div>
+
+    <!-- out of the perimeter: the red warning with the countdown to death -->
+    <div class="oob" data-if="oobOn">
+        <div class="oob-vignette"></div>
+        <div class="mline oob-line">
+            <div class="oob-panel">
+                <path class="ic" view-box="0 0 24 24" data-attr-d="icAlert"/>
+                <span class="oob-title">LEAVING THE MISSION ZONE</span>
+                <span class="oob-text">Return inside the perimeter</span>
+                <span class="oob-num">{{oobNum}}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- KIT ISSUED / DOWN / OUT -->
+    <div class="mline rs-line">
+        <div class="rs" data-if="chipOn" data-class-is-out="chipOut"><span class="rs-head">{{chipHead}}</span><span class="rs-text">{{chipText}}</span></div>
+    </div>
+
+    <!-- the kit choice: the briefing (top), or the next life's kit while down (above the DOWN chip) -->
+    <div class="mline kp-line" data-class-is-down="kitsDown">
+        <div id="kits" class="rr is-choosing kp" data-class-is-on="kitsOn">
+            <div class="rr-head" data-if="kitsBriefing"><span class="rr-tag">MISSION</span><span class="rr-title">{{kitsTitle}}</span></div>
+            <div class="rr-h2">{{kitsHead}}</div>
+            <div class="rk-list">
+                <div class="rk" data-for="k : kits" data-class-is-gone="k.gone" data-class-is-picked="k.picked">
+                    <div class="rk-keybox"><span class="rk-key">{{k.key}}</span></div>
+                    <div class="rk-ic"><path class="ic" view-box="0 0 24 24" data-attr-d="k.icon"/></div>
+                    <span class="rk-name">{{k.label}}</span>
+                    <span class="rk-blurb">{{k.blurb}}</span>
+                </div>
+            </div>
+            <div class="rr-foot">
+                <div class="rr-foot-text" data-if="kitsBriefing"><span>Pick a loadout (</span><span class="rr-kbd">1</span><span>-</span><span class="rr-kbd">{{kitsMax}}</span><span>) · {{kitsReady}} ready</span></div>
+                <div class="rr-foot-text" data-if="!kitsBriefing"><span>Handed out when you are back (</span><span class="rr-kbd">1</span><span>-</span><span class="rr-kbd">{{kitsMax}}</span><span>)</span></div>
+                <div class="rr-go" data-if="kitsBriefing">
+                    <div class="rr-go-a"></div><div class="rr-go-b"></div><path class="rr-go-c" view-box="0 0 7 7" d="M0 0H7L0 7Z"/>
+                    <div class="rr-go-row"><span>READY</span><span class="rr-go-kbd">Enter</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</rml>

@@ -1,0 +1,62 @@
+/* Notices (features/notices/notices.css + design/components/components.css .o77-notice).
+   .notices: left hud-safe-x, top 50% translateY(-50%), column, gap hud-gap, max-width 380.
+   The card: 320 wide, surface-hud + blur, the notch (top-right corner cut 14), a 3 px rule
+   in the kind's colour, the body (padding 8 12, gap 4), a 2 px life bar at the bottom.
+   The page's wipes (clip-path inset) are a clip box (.nt, overflow hidden) and the card
+   moved against it: notices.lua animates x on both. */
+
+#lane
+{
+    position: absolute; left: 32dp; top: 50%;
+    transform: translateY(-50%);
+    display: flex; flex-direction: column; align-items: flex-start; gap: 10dp;
+    max-width: 380dp;
+    transition: opacity 0.4s cubic-out;
+}
+/* character creation, a first-day cinematic, the vehicle workshop: the page rendered nothing */
+#lane.is-off { visibility: hidden; }
+/* the arrival tour: the page faded the lane out (a backdrop-filter is still drawn at opacity 0: visibility too) */
+#lane.is-tour { opacity: 0; visibility: hidden; }
+
+.nt { position: relative; width: 320dp; overflow: hidden; flex-shrink: 0; }
+/* a block, not a flex row: an absolute child of an auto-height flex container gets no height from top / bottom */
+.nt-card { position: relative; width: 320dp; }
+
+/* the plate under the notch: a strip left of the cut, the cut's triangle, the rest */
+.nt-bg-top { position: absolute; left: 0; top: 0; right: 14dp; height: 14dp; background-color: #060608B8; backdrop-filter: blur(8dp); }
+.nt-bg-tri { position: absolute; right: 0; top: 0; width: 14dp; height: 14dp; fill: #060608B8; }
+.nt-bg-body { position: absolute; left: 0; top: 14dp; right: 0; bottom: 0; background-color: #060608B8; backdrop-filter: blur(8dp); }
+
+.nt-rule { position: absolute; left: 0; top: 0; bottom: 0; width: 3dp; background-color: #FFCC00; }
+.nt-body { position: relative; margin-left: 3dp; display: flex; flex-direction: column; gap: 4dp; padding: 8dp 12dp; }
+.nt-head { display: flex; flex-direction: row; align-items: center; gap: 6dp; }
+.nt-head path.nt-icon { width: 13dp; height: 13dp; stroke: #FFCC00; stroke-width: 1.1dp; }
+.nt-source { font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 1.05; letter-spacing: 0.22em; white-space: nowrap; color: #FFCC00; }
+.nt-close { display: flex; flex-shrink: 0; margin-left: auto; pointer-events: auto; cursor: pointer; }
+.nt-close path.ic { width: 12dp; height: 12dp; stroke: #565A66; stroke-width: 1dp; }
+.nt-title { font-size: 13dp; line-height: 1.2; text-transform: uppercase; letter-spacing: 0.08em; color: #F2F3F5; }
+.nt-text { font-size: 13dp; line-height: 1.45; color: #8A8F9C; }
+.nt-life { position: absolute; left: 3dp; bottom: 0; height: 2dp; width: 100%; background-color: #FFCC00; opacity: 0.85; }
+
+/* the kind's colour: rule, icon, source, life bar */
+.nt-success .nt-rule, .nt-success .nt-life { background-color: #8FE04A; }
+.nt-success .nt-source { color: #8FE04A; }
+.nt-success .nt-head path.nt-icon { stroke: #8FE04A; }
+.nt-warning .nt-rule, .nt-warning .nt-life { background-color: #FFDD40; }
+.nt-warning .nt-source { color: #FFDD40; }
+.nt-warning .nt-head path.nt-icon { stroke: #FFDD40; }
+.nt-error .nt-rule, .nt-error .nt-life, .nt-staff .nt-rule, .nt-staff .nt-life { background-color: #FF2E3C; }
+.nt-error .nt-source, .nt-staff .nt-source { color: #FF2E3C; }
+.nt-error .nt-head path.nt-icon, .nt-staff .nt-head path.nt-icon { stroke: #FF2E3C; }
+.nt-police .nt-rule, .nt-police .nt-life { background-color: #7FB4D6; }
+.nt-police .nt-source { color: #7FB4D6; }
+.nt-police .nt-head path.nt-icon { stroke: #7FB4D6; }
+.nt-item .nt-rule, .nt-item .nt-life { background-color: #8A8F9C; }
+.nt-item .nt-source { color: #8A8F9C; }
+.nt-item .nt-head path.nt-icon { stroke: #8A8F9C; }
+.nt-message .nt-rule, .nt-message .nt-life { background-color: #3FE0D0; }
+.nt-message .nt-source { color: #3FE0D0; }
+.nt-message .nt-head path.nt-icon { stroke: #3FE0D0; }
+.nt-contract .nt-rule, .nt-contract .nt-life { background-color: #FF3FB4; }
+.nt-contract .nt-source { color: #FF3FB4; }
+.nt-contract .nt-head path.nt-icon { stroke: #FF3FB4; }

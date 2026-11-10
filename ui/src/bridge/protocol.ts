@@ -38,6 +38,7 @@ export const PAGE_EVENTS = {
   open: "lightrp:ui:open",
   closed: "lightrp:ui:closed",
   notice: "lightrp:ui:notice",
+  noticePush: "lightrp:ui:notice:push", // page -> Lua: a notice raised inside the page, for the native lane
   result: "lightrp:ui:result",
   dialog: "lightrp:ui:dialog",
   interact: "lightrp:ui:interact",
@@ -51,6 +52,7 @@ export const PAGE_EVENTS = {
   actionStarted: "lightrp:ui:activity:started",
   actionFinish: "lightrp:ui:activity:finish",
   actionResult: "lightrp:ui:activity:result",
+  actionInput: "lightrp:ui:activity:input", // page -> Lua: the running action's raw keys (features/actions/Actions.tsx -> client/native/actions.lua)
 } as const;
 
 export type BodyFamily = "male" | "female";

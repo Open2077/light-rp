@@ -15,8 +15,10 @@ SpeedoConfig = {
     -- Who sees it: the driver always, passengers only if true.
     showForPassengers = false,
 
-    -- Hide it while another interface holds the mouse cursor (inventory, menus, the
-    -- phone...). Open77.input.isCaptured(), second result.
+    -- Fold it away while another interface holds the mouse cursor (inventory, menus, the
+    -- phone...). Open77.input.isCaptured(), second result. NativeUI draws above every page:
+    -- with false it keeps its state under a menu, but the display still steps aside (at
+    -- once, no fold) for as long as the cursor is held.
     hideUnderMenus = true,
 
     -- Hide the game's own speedometer while this resource runs (ui.vanilla.hud).
@@ -27,7 +29,7 @@ SpeedoConfig = {
     -- Records -> names; anything else is derived from the record (Vehicle.v_sport2_quadra_type66 -> QUADRA TYPE66).
     vehicleNames = {},
 
-    -- Where it sits, in CSS pixels of a 1080-pixel-high screen (the WebUI's reference):
+    -- Where it sits, in dp (pixels of a 1080-pixel-high screen, NativeUI's reference):
     -- distances from the right and bottom edges of the screen to the display's box
     -- (420 x 232 at scale 1). The default fits the band at the right edge between
     -- LightRP's work-order tracker (ends at y 766, 785 on 4:3) and its rental chip
@@ -86,12 +88,13 @@ SpeedoConfig = {
     -- Sampling while in a vehicle (Hz); on foot the seat is polled 4 times a second.
     rate = 20,
 
-    -- WebUI surface: frame rate (fixed at creation) and order. Under LightRP's page (720)
-    -- and the voice HUD (760), above op77_map3d's minimap (700).
+    -- The NativeUI document: how many times a second the numbers are smoothed between two
+    -- samples while it shows (10 .. 60, fixed at creation; the document itself is drawn at
+    -- the game's frame rate), and its order among the documents of the "hud" layer.
     fps = 30,
     zIndex = 710,
 
-    -- How long the surface stays up after leaving the vehicle (exit animation).
+    -- Unused (the fold is the sheet's 380 ms).
     exitAnimationMs = 420,
 
     debug = false,

@@ -1,0 +1,205 @@
+/* Light RP voice HUD on NativeUI: a hologram plate, the vehicle speedometer's sibling
+   (op77_speedometer). The same projection (tilted toward the centre of the screen, its
+   right edge nearest), lit parts with a bloom, ghost parts for the unlit ones, scanlines.
+   The Open//77 RP tokens as literal values (RCSS has no custom properties):
+     accent #FFCC00   core #FFF7DA   warn #FF3B3B   ghost #FFCC001A (accent .1)
+     red #FF2E3C (muted, peak)   ink-400 #3A3D46 (offline)   green #8FE04A (heard)
+     whisper #7FB4D6   normal #FFCC00   shout #FF3FB4 (client/ui.lua, REACH_COLORS)
+   The active reach's colour (#FFCC00 below) and each preset's colour are written by
+   client/ui.lua as the stylesheet layers "mode" and "ranges".
+   Fonts: core "Chakra Petch" (built in), mono "Share Tech Mono" (ui/fonts, one face).
+   1 dp = 1 px of the 1920 x 1080 page. Never put filter or mask on #voice, #rig or
+   #plane: #bloom and #scan, inside the plane, carry them. */
+
+body { pointer-events: none; font-family: "Chakra Petch"; font-weight: bold; color: #C3C7D1; }
+#root { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; }
+
+/* hud-safe-x 32, hud-safe-y 26 */
+#voice
+{
+    position: absolute; right: 32dp; bottom: 26dp;
+    opacity: 0; transform: translateY(6dp);
+    transition: opacity 0.18s cubic-out, transform 0.18s cubic-out;
+}
+#voice.visible { opacity: 1; transform: translateY(0dp); }
+
+/* narrow screens (4:3, 5:4): smaller, so it stays right of op77_map3d's GPS */
+#scaler { display: flex; flex-direction: column; align-items: flex-end; transform-origin: 100% 100%; }
+#scaler.narrow { transform: scale(0.78); }
+#scaler.narrower { transform: scale(0.64); }
+
+/* ---- transient server rejection, above the plate -------------------------------------- */
+#error
+{
+    display: block; max-width: 340dp; margin-bottom: 4dp; text-align: right;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 15dp; letter-spacing: 0.06em;
+    color: #FF2E3C; font-effect: glow(3dp #FF3B3B8C), shadow(0dp 1dp #000000E6);
+    opacity: 0; transition: opacity 0.12s linear-in-out;
+}
+/* the fade on the wrapper, the flicker on the text: one opacity animation per element */
+#error.active { opacity: 1; }
+#error.active #error-text { animation: 1.4s linear-in-out 2 o77-flicker; }
+@keyframes o77-flicker { 0% { opacity: 1; } 47% { opacity: 0.72; } 48% { opacity: 0.35; } 49% { opacity: 0.9; } 100% { opacity: 1; } }
+
+/* ---- the projection ------------------------------------------------------------------------ */
+#rig { perspective: 700dp; perspective-origin: 70% 40%; }
+#plane { position: relative; transform: rotateX(8deg) rotateY(-16deg); transform-origin: 100% 60%; }
+#haze
+{
+    position: absolute; left: -26dp; top: -16dp; right: -20dp; bottom: -14dp;
+    decorator: radial-gradient(ellipse 52% 56% at center, #040406A8 0%, #0404067A 50%, #04040629 78%, #04040600 100%);
+}
+/* the bloom spills past the plate: it is applied outside the scanline mask */
+#bloom { position: relative; filter: drop-shadow(#FFCC00D9 0dp 0dp 1.5dp) drop-shadow(#FFCC0061 0dp 0dp 7dp); }
+#voice.s-talking #bloom { filter: drop-shadow(#FFCC00F2 0dp 0dp 2dp) drop-shadow(#FFCC0080 0dp 0dp 11dp); }
+#voice.s-muted #bloom { filter: drop-shadow(#FF3B3BB3 0dp 0dp 1.5dp) drop-shadow(#FF3B3B4D 0dp 0dp 7dp); }
+#voice.s-offline #bloom { filter: none; opacity: 0.7; }
+/* scanlines: 2 dp full, 1 dp at .6. The box reaches past the plate to hold the corner brackets. */
+#scan
+{
+    position: relative; padding: 6dp 6dp 6dp 10dp; margin: -6dp -6dp -6dp -10dp;
+    mask-image: repeating-linear-gradient(180deg, #FFFFFFFF 0dp, #FFFFFFFF 2dp, #FFFFFF99 2dp, #FFFFFF99 3dp);
+}
+#plate
+{
+    position: relative; display: flex; flex-direction: row; align-items: center;
+    box-sizing: border-box; height: 66dp; padding: 8dp 6dp 8dp 10dp;
+}
+.corner { position: absolute; box-sizing: border-box; width: 12dp; height: 12dp; border-color: #FFCC0099; transition: border-color 0.12s linear-in-out; }
+.corner.tl { left: -6dp; top: -2dp; border-left-width: 2dp; border-top-width: 2dp; }
+.corner.br { right: -4dp; bottom: -2dp; border-right-width: 2dp; border-bottom-width: 2dp; }
+#voice.s-talking .corner { border-color: #FFF7DA; }
+#voice.s-muted .corner { border-color: #FF3B3BB3; }
+
+/* ---- the reach in seven segments ----------------------------------------------------------- */
+#dist { display: flex; flex-direction: row; align-items: flex-end; flex-shrink: 0; margin-right: 14dp; }
+#dist7 { position: relative; display: block; width: 60dp; height: 44dp; margin-right: 3dp; flex-shrink: 0; }
+#dist7 path { position: absolute; left: 0; top: 0; height: 44dp; }
+#dist7 path.seg-off { fill: #FFCC001A; }
+#dist7 path.seg-on { fill: #FFCC00; }
+#dist-unit { font-family: "Share Tech Mono"; font-weight: normal; font-size: 15dp; line-height: 16dp; padding-bottom: 1dp; color: #FFCC00; }
+#voice.changing #dist { animation: 0.34s linear-in-out mic-retune; }
+@keyframes mic-retune
+{
+    0% { opacity: 0.15; transform: translateY(3dp); }
+    35% { opacity: 1; transform: translateY(1.95dp); }
+    50% { opacity: 0.4; transform: translateY(1.5dp); }
+    100% { opacity: 1; transform: translateY(0dp); }
+}
+
+#body { display: flex; flex-direction: column; }
+.vrow { display: flex; flex-direction: row; align-items: center; height: 22dp; }
+.vrow.first { margin-bottom: 6dp; }
+.vrow.second { justify-content: flex-end; }
+
+/* mic glyph (Lucide mic / mic-off, 2.2 on a 24 box drawn at 18), in the state's colour */
+#glyph { position: relative; width: 18dp; height: 18dp; margin-right: 10dp; flex-shrink: 0; }
+#glyph path
+{
+    position: absolute; left: 0; top: 0; width: 18dp; height: 18dp;
+    fill: transparent; stroke: #8A8F9C; stroke-width: 1.65dp; stroke-linecap: square; stroke-linejoin: miter;
+    transition: stroke 0.12s linear-in-out;
+}
+#mic-off { display: none; }
+#voice.off #mic-on { display: none; }
+#voice.off #mic-off { display: block; }
+#voice.s-talking #glyph { animation: 1.6s linear-in-out infinite o77-flicker; }
+
+#state
+{
+    display: block; min-width: 82dp; margin-right: 10dp; flex-shrink: 0;
+    font-size: 15dp; line-height: 18dp; letter-spacing: 0.12em; white-space: nowrap; color: #8A8F9C;
+    transition: color 0.12s linear-in-out;
+}
+#voice.s-idle #state { color: #FFCC00B8; }
+#voice.s-idle #glyph path { stroke: #FFCC00B8; }
+#voice.s-detected #state { color: #FFCC00; }
+#voice.s-detected #glyph path { stroke: #FFCC00; }
+#voice.s-talking #state { color: #FFF7DA; }
+#voice.s-talking #glyph path { stroke: #FFF7DA; }
+#voice.s-muted #state { color: #FF2E3C; }
+#voice.s-muted #glyph path { stroke: #FF2E3C; }
+#voice.s-offline #state { color: #3A3D46; }
+#voice.s-offline #glyph path { stroke: #3A3D46; }
+
+/* 14 slanted cells (the speedometer's RPM strip), lit in the reach colour, white-hot at
+   the tip while transmitting, the last three in the peak colour */
+#meter { display: flex; flex-direction: row; height: 12dp; flex-shrink: 0; transform: skewX(-28deg); }
+#meter .cell { display: block; width: 6dp; height: 12dp; margin-right: 2dp; flex-shrink: 0; background-color: #FFCC001A; transition: background-color 0.06s linear-in-out; }
+#meter .cell:last-child { margin-right: 0dp; }
+#meter .cell.lit { background-color: #FFCC00; }
+#voice.s-talking #meter .cell.lit { background-color: #FFF7DA; }
+#voice #meter .cell.lit.peak { background-color: #FF2E3C; }
+#voice.s-talking #meter .cell.lit.tip { background-color: #FFFFFF; }
+#voice.s-muted #meter .cell { background-color: #FF3B3B1F; }
+#voice.s-offline #meter .cell { background-color: #FFFFFF0F; }
+
+/* players heard right now, only while someone is audible */
+#talkers { display: none; flex-direction: row; align-items: center; margin-left: 10dp; flex-shrink: 0; }
+#talkers.on { display: flex; }
+#talkers .rx { width: 7dp; height: 7dp; margin-right: 5dp; flex-shrink: 0; transform: rotate(45deg); background-color: #8FE04A; animation: 1.1s sine-in-out infinite rx-pulse; }
+@keyframes rx-pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+#talker-count { font-family: "Share Tech Mono"; font-weight: normal; font-size: 13dp; line-height: 16dp; color: #8FE04A; }
+
+/* ---- reach presets: ghost labels, the active one lit, a selector under it ------------------ */
+#selector { display: none; position: relative; flex-shrink: 0; }
+#voice.multi #selector { display: block; }
+#ranges { display: flex; flex-direction: row; align-items: center; }
+.rg
+{
+    position: relative; display: block; flex-shrink: 0; margin-left: 4dp; padding: 2dp 6dp 3dp 6dp;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 16dp; letter-spacing: 0.12em;
+    color: #FFF7DA42; background-color: transparent; white-space: nowrap;
+    transition: color background-color 0.2s linear-in-out;
+}
+.rg:first-child { margin-left: 0dp; }
+.rg.on { color: #FFCC00; background-color: #FFCC0024; }
+#voice.s-talking #ranges .rg.on { color: #FFF7DA; }
+.rg-m { opacity: 0.7; margin-left: 5dp; }
+.rg-sel
+{
+    position: absolute; left: 0; right: 0; bottom: -3dp; height: 3dp;
+    background-color: #FFCC00; opacity: 0; transform-origin: 0% 50%;
+    transition: opacity 0.2s linear-in-out;
+}
+.rg.on .rg-sel { opacity: 1; }
+
+/* a single preset: the reach is written out instead */
+#reach
+{
+    display: flex; flex-direction: row; align-items: center; flex-shrink: 0;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 16dp; letter-spacing: 0.12em;
+    color: #FFF7DACC; white-space: nowrap;
+}
+#voice.multi #reach { display: none; }
+#reach span { margin-right: 5dp; }
+#reach span:last-child { margin-right: 0dp; }
+#mode-label { color: #FFCC00; }
+#reach .sep { color: #FFF7DA4D; }
+#voice.changing #mode-label { animation: 0.32s cubic-out range-flash; }
+@keyframes range-flash { 0% { opacity: 0.2; transform: translateY(2dp); } 100% { opacity: 1; transform: translateY(0dp); } }
+
+/* the cycle key: an outlined keycap */
+#key
+{
+    display: block; box-sizing: border-box; min-width: 26dp; height: 18dp; padding: 0 5dp; margin-left: 10dp; flex-shrink: 0;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 16dp; letter-spacing: 0.06em;
+    text-transform: uppercase; text-align: center; white-space: nowrap;
+    color: #FFCC00E6; border-width: 1dp; border-color: #FFCC008C;
+}
+
+/* a faint band sweeping down the plate while transmitting */
+#sweep
+{
+    position: absolute; left: -10dp; right: -6dp; top: -6dp; height: 22dp; opacity: 0;
+    decorator: linear-gradient(180deg, #FFF7DA00 0%, #FFF7DA17 50%, #FFF7DA00 100%);
+}
+#voice.s-talking #sweep { animation: 2.4s linear-in-out infinite mic-sweep; }
+@keyframes mic-sweep
+{
+    0% { transform: translateY(0dp); opacity: 0; }
+    12% { transform: translateY(10.5dp); opacity: 1; }
+    80% { transform: translateY(70dp); opacity: 1; }
+    81% { transform: translateY(70dp); opacity: 0; }
+    100% { transform: translateY(70dp); opacity: 0; }
+}

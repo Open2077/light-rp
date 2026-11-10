@@ -78,6 +78,12 @@ end
 
 -- Send to the page; buffered until it announces itself.
 function Ui.send(name, payload)
+    -- the NativeUI HUD reads the same traffic as the page (client/native/host.lua)
+    -- (a state patch reaches it through Ui.sendState; one sent straight from a client module, here)
+    if LightRpNative then
+        if name ~= E.page.state then LightRpNative.page(name, payload)
+        elseif not Ui.stateRelay and type(payload) == "table" and payload.__stateParts == nil then LightRpNative.patchState(payload) end
+    end
     if Ui.page == nil then return false end
     if not Ui.ready then
         Ui.queued[#Ui.queued + 1] = { name, payload }
@@ -242,6 +248,7 @@ function Ui.create()
     if LightRpMedical then LightRpMedical.bind(page) end
     if LightRpDeathCover then LightRpDeathCover.bind(page) end
     syncVoiceHud() -- hidden until the authoritative character state is ready
+    if LightRpNative then LightRpNative.start() end -- the HUD documents (client/native)
     if LightRpActions then LightRpActions.bind(page) end
     if LightRpAnimations then LightRpAnimations.bind(page) end
     if LightRpFreecam then LightRpFreecam.bind(page) end
@@ -335,8 +342,15 @@ function Ui.create()
     page:on(E.page.dialogState, function(payload)
         if type(payload) == "table" and type(payload.kind) == "string" then
             Ui.dialogs[payload.kind] = payload.open == true
+            if LightRpNative then LightRpNative.dialog(payload.kind, payload.open == true) end
             if payload.kind == "shop" or payload.kind == "jobcenter" or payload.kind == "garage" or payload.kind == "dealership" or payload.kind == "fuel" or payload.kind == "tutorial" or payload.kind == "support" or payload.kind == "housing" then syncVoiceHud() end
         end
+    end)
+
+    -- A notice raised inside the page (an editor that closed, a shop that shut): the lane is
+    -- a NativeUI document, the page hands it over (ui/src/state/store.ts, pushNotice).
+    page:on("lightrp:ui:notice:push", function(payload)
+        if type(payload) == "table" and LightRpNativeNotices then LightRpNativeNotices.push(payload) end
     end)
 
     return true
@@ -405,7 +419,7 @@ local function supersede(patch)
         if stateLatest[key] then statePartSeq = statePartSeq + 1; stateLatest[key] = statePartSeq end
     end
 end
-function Ui.sendState(patch)
+local function relayState(patch)
     if type(patch) ~= "table" or countValues(patch, 0, STATE_PAGE_VALUES) <= STATE_PAGE_VALUES then
         if type(patch) == "table" then supersede(patch) end
         return Ui.send(E.page.state, patch)
@@ -420,6 +434,14 @@ function Ui.sendState(patch)
         else sendStateText(key, patch[key]) end
     end
     return true
+end
+function Ui.sendState(patch)
+    if LightRpNative then LightRpNative.patchState(patch) end
+    Ui.stateRelay = true -- the page sends below are this patch again, in parts
+    local ok, result = pcall(relayState, patch)
+    Ui.stateRelay = false
+    if not ok then error(result, 0) end
+    return result
 end
 
 -- Server -> client relays

@@ -1,6 +1,6 @@
 -- op77_playermarks: the client script against a stubbed host (players around,
--- anchors, talkers, op77_map3d's hidden dots, the page). Run from the resource
--- folder with any Lua 5.4.
+-- anchors, talkers, op77_map3d's hidden dots, the document's feed). The document itself
+-- is tests/view_test.lua. Run: pwsh -NoProfile -File tests/run-lua.ps1 -Test marks_test.lua
 local sent, anchors, nextAnchor = {}, {}, 100
 local nearby, entities, talkers, hiddenOnMap = {}, {}, {}, {}
 local handlers = {}
@@ -15,7 +15,8 @@ _G.Open77 = {
     },
     anchors = {
         create = function(def)
-            assert(def.page and def.entity and def.offset.z == 1.92 and def.maxDistance == 35.0)
+            assert(def.entity and def.offset.z == 1.92 and def.maxDistance == 35.0)
+            assert(def.page == nil and def.render == "dot" and def.visible == false, "projected only: no page, nothing drawn")
             nextAnchor = nextAnchor + 1
             anchors[nextAnchor] = { entity = def.entity, tag = def.tag }
             return nextAnchor
@@ -36,6 +37,7 @@ _G.Wait = function() end
 _G.GetCurrentResourceName = function() return "op77_playermarks" end
 
 dofile("shared/config.lua")
+dofile("client/view.lua")
 dofile("client/main.lua")
 local PM = PlayerMarks
 PM.attach({ send = function(_, name, payload) sent[#sent + 1] = { name = name, payload = payload } end })

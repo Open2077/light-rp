@@ -1,0 +1,92 @@
+<rml>
+<head>
+    <title>Light RP parkour run</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="parkour.rcss"/>
+</head>
+<body data-model="run">
+<!-- ui/src/features/parkour/ParkourHud.tsx without its result / DNF cards (they take the cursor
+     and stay in the page): the clock top centre, the references, the checkpoint pips, the
+     bearing, the delta flash, the splits on the right, 3-2-1-GO, the keys bottom centre -->
+<div id="pk" data-class-is-on="on" data-class-is-quiet="quiet" data-class-is-finished="finished">
+
+    <div class="pk-head-pos">
+        <div class="pk-head">
+            <div class="pk-plate">
+                <div class="plate-bg"></div><div class="plate-scan"></div><div class="plate-rail"></div>
+                <div class="pk-plate-in">
+                    <div class="pk-id"><span class="pk-name">{{name}}</span><span class="pk-sub">{{sub}}</span></div>
+                    <div class="pk-clock"><span class="pk-clock-digits">{{clock}}</span></div>
+                    <div class="pk-cp"><span class="pk-cp-label">CHECKPOINT</span><div class="pk-cp-value"><span class="pk-cp-n">{{cpPassed}}</span><span class="pk-cp-of">/{{cpTotal}}</span></div></div>
+                </div>
+            </div>
+            <div class="pk-refs">
+                <div class="pk-ref" data-if="hasBest"><div class="cut-bg"></div><span class="pk-ref-k">PB</span><span class="pk-ref-v">{{bestText}}</span></div>
+                <div class="pk-ref is-record" data-if="hasRecord"><div class="cut-bg"></div><span class="pk-ref-k">REC</span><span class="pk-ref-v">{{recordText}}</span></div>
+                <div class="pk-ref" data-if="noRef"><div class="cut-bg"></div><span class="pk-ref-k">FIRST TIME</span><span class="pk-ref-v">NO TIME TO BEAT</span></div>
+                <div class="pk-ref pk-delta" data-if="deltaOn" data-class-is-good="deltaGood" data-class-is-bad="!deltaGood"><div class="cut-bg"></div><span class="pk-ref-k">{{deltaLabel}}</span><span class="pk-ref-v">{{deltaText}}</span></div>
+            </div>
+            <div class="pk-pips" data-if="pipsOn">
+                <div class="pk-pip" data-for="p : pips" data-class-is-off="p.off" data-class-is-done="p.done" data-class-is-good="p.good" data-class-is-bad="p.bad" data-class-is-next="p.next"></div>
+                <div class="pk-pip is-finish" data-class-is-done="finishDone"></div>
+            </div>
+            <div class="pk-bearing" data-if="bearingOn" data-class-is-finish="bearingFinish">
+                <div class="cut-bg"></div><div class="pk-bearing-rail"></div>
+                <div class="pk-bearing-arrow" data-style-transform="'rotate(' + bearingAngle + 'deg)'"><path view-box="0 0 24 24" d="M12 2 20 20 12 15.5 4 20Z"/></div>
+                <span class="pk-bearing-label">{{bearingLabel}}</span>
+                <span class="pk-bearing-dist">{{bearingDist}}</span>
+                <div class="pk-rise" data-if="riseOn" data-class-is-up="riseUp">
+                    <path class="pk-rise-up" view-box="0 0 10 10" d="M5 1 9.5 9H0.5Z"/>
+                    <path class="pk-rise-down" view-box="0 0 10 10" d="M5 9 9.5 1H0.5Z"/>
+                    <span class="pk-rise-text">{{riseText}}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- the delta flash under the clock -->
+    <div class="pk-flash-pos" data-class-is-in="flashOn">
+        <div class="pk-flash" data-class-is-a="flashA" data-class-is-b="!flashA" data-class-is-good="flashGood" data-class-is-bad="flashBad" data-class-is-info="flashInfo">
+            <span class="pk-flash-text">{{flashText}}</span>
+            <path class="pk-flash-tail" view-box="0 0 8 34" preserve-aspect="none" d="M0 0H8L0 34Z"/>
+        </div>
+    </div>
+
+    <!-- splits, right -->
+    <div class="pk-splits" data-class-is-in="splitsOn">
+        <div class="plate-bg plate-sm"></div><div class="plate-scan"></div><div class="plate-rail plate-sm"></div>
+        <div class="pk-splits-in">
+            <span class="pk-splits-title">{{splitsTitle}}</span>
+            <div class="pk-split" data-for="s : splits" data-class-is-off="s.off">
+                <span class="pk-split-cp">CP {{s.index}}</span><span class="pk-split-time">{{s.time}}</span>
+                <span class="pk-split-delta" data-if="s.hasDelta" data-class-is-good="s.good" data-class-is-bad="!s.good">{{s.delta}}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3-2-1, then GO held a moment after the start -->
+    <div class="pk-count-pos" data-class-is-in="countOn">
+        <div class="pk-count">
+            <span class="pk-count-digit" data-class-is-a="countA" data-class-is-b="!countA" data-class-is-go="countGo">{{countText}}</span>
+            <span class="pk-count-small">GET READY</span>
+        </div>
+    </div>
+    <div class="pk-count-pos" data-class-is-in="goOn">
+        <div class="pk-count pk-go">
+            <span class="pk-count-digit is-go">GO</span>
+            <span class="pk-count-small">RUN</span>
+        </div>
+    </div>
+    <div class="pk-banner-pos" data-class-is-in="bannerOn"><span class="pk-banner">ON YOUR MARK</span></div>
+
+    <!-- keys, bottom centre -->
+    <div class="pk-keys-pos" data-class-is-in="keysOn">
+        <div class="pk-key"><div class="key-bg"></div><div class="plate-scan"></div><span class="kc">HOME</span><span class="pk-key-text">RESTART</span></div>
+        <div class="pk-key"><div class="key-bg"></div><div class="plate-scan"></div><span class="kc">END</span><span class="pk-key-text">LAST CHECKPOINT</span></div>
+        <div class="pk-key"><div class="key-bg"></div><div class="plate-scan"></div><span class="kc">DEL</span><span class="pk-key-text">LEAVE</span></div>
+    </div>
+
+</div>
+</body>
+</rml>

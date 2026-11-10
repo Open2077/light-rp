@@ -1,5 +1,5 @@
 # Run isolated Lua unit tests with the Lua 5.4 DLL shipped alongside the server.
-param([string] $LuaDll = (Join-Path $PSScriptRoot '../../../../lua54.dll'), [string] $Test = 'actions_test.lua')
+param([string] $LuaDll = (Join-Path $PSScriptRoot '../../../../lua54.dll'), [string] $Test = 'bubble_test.lua')
 $ErrorActionPreference = 'Stop'
 $resolvedDll = (Resolve-Path -LiteralPath $LuaDll).Path
 Add-Type -TypeDefinition @'

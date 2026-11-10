@@ -1,0 +1,320 @@
+/* Light RP chat on NativeUI, in the Open//77 RP design system's language.
+   - The log has a FIXED height (248 dp) in both states. Closed, its list hangs from the
+     bottom edge, so the newest line is always fully visible; older lines dissolve into the
+     top edge; the whole chat hides after a while without activity (#chat.idle).
+   - Open (T): the log becomes a panel (scrollable; client/ui.lua keeps the newest line in
+     view), the composer opens under it, then the command index or the key hints.
+   Tokens as literal values (RCSS has no custom properties):
+     accent #FFCC00   black #050506   ink-800 #111114   ink-700 #17181C
+     text-hi #F2F3F5  text-body #C3C7D1  text-dim #8A8F9C  text-disabled #565A66
+     red #FF2E3C  green #8FE04A  yellow-100 #FFF6C2
+     line-hairline #FFCC0024  line-soft #FFCC0047  chat plate #05060894 (5,6,8 .58)
+     hud-safe-x 32  hud-safe-y 26   motion: fast .12s  base .18s  (ease-out = cubic-out,
+     ease-mech = cubic-in-out)
+   Fonts: core "Chakra Petch" (built in, one face), mono "Share Tech Mono" (ui/fonts).
+   Cut corners (the page's clip-path): plates made of two boxes and a triangle.
+   Layers: a positioned element draws over the in-flow content of its parent, so content
+   that sits on a plate is positioned too (position: relative) and follows it in the RML.
+   1 dp = 1 px of the 1920 x 1080 page. */
+
+body { pointer-events: none; font-family: "Chakra Petch"; font-weight: bold; font-size: 15dp; color: #C3C7D1; }
+#root { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; }
+
+#chat
+{
+    position: absolute; left: 32dp; top: 26dp; width: 560dp;
+    display: flex; flex-direction: column;
+    opacity: 1; transform: translateX(0dp);
+    transition: opacity transform 0.6s cubic-out;
+}
+#chat.disabled { display: none; }
+/* auto-hide: closed and nothing new for a while, or nothing at all */
+#chat.idle { opacity: 0; transform: translateX(-10dp); transition: opacity transform 0.9s cubic-out; }
+#root.open #chat.idle { opacity: 1; transform: translateX(0dp); }
+
+/* ---- notch plates: a box cut at its top-right corner (.flip: at its bottom-right) --------- */
+.np { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.np.flip { transform: scaleY(-1); }
+.np-top { position: absolute; left: 0; top: 0; right: 14dp; height: 14dp; box-sizing: border-box; }
+.np-body { position: absolute; left: 0; top: 14dp; right: 0; bottom: 0; box-sizing: border-box; }
+.np-cut, .np-edge { position: absolute; right: 0; top: 0; width: 14dp; height: 14dp; }
+.np-cut { stroke: transparent; }
+.np-edge { fill: transparent; stroke-width: 1dp; }
+
+/* ---- log: fixed height, newest at the bottom ---------------------------------------------- */
+#frame { position: relative; height: 248dp; }
+#panel { opacity: 0; transition: opacity 0.18s cubic-in-out; }
+#root.open #panel { opacity: 1; }
+#panel .np-top { background-color: #08080BD1; border-left-width: 1dp; border-top-width: 1dp; border-color: #FFCC0024; }
+#panel .np-body
+{
+    decorator: repeating-linear-gradient(180deg, #FFFFFF09 0dp, #FFFFFF09 1dp, #FFFFFF00 1dp, #FFFFFF00 3dp), linear-gradient(180deg, #08080BD0 0%, #060608BD 100%);
+    border-left-width: 1dp; border-right-width: 1dp; border-bottom-width: 1dp; border-color: #FFCC0024;
+    box-shadow: #000000A6 0dp 2dp 14dp 0dp;
+}
+#panel .np-cut { fill: #08080BD1; }
+#panel .np-edge { stroke: #FFCC0024; }
+/* accent tick on the panel's left edge */
+#tick { position: absolute; left: 0; top: 0; bottom: 0; width: 2dp; decorator: linear-gradient(180deg, #FFCC00FF 0%, #FFCC0000 70%, #FFCC0000 100%); opacity: 0; transition: opacity 0.18s cubic-in-out; }
+#root.open #tick { opacity: 1; }
+
+/* older lines dissolve into the top edge instead of being cut (56 dp; 18 dp open) */
+#log
+{
+    position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden;
+    mask-image: linear-gradient(180deg, #FFFFFF00 0%, #FFFFFFFF 22.6%, #FFFFFFFF 100%);
+}
+#root.open #log
+{
+    overflow-x: hidden; overflow-y: auto; padding-right: 2dp; pointer-events: auto;
+    mask-image: linear-gradient(180deg, #FFFFFF00 0%, #FFFFFFFF 7.3%, #FFFFFFFF 100%);
+}
+#log scrollbarvertical { width: 4dp; }
+#log scrollbarvertical slidertrack { background-color: transparent; }
+#log scrollbarvertical sliderbar { background-color: #FFCC0080; }
+#log scrollbarvertical sliderarrowdec, #log scrollbarvertical sliderarrowinc { width: 0dp; height: 0dp; }
+/* closed: the lines hang from the bottom edge */
+#list { position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; padding: 6dp 0dp 4dp 0dp; }
+/* open: the list fills the log at least, its lines stacked against the bottom edge */
+#root.open #list { position: relative; left: auto; right: auto; bottom: auto; box-sizing: border-box; min-height: 248dp; justify-content: flex-end; padding: 10dp 6dp 8dp 8dp; }
+
+#empty
+{
+    display: none; position: absolute; left: 14dp; bottom: 12dp;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 13dp; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #565A66;
+}
+#root.open.empty #empty { display: block; }
+
+/* lines arrived while the reader paged up */
+#latest { display: none; position: absolute; right: 12dp; bottom: 10dp; flex-direction: row; filter: drop-shadow(#FFCC0059 0dp 0dp 18dp); }
+#root.open #latest.on { display: flex; animation: 0.28s cubic-in-out chat-pop; }
+.lt-t
+{
+    display: flex; flex-direction: row; align-items: center; box-sizing: border-box; height: 21dp; padding: 0dp 4dp 0dp 9dp;
+    background-color: #FFCC00; color: #050506;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 13dp; letter-spacing: 0.14em;
+}
+.lt-new { margin-left: 5dp; margin-right: 5dp; }
+.lt-arrow { width: 10dp; height: 10dp; fill: transparent; stroke: #050506; stroke-width: 1.5dp; }
+.lt-s { width: 8dp; height: 21dp; fill: #FFCC00; stroke: transparent; }
+
+/* ---- one line ----------------------------------------------------------------------------- */
+.msg { position: relative; display: flex; flex-direction: column; align-items: flex-start; flex-shrink: 0; margin-top: 3dp; }
+.msg:first-child { margin-top: 0dp; }
+#root.open .msg { margin-top: 2dp; }
+#root.open .msg:first-child { margin-top: 0dp; }
+.body
+{
+    position: relative; display: flex; flex-direction: row; flex-wrap: nowrap; align-items: baseline; column-gap: 8dp;
+    box-sizing: border-box; max-width: 100%; padding: 3dp 12dp 4dp 11dp;
+    font-size: 15dp; line-height: 1.38; color: #F2F3F5;
+    font-effect: shadow(0dp 1dp #000000D9);
+}
+#root.open .body { width: 100%; font-effect: none; }
+/* content sits on the plate (see "Layers" above) */
+.body > span, .ann-head, .presence-dot, .head { position: relative; }
+/* the words follow the name; when they do not fit (client/ui.lua decides: RmlUi's flex-wrap
+   miscounts a shrink-to-fit plate's height), they go under it as on the page */
+.body.stack { flex-direction: column; align-items: stretch; width: 100%; }
+.head { display: flex; flex-direction: row; align-items: baseline; column-gap: 8dp; }
+.body.stack .text { flex: 0 0 auto; }
+
+/* the plate: a light dark strip cut at its bottom-right corner (6 dp) */
+.pl { position: absolute; background-color: #05060894; transition: background-color 0.18s cubic-in-out; }
+.pl-a { left: 0; top: 0; bottom: 0; right: 6dp; }
+.pl-b { right: 0; top: 0; width: 6dp; bottom: 6dp; }
+.pl-c { position: absolute; right: 0; bottom: 0; width: 6dp; height: 6dp; fill: #05060894; stroke: transparent; }
+#root.open .pl, #root.open .pl-c { display: none; }
+/* the speaker's colour on the left edge */
+.edge { position: absolute; left: 0; top: 3dp; bottom: 3dp; width: 2dp; opacity: 0.55; }
+
+.time { display: none; align-self: center; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; letter-spacing: 0em; color: #565A66; }
+#root.open .time { display: block; }
+.author { font-size: 13dp; line-height: 1.38; letter-spacing: 0.02em; white-space: nowrap; flex-shrink: 0; }
+.author .colon { color: #8A8F9C; margin-left: 1dp; }
+.author .role { margin-left: 5dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8F9C; }
+.pid { align-self: center; flex-shrink: 0; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; color: #565A66; }
+.text { display: block; flex: 0 1 auto; min-width: 0dp; color: #F2F3F5; word-break: break-word; }
+.seg.bold { font-weight: bold; }
+
+/* tags: channel, kind, ping (--clip-tag: a slanted right edge) */
+.tg { display: flex; flex-direction: row; align-self: center; flex-shrink: 0; }
+.tg-t
+{
+    display: block; padding: 2dp 0dp 2dp 5dp; background-color: #FFFFFF0F; white-space: nowrap;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 10dp; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.tg-s { width: 8dp; height: 14dp; fill: #FFFFFF0F; stroke: transparent; flex-shrink: 0; }
+.tg-ping .tg-t { padding-left: 6dp; letter-spacing: 0em; color: #050506; background-color: #FFCC00; }
+.tg-ping .tg-s { fill: #FFCC00; }
+
+/* kinds */
+.k-system .text { color: #C3C7D1; }
+.k-warning .text { color: #FFF6C2; }
+.k-error .text { color: #FF8A92; }
+.k-error .pl { background-color: #28060A9E; }
+.k-error .pl-c { fill: #28060A9E; }
+/* the built-in Chakra Petch has no italic face: the page's italics are a slant */
+.action { display: block; flex: 0 1 auto; min-width: 0dp; transform: skewX(-9deg); transform-origin: 0% 100%; }
+.action-name { font-weight: bold; }
+.k-join .pl, .k-leave .pl { background-color: #0506086B; }
+.k-join .pl-c, .k-leave .pl-c { fill: #0506086B; }
+.presence { font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 1.4; letter-spacing: 0.04em; color: #8A8F9C; }
+.presence-name { color: #C3C7D1; }
+.presence-dot { align-self: center; flex-shrink: 0; width: 6dp; height: 6dp; border-radius: 3dp; background-color: #8FE04A; box-shadow: #8FE04A 0dp 0dp 6dp 0dp; }
+.k-leave .presence-dot { background-color: #FF2E3C; box-shadow: #FF2E3C 0dp 0dp 6dp 0dp; }
+
+/* a line that names you: it keeps its plate while the chat is open */
+.msg.mention .pl-a { background-color: transparent; decorator: linear-gradient(90deg, #FFCC0033 0%, #FFCC000F 70%, #05060894 100%); }
+#root.open .msg.mention .pl, #root.open .msg.mention .pl-c { display: block; }
+.msg.mention .edge { width: 3dp; opacity: 1; }
+.ring { position: absolute; left: 0; top: 0; right: 0; bottom: 0; box-sizing: border-box; border-width: 1dp; border-color: #FFCC00E6; opacity: 0; }
+
+/* the server's announcement: a small card */
+.k-announce .body { flex-direction: column; flex-wrap: nowrap; align-items: stretch; width: 100%; padding: 0dp; }
+.k-announce .pl { background-color: #08080AC7; }
+.k-announce .pl-c { fill: #08080AC7; }
+.k-announce .edge { width: 3dp; top: 0dp; bottom: 0dp; opacity: 1; }
+.ann-head
+{
+    display: flex; flex-direction: row; align-items: center; padding: 5dp 12dp 4dp 12dp;
+    decorator: linear-gradient(90deg, #FFCC0038 0%, #FFCC0000 100%); color: #FFCC00;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; letter-spacing: 0.14em; text-transform: uppercase;
+}
+.ann-dot { width: 6dp; height: 6dp; margin-right: 8dp; flex-shrink: 0; background-color: #FFCC00; }
+.msg.new .ann-dot { animation: 1s linear-in-out 4 chat-blink; }
+.ann-head .time { display: block; margin-left: auto; padding-left: 8dp; color: #8A8F9C; }
+.k-announce .text { padding: 5dp 12dp 8dp 12dp; }
+
+/* ---- arrival ------------------------------------------------------------------------------ */
+/* The row's height opens from 0 (h1, h2, h3: one, two, three lines and more, estimated by
+   client/ui.lua) so the lines above slide up; the body comes in from the left, its plate
+   flashes in the speaker's colour and collapses to the edge, a sheen runs across it once. */
+.msg.new { overflow: hidden; }
+.msg.new.h1 { animation: 0.2s cubic-out row-open-1; }
+.msg.new.h2 { animation: 0.2s cubic-out row-open-2; }
+.msg.new.h3 { animation: 0.2s cubic-out row-open-3; }
+@keyframes row-open-1 { from { max-height: 0dp; opacity: 0; } to { max-height: 28dp; opacity: 1; } }
+@keyframes row-open-2 { from { max-height: 0dp; opacity: 0; } to { max-height: 49dp; opacity: 1; } }
+@keyframes row-open-3 { from { max-height: 0dp; opacity: 0; } to { max-height: 92dp; opacity: 1; } }
+.msg.new .body { animation: 0.34s cubic-in-out chat-line-in; }
+@keyframes chat-line-in
+{
+    0% { opacity: 0; transform: translateX(-14dp); }
+    60% { opacity: 1; transform: translateX(-2dp); }
+    100% { opacity: 1; transform: translateX(0dp); }
+}
+.msg.new .edge { animation: 0.9s cubic-out chat-edge-flash; }
+.msg.new.mention .edge, .msg.new.k-announce .edge { animation: none; }
+@keyframes chat-edge-flash { 0% { opacity: 0.28; } 35% { opacity: 0.9; } 100% { opacity: 0.55; } }
+.sheen { position: absolute; left: 0; top: 0; right: 0; bottom: 0; opacity: 0; transform: translateX(-100%); }
+.msg.new .sheen { animation: 0.75s 0.08s cubic-out chat-sheen; }
+@keyframes chat-sheen { from { opacity: 1; transform: translateX(-100%); } to { opacity: 1; transform: translateX(100%); } }
+.msg.new .ring { animation: 1.4s 0.3s cubic-out chat-mention; }
+@keyframes chat-mention { 0% { opacity: 1; } 40% { opacity: 1; } 100% { opacity: 0; } }
+/* an announcement tears in (steps) */
+.msg.new.k-announce .body { animation: 0.5s linear-in-out chat-card-in; }
+@keyframes chat-card-in
+{
+    0% { opacity: 0; transform: translateX(0dp) scaleY(0.1); }
+    19% { opacity: 0; transform: translateX(0dp) scaleY(0.1); }
+    20% { opacity: 1; transform: translateX(8dp) scaleY(0.6); }
+    39% { opacity: 1; transform: translateX(8dp) scaleY(0.6); }
+    40% { opacity: 1; transform: translateX(-5dp) scaleY(1); }
+    59% { opacity: 1; transform: translateX(-5dp) scaleY(1); }
+    60% { opacity: 1; transform: translateX(0dp) scaleY(1); }
+    100% { opacity: 1; transform: translateX(0dp) scaleY(1); }
+}
+/* an error shakes once it is in */
+.msg.new.k-error { animation: 0.2s cubic-out row-open-1, 0.32s 0.3s linear-in-out chat-shake; }
+.msg.new.k-error.h2 { animation: 0.2s cubic-out row-open-2, 0.32s 0.3s linear-in-out chat-shake; }
+.msg.new.k-error.h3 { animation: 0.2s cubic-out row-open-3, 0.32s 0.3s linear-in-out chat-shake; }
+@keyframes chat-shake { 0% { left: 0dp; } 25% { left: -3dp; } 50% { left: 3dp; } 75% { left: -2dp; } 100% { left: 0dp; } }
+@keyframes chat-pop { from { opacity: 0; transform: translateY(6dp) scale(0.9); } to { opacity: 1; transform: translateY(0dp) scale(1); } }
+@keyframes chat-blink { 0% { opacity: 1; } 49% { opacity: 1; } 50% { opacity: 0.15; } 100% { opacity: 0.15; } }
+@keyframes chat-open { from { opacity: 0; transform: translateY(-6dp); } to { opacity: 1; transform: translateY(0dp); } }
+
+/* ---- composer ------------------------------------------------------------------------------ */
+#composer
+{
+    display: none; position: relative; flex-direction: row; align-items: center;
+    box-sizing: border-box; height: 40dp; margin-top: 4dp; padding: 0dp 6dp 0dp 14dp; flex-shrink: 0;
+}
+#root.open #composer { display: flex; animation: 0.2s cubic-in-out chat-open; }
+/* the composer only shows while it holds the keyboard: the page's focused look */
+#composer .np-top { background-color: #0A0A0DE6; border-left-width: 1dp; border-top-width: 1dp; border-color: #FFCC00B3; }
+#composer .np-body { background-color: #0A0A0DE6; border-left-width: 1dp; border-right-width: 1dp; border-bottom-width: 2dp; border-color: #FFCC00B3; border-bottom-color: #FFCC00; }
+#composer .np-cut { fill: #0A0A0DE6; }
+#composer .np-edge { stroke: #FFCC00B3; }
+#root.transmitting #composer .np-top, #root.transmitting #composer .np-body { animation: 0.36s cubic-out chat-send; }
+#root.transmitting #composer .np-cut { animation: 0.36s cubic-out chat-send-cut; }
+@keyframes chat-send { 0% { background-color: #FFCC0047; } 100% { background-color: #0A0A0DE6; } }
+@keyframes chat-send-cut { 0% { fill: #FFCC0047; } 100% { fill: #0A0A0DE6; } }
+#composer > span, #input, #send { position: relative; }
+.prompt { margin-right: 10dp; flex-shrink: 0; font-size: 20dp; line-height: 20dp; color: #FFCC00; }
+#input
+{
+    flex: 1 1 auto; min-width: 0dp; height: 22dp; margin-right: 10dp; padding: 0dp;
+    font-family: "Chakra Petch"; font-weight: bold; font-size: 15dp; line-height: 22dp; color: #F2F3F5;
+    background-color: transparent; border-width: 0dp; decorator: none; box-shadow: none;
+    caret-color: #FFCC00; pointer-events: auto;
+}
+#input:focus, #input:hover { border-width: 0dp; background-color: transparent; decorator: none; box-shadow: none; }
+#chars { margin-right: 10dp; flex-shrink: 0; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; color: #565A66; opacity: 0; transition: opacity 0.12s linear-in-out; }
+#chars.long { opacity: 1; }
+#chars.near { color: #FF2E3C; }
+#send
+{
+    display: block; flex-shrink: 0; padding: 4dp 9dp 4dp 9dp;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 10dp; letter-spacing: 0.06em;
+    color: #050506; background-color: transparent; decorator: fx(chamfer-solid 4 0 0 0 #FFCC00);
+    transition: opacity 0.12s linear-in-out;
+}
+#send.disabled { opacity: 0.3; }
+
+/* ---- under the composer: command index or keys --------------------------------------------- */
+#suggestions { display: none; position: relative; margin-top: 4dp; flex-shrink: 0; }
+#root.open.has-suggestions #suggestions { display: block; animation: 0.16s cubic-in-out chat-open; }
+#suggestions .np-top, #suggestions .np-cut, #suggestions .np-edge { height: 10dp; }
+#suggestions .np-top { right: 10dp; }
+#suggestions .np-body { top: 10dp; }
+#suggestions .np-cut, #suggestions .np-edge { width: 10dp; }
+#suggestions .np-top { background-color: #0A0A0DF0; border-left-width: 1dp; border-top-width: 1dp; border-color: #FFCC0024; }
+#suggestions .np-body { background-color: #0A0A0DF0; border-left-width: 1dp; border-right-width: 1dp; border-bottom-width: 1dp; border-color: #FFCC0024; }
+#suggestions .np-cut { fill: #0A0A0DF0; }
+#suggestions .np-edge { stroke: #FFCC0024; }
+#suggestion-list { position: relative; display: flex; flex-direction: column; padding: 4dp 0dp 4dp 0dp; }
+.sg
+{
+    display: flex; flex-direction: row; align-items: center; padding: 5dp 14dp 5dp 14dp;
+    border-left-width: 2dp; border-color: transparent; background-color: transparent; color: #C3C7D1;
+    transition: background-color 0.06s cubic-out;
+}
+.sg.sel { background-color: #FFCC0024; border-color: #FFCC00; }
+.sg-idx { width: 20dp; margin-right: 10dp; flex-shrink: 0; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 13dp; color: #565A66; }
+.sg-syntax { display: flex; flex-direction: row; flex-wrap: nowrap; flex: 0 1 auto; margin-right: 10dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 13dp; line-height: 16dp; }
+.sg-cmd { color: #F2F3F5; white-space: nowrap; }
+.sg.sel .sg-cmd { color: #FFCC00; }
+.sg-param { margin-left: 6dp; color: #8A8F9C; white-space: nowrap; }
+.sg-help { display: block; flex: 1 1 0dp; min-width: 0dp; font-size: 12dp; line-height: 1.3; color: #8A8F9C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sg.sel .sg-help { color: #C3C7D1; }
+
+#foot
+{
+    display: none; flex-direction: row; align-items: center; margin-top: 4dp; padding: 2dp 4dp 2dp 4dp; flex-shrink: 0;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 10dp; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #565A66;
+}
+#root.open #foot { display: flex; animation: 0.2s 0.05s cubic-in-out chat-open; }
+#root.open.has-suggestions #foot { display: none; }
+.fg { display: flex; flex-direction: row; align-items: center; margin-right: 16dp; }
+.fg span { margin-left: 2dp; }
+/* keycap (design system core): cut top-right and bottom-left */
+.key
+{
+    display: block; box-sizing: border-box; min-width: 16dp; padding: 2dp 5dp 2dp 5dp; margin-right: 4dp; text-align: center;
+    font-size: 10dp; line-height: 10dp; letter-spacing: 0.06em; color: #C3C7D1;
+    background-color: transparent; decorator: fx(chamfer 4 1 0 0 #FFCC0047), fx(chamfer-solid 4 0 0 0 #17181C);
+}
+.key .arr { display: block; width: 8dp; height: 10dp; fill: transparent; stroke: #C3C7D1; stroke-width: 1.2dp; }

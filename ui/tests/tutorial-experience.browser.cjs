@@ -1,5 +1,7 @@
-// First day presentation: demos beside the dialogue and in the card, typed lines,
-// the flight to the next stop, the step-complete banner. SHOT=<prefix> saves screenshots.
+// First day presentation in the page: the demos beside the dialogue and the typed lines.
+// The step-complete banner, the flight to the next stop and the objective card with its
+// examples are NativeUI (client/native/tutorial.lua): the page stays empty for them.
+// SHOT=<prefix> saves screenshots.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
@@ -56,36 +58,18 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     }
     await page.waitForFunction(() => window.testBridge.sent.some(x => x.payload?.operation === 'next'));
 
-    // The step is done: the banner, then the flight to the next stop.
+    // The step is done: the banner, the flight to the next stop and the card are NativeUI, not the page.
     await state('garage', { title: 'Wheels', index: 6, place: 'Garage · Rent-a-Ride', direction: 'West of the square', objective: { position: { x: 0, y: 0, z: 0 }, label: 'Talk to the mechanic', radius: 2.7, kind: 'talk' },
       todo: [{ text: 'Follow the arrow to the garage' }, { key: 'interact', text: 'Talk to Rook' }], map: map.map(s => ({ ...s, state: s.step === 'garage' ? 'now' : s.step === 'bank' ? 'done' : s.state })) });
-    await page.locator('.first-day__done').filter({ hasText: 'Your money' }).waitFor();
-    await page.waitForTimeout(700); await shot('done');
-    assert.match(await page.locator('.first-day__objective footer').innerText(), /G\s*Show me the way/, 'the way key is on the card');
     await fire('tutorial', { phase: 'reveal', reveal: { name: 'Garage · Rent-a-Ride', direction: 'West of the square', distance: 46, index: 6, total: 10, durationMs: 5600 } });
-    await page.locator('.first-day__reveal').waitFor();
-    assert.equal(await page.locator('.first-day__objective').count(), 0, 'the card steps aside during the flight');
-    assert.match(await page.locator('.first-day__reveal').innerText(), /NEXT STOP · 06 \/ 10[\s\S]*Garage · Rent-a-Ride[\s\S]*46 m[\s\S]*SPACE/);
-    await page.waitForTimeout(1600); await shot('reveal');
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator('.first-day').count(), 0, 'no banner, flight or card in the page');
     await fire('tutorial', { phase: 'idle', reveal: false });
-    await page.locator('.first-day__objective').waitFor();
-    assert.equal(await page.locator('.first-day__reveal').count(), 0);
-    await page.locator('.first-day__way .first-day__waykey').waitFor();
-
-    // Examples in the objective card.
-    for (const demo of ['menu', 'inventory', 'shop', 'drink', 'collect', 'process', 'sell']) {
+    for (const demo of ['menu', 'inventory', 'shop', 'drink', 'collect', 'process', 'sell', 'context']) {
       await state(demo === 'menu' ? 'identity' : demo, { title: demo, demo, objective: undefined, todo: [{ key: 'menu', text: 'Open the player menu' }, { text: 'Select Identity' }] });
-      await page.locator('.first-day__demo').waitFor();
-      await page.waitForTimeout(1700);
-      for (const [width, height] of [[1920, 1080], [1366, 768], [1024, 768]]) {
-        await page.setViewportSize({ width, height });
-        const card = await page.locator('.first-day__objective').boundingBox();
-        assert(card.y >= 0 && card.y + card.height <= height && card.x + card.width <= width, `${demo}: the card fits at ${width}x${height}`);
-      }
-      await page.setViewportSize({ width: 1920, height: 1080 });
-      if (['menu', 'shop', 'drink', 'collect'].includes(demo)) await shot(`card-${demo}`);
+      assert.equal(await page.locator('.first-day').count(), 0, `${demo}: the card's example is not in the page`);
     }
     assert.deepEqual(errors, [], errors.join(' | '));
-    console.log('PASS: thirteen dialogue examples above the dialogue, typed lines (space completes, then reads on), step banner, flight card (card hidden, next stop, distance, skip key), way key, seven card examples at three viewports');
+    console.log('PASS: thirteen dialogue examples above the dialogue, typed lines (space completes, then reads on); step banner, flight and card examples left to NativeUI (page empty)');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

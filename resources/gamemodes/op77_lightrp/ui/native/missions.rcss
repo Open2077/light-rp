@@ -1,0 +1,136 @@
+/* The mission heads-up panels: the chips (mission.css .mission-queue), the world boss
+   (worldboss.css), an authored mission's tracker, warning and respawn chips (objective.css).
+   The kit choice wears the raid's ready check (raid.rcss, linked before this sheet).
+
+   The page cut these plates with clip-path (which also clipped their outer glows away):
+   here a plate is its rectangles, the cut corner's triangle and the border's four lines,
+   drawn under the content. Line heights: the page's `font:` shorthands reset to `normal`
+   (Share Tech Mono 1.13, Zen Dots 1.2, Chakra Petch 1.3). */
+
+.ob path.ic, .oob path.ic { display: block; flex: 0 0 auto; fill: transparent; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---- the chips (.mission-queue): top 22, centred, the bottom-right corner cut 8 -------- */
+.mq-line { top: 22dp; }
+.mq { position: relative; flex: 0 0 auto; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 1.13; letter-spacing: 0.12em; color: #F2F0EA; }
+.mq-plate { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.mq-a { position: absolute; left: 0; top: 0; right: 8dp; bottom: 0; background-color: #0D0D10E6; }
+.mq-b { position: absolute; right: 0; top: 0; width: 8dp; bottom: 8dp; background-color: #0D0D10E6; }
+.mq-c { position: absolute; right: 0; bottom: 0; width: 8dp; height: 8dp; fill: #0D0D10E6; }
+.mq-lt { position: absolute; left: 0; top: 0; right: 0; height: 1dp; background-color: #FFCC0059; }
+.mq-ll { position: absolute; left: 0; top: 1dp; bottom: 1dp; width: 1dp; background-color: #FFCC0059; }
+.mq-lb { position: absolute; left: 0; bottom: 0; right: 8dp; height: 1dp; background-color: #FFCC0059; }
+.mq-lr { position: absolute; right: 0; top: 1dp; bottom: 8dp; width: 1dp; background-color: #FFCC0059; }
+.mq.is-countdown .mq-lt, .mq.is-countdown .mq-ll, .mq.is-countdown .mq-lb, .mq.is-countdown .mq-lr { background-color: #FFCC00; }
+/* padding 7 14 7 10 inside the 1 px border */
+.mq-row { position: relative; display: flex; flex-direction: row; align-items: center; gap: 12dp; padding: 8dp 15dp 8dp 11dp; white-space: nowrap; }
+.mq-tag { display: block; padding: 1dp 8dp; color: #0B0B0D; background-color: #FFCC00; }
+.mq.is-running .mq-tag { color: #FFFFFF; background-color: #E3303A; }
+.mq.is-gig .mq-tag { color: #0B0B0D; background-color: #FF3FB8; }
+.mq-title { display: block; text-transform: uppercase; color: #FFCC00; }
+.mq-dim { display: block; color: #F2F0EA8C; }
+.mq-text { display: block; }
+/* mission-pulse: 50% { opacity: .45 } */
+.mq.is-countdown .mq-count { color: #FFCC00; animation: 1s sine-in-out infinite mq-pulse; }
+@keyframes mq-pulse { 0% { opacity: 1; } 50% { opacity: 0.45; } 100% { opacity: 1; } }
+/* the crew meter: taken = half lit, at the meet point = lit */
+.mq-meter { display: flex; flex-direction: row; gap: 3dp; flex: 0 0 auto; width: 90dp; }
+.mq-cell { flex: 1 1 0; height: 4dp; background-color: #F2F0EA1A; }
+.mq-cell.is-half { background-color: #8BE04E59; }
+.mq-cell.is-on { background-color: #8BE04E; box-shadow: #8BE04E80 0 0 6dp 0; }
+
+/* ---- the world boss (.wboss): top 62, centred, 560 wide, the bottom-right corner cut 10 -- */
+.wb-line { top: 62dp; }
+.wb { position: relative; flex: 0 0 auto; width: 560dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 1.13; color: #F2F0EA; }
+.wb.is-away { opacity: 0.78; }
+.wb-plate { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+/* linear-gradient(180deg, #120709ee, #0d0d10e6); the 10 dp foot takes its last colour */
+.wb-a { position: absolute; left: 0; top: 0; right: 0; bottom: 10dp; decorator: linear-gradient(180deg, #120709EE 0%, #0D0D10E6 100%); }
+.wb-b { position: absolute; left: 0; bottom: 0; right: 10dp; height: 10dp; background-color: #0D0D10E6; }
+.wb-c { position: absolute; right: 0; bottom: 0; width: 10dp; height: 10dp; fill: #0D0D10E6; }
+.wb-lt { position: absolute; left: 0; top: 0; right: 0; height: 1dp; background-color: #FF3B4873; }
+.wb-ll { position: absolute; left: 0; top: 1dp; bottom: 1dp; width: 1dp; background-color: #FF3B4873; }
+.wb-lb { position: absolute; left: 0; bottom: 0; right: 10dp; height: 1dp; background-color: #FF3B4873; }
+.wb-lr { position: absolute; right: 0; top: 1dp; bottom: 10dp; width: 1dp; background-color: #FF3B4873; }
+/* padding 10 14 11 inside the 1 px border */
+.wb-body { position: relative; display: flex; flex-direction: column; gap: 7dp; padding: 11dp 15dp 12dp 15dp; }
+.wb-head { display: flex; flex-direction: row; align-items: baseline; gap: 10dp; letter-spacing: 0.14em; white-space: nowrap; }
+.wb-tag { display: block; flex: 0 0 auto; padding: 1dp 8dp; font-size: 11dp; color: #FFFFFF; background-color: #FF3B48; }
+.wb-name { display: block; flex: 0 1 auto; font-family: "Zen Dots"; font-size: 18dp; line-height: 1.2; letter-spacing: 0.08em; text-transform: uppercase; color: #FFFFFF; overflow: hidden; text-overflow: ellipsis; }
+.wb-dim { display: block; flex: 0 1 auto; color: #F2F0EA8C; overflow: hidden; text-overflow: ellipsis; }
+.wb-clock { display: block; flex: 0 0 auto; font-size: 14dp; color: #FFCC00; }
+.wb-bar { position: relative; box-sizing: border-box; height: 14dp; background-color: #FF3B481F; border-width: 1dp; border-color: #FF3B4880; }
+.wb-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; decorator: linear-gradient(90deg, #A30F1A 0%, #FF3B48 100%); box-shadow: #FF3B4899 0 0 12dp 0; transition: width 0.4s quadratic-in-out; }
+/* text-shadow 0 0 3px #000 */
+.wb-bar-text { position: absolute; right: 6dp; top: -1dp; font-size: 11dp; color: #FFFFFF; font-effect: glow(0dp 2dp 0dp 0dp #000000); }
+.wb-text { display: flex; flex-direction: row; justify-content: space-between; letter-spacing: 0.08em; color: #F2F0EACC; }
+.wb-out { display: block; flex: 0 0 auto; color: #FFCC00; white-space: nowrap; }
+.wb-share { display: flex; flex-direction: row; align-items: center; gap: 10dp; white-space: nowrap; }
+.wb-label { display: block; flex: 0 0 auto; font-size: 10dp; letter-spacing: 0.2em; color: #F2F0EA99; }
+.wb-meter { position: relative; flex: 1 1 0; height: 6dp; background-color: #F2F0EA1A; }
+.wb-meter-fill { position: absolute; left: 0; top: 0; bottom: 0; background-color: #8A8F99; transition: width 0.4s quadratic-in-out; }
+.wb-meter-min { position: absolute; top: -3dp; bottom: -3dp; width: 2dp; background-color: #FFCC00; }
+.wb-share.is-eligible .wb-meter-fill { background-color: #4AF0B8; box-shadow: #4AF0B880 0 0 8dp 0; }
+.wb-pct { display: block; flex: 0 0 auto; font-size: 14dp; color: #FFFFFF; }
+/* a <small> without a size of its own: the browser's "smaller" of 12 px */
+.wb-stats { display: block; flex: 0 0 auto; font-size: 10dp; color: #F2F0EA8C; }
+.wb-hint { font-size: 11dp; letter-spacing: 0.06em; color: #F2F0EA99; }
+.wb-result { padding: 5dp 8dp; letter-spacing: 0.1em; color: #FF9AA1; background-color: #FF3B481F; }
+.wb-result.is-paid { color: #4AF0B8; background-color: #4AF0B81F; }
+.wb-result-b { display: inline-block; margin: 0 0.64em; color: #FFFFFF; }
+
+/* ---- the objective tracker (.mission-objective): left 28, top 120, 290 wide ---------------- */
+.ob { position: absolute; left: 28dp; top: 120dp; box-sizing: border-box; width: 290dp; padding: 10dp 14dp 9dp 14dp; background-color: #0D0D10E0; border-left-width: 2dp; border-left-color: #FFCC00; box-shadow: #00000088 0 10dp 30dp 0; font-size: 13dp; line-height: 1.4; color: #F2F0EA; }
+.ob.is-waves { border-left-color: #D65BFF; }
+.ob-head { display: flex; flex-direction: row; align-items: center; gap: 6dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 1.13; letter-spacing: 0.22em; color: #F2F0EA8C; }
+.ob-head path.ic { width: 12dp; height: 12dp; stroke: #F2F0EA8C; stroke-width: 1dp; }
+.ob-title { margin-top: 6dp; font-family: "Zen Dots"; font-weight: normal; font-size: 20dp; line-height: 1.1; letter-spacing: 0.03em; color: #FFCC00; }
+.ob.is-waves .ob-title { color: #E7A6FF; }
+.ob-detail { margin-top: 4dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 1.13; letter-spacing: 0.04em; color: #F2F0EA; }
+.ob-waves { display: flex; flex-direction: row; gap: 3dp; margin-top: 8dp; }
+.ob-wave { flex: 1 1 0; height: 4dp; background-color: #F2F0EA24; }
+.ob-wave.is-done { background-color: #8BE04E; }
+/* objective-pulse: 50% { opacity: .35 } */
+.ob-wave.is-live { background-color: #D65BFF; animation: 1s sine-in-out infinite ob-pulse; }
+@keyframes ob-pulse { 0% { opacity: 1; } 50% { opacity: 0.35; } 100% { opacity: 1; } }
+.ob-list { display: flex; flex-direction: column; gap: 3dp; margin-top: 9dp; }
+.ob-li { display: flex; flex-direction: row; align-items: center; gap: 6dp; font-size: 12dp; line-height: 1.3; color: #F2F0EA; }
+.ob-li path.ic { width: 11dp; height: 11dp; stroke: #22D8E2; stroke-width: 0.92dp; }
+.ob-li-text { display: block; flex: 0 1 auto; }
+.ob-li.is-reached { color: #F2F0EA73; }
+.ob-li.is-reached .ob-li-text { text-decoration: line-through; }
+.ob-li.is-reached path.ic { stroke: #8BE04E; }
+.ob-optional { display: block; flex: 0 0 auto; font-family: "Share Tech Mono"; font-weight: normal; font-size: 9dp; line-height: 1.13; letter-spacing: 0.12em; color: #F2F0EA66; }
+.ob-foot { display: flex; flex-direction: row; justify-content: space-between; margin-top: 9dp; padding-top: 6dp; border-top-width: 1dp; border-top-color: #F2F0EA1A; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 1.13; letter-spacing: 0.14em; color: #F2F0EA8C; }
+
+/* ---- out of the zone (.mission-oob) ---------------------------------------------------------- */
+.oob { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+/* oob-pulse: 50% { opacity: .55 } */
+.oob-vignette { position: absolute; left: 0; top: 0; right: 0; bottom: 0; decorator: radial-gradient(ellipse farthest-corner at center, #E3303A00 45%, #E3303A6B 100%); animation: 1s sine-in-out infinite oob-pulse; }
+@keyframes oob-pulse { 0% { opacity: 1; } 50% { opacity: 0.55; } 100% { opacity: 1; } }
+.oob-line { top: 18%; }
+.oob-panel { display: flex; flex: 0 0 auto; flex-direction: column; align-items: center; gap: 4dp; padding: 15dp 35dp 13dp 35dp; background-color: #120709E8; border-width: 1dp; border-color: #E3303A; box-shadow: #E3303A59 0 0 40dp 0; color: #FFD7D9; }
+.oob-panel path.ic { width: 18dp; height: 18dp; stroke: #FF4D55; stroke-width: 1.5dp; }
+.oob-title { display: block; font-family: "Zen Dots"; font-weight: normal; font-size: 22dp; line-height: 1.1; letter-spacing: 0.06em; white-space: nowrap; color: #FF4D55; }
+.oob-text { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 1.13; letter-spacing: 0.08em; white-space: nowrap; }
+/* text-shadow 0 0 18px #e3303a */
+.oob-num { display: block; margin-top: 4dp; font-family: "Zen Dots"; font-weight: normal; font-size: 54dp; line-height: 54dp; color: #FFFFFF; font-effect: glow(0dp 9dp 0dp 0dp #E3303A); }
+
+/* ---- KIT ISSUED / DOWN / OUT (.mission-respawn): centred, bottom 22% ------------------------- */
+.rs-line { bottom: 22%; }
+.rs { display: flex; flex: 0 0 auto; flex-direction: row; align-items: baseline; gap: 12dp; padding: 8dp 20dp; background-color: #0D0D10E8; border-top-width: 2dp; border-top-color: #FFCC00; color: #F2F0EA; white-space: nowrap; }
+.rs-head { display: block; font-family: "Zen Dots"; font-weight: normal; font-size: 18dp; line-height: 1.2; letter-spacing: 0.08em; color: #FFCC00; }
+.rs-text { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 1.13; letter-spacing: 0.06em; }
+.rs.is-out { border-top-color: #E3303A; }
+.rs.is-out .rs-head { color: #E3303A; }
+
+/* ---- the kit choice (.raid-ready.is-choosing.mission-kits) ------------------------------------ */
+/* the briefing: top 120; while down: above the DOWN chip, bottom 22% + 56 */
+.kp-line { top: 120dp; }
+.kp-line.is-down { top: auto; bottom: 22%; }
+.kp-line.is-down .kp { margin-bottom: 56dp; }
+/* outside the raid's root the page left it the body's face and colour */
+.kp { color: #C3C7D1; }
+.kp .rr-h2 { margin-top: 6dp; }
+
+/* blank rows that keep a data-for array from shrinking (missions.lua hold) */
+.mq-cell.is-gone, .ob-wave.is-gone, .ob-li.is-gone { display: none; }

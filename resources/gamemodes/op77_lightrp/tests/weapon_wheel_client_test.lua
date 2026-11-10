@@ -45,6 +45,10 @@ handlers["lightrp:ui:weaponwheel"]({ kind = "chosen" }); assert(sounds[#sounds] 
 handlers["lightrp:ui:weaponwheel"]({ kind = "chosen", unarmed = true }); assert(sounds[#sounds] == "ui_menu_item_weapon_unequip")
 -- the holster slot: the server puts away whatever is in the hands (gun, fists, blades)
 handlers["lightrp:ui:weaponwheel"]({ kind = "holster" }); assert(serverEvents[#serverEvents] == "op77_lightrp:armament:holster", "holster goes to the server")
+-- the native view (client/native/weapon_wheel.lua) reports through Wheel.message: the same handler
+assert(W.message == handlers["lightrp:ui:weaponwheel"], "the page channel and the native view share one handler")
+W.message({ kind = "hover" }); assert(sounds[#sounds] == "ui_menu_hover")
+W.message({ kind = "holster" }); assert(serverEvents[#serverEvents] == "op77_lightrp:armament:holster")
 -- release (held past a tap): the page commits, the focus goes back
 clock = 400; map.onReleased()
 assert(not W.open and last().payload.kind == "commit" and focus[#focus].keyboard == false and focus[#focus].cursor == false)

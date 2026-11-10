@@ -10,13 +10,14 @@
 --
 -- Server: the relay (validation, rate limit, who receives a bubble).
 -- Client: the bubbles, their anchors (Open77.anchors, projected every frame by
---         the plugin and pushed to the page), lifetimes.
--- Page:   web/ (plain HTML/CSS/JS, no build step).
+--         the plugin and read back to place them), lifetimes.
+-- UI:     ui/actionbubble.rml + .rcss, a NativeUI document driven by
+--         client/view.lua (no browser page since 0.2.0).
 resource "op77_actionbubble"
-version "0.1.0"
+version "0.2.0"
 open77_version ">=0.0.1"
 auto_start true
--- The client owns a WebUI surface: a live reload would leave a stale one.
+-- The client owns a NativeUI document and its anchors: reconnect rather than live reload.
 reload_policy "reconnect"
 
 shared_script "shared/config.lua"
@@ -24,11 +25,13 @@ shared_script "shared/bubble.lua"
 
 server_script "server/main.lua"
 
+client_script "client/view.lua"
 client_script "client/main.lua"
 
-web_ui_page "web/index.html"
-web_ui_auto_create false
-web_files { "web/**" }
+files {
+    "ui/actionbubble.rml",
+    "ui/actionbubble.rcss",
+}
 
 permissions {
     -- both sides: the client asks the relay, the relay fans out
@@ -39,4 +42,5 @@ permissions {
     -- client
     "network.client",   -- the local player id (ids of the bubbles it relays)
     "vehicles.read",    -- a vehicle anchor resolves to the vehicle's entity
+    "input.actions",    -- the bubbles step aside while a menu holds the cursor (Open77.input.isCaptured)
 }

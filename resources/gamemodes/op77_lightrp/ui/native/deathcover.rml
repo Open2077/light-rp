@@ -1,0 +1,74 @@
+<rml>
+<head>
+    <title>Light RP flatline cover</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="deathcover.rcss"/>
+</head>
+<body data-model="cover">
+<!-- ui/src/features/medical/DeathCover.tsx: opaque from 150 ms after the Dead event (a dim,
+     nine slices tearing in from alternating sides, two solid halves); the reboot splits the
+     halves from a CRT line. Never bound to the shell: it covers the world. -->
+<div id="dc" data-class-is-shown="shown" data-class-is-on="down" data-class-is-fresh="fresh" data-class-is-out="out" data-class-is-downed="downed">
+    <div class="dc-dim"></div>
+    <div class="dc-half is-top"></div>
+    <div class="dc-half is-bottom"></div>
+    <div class="dc-slices">
+        <div class="dc-slice is-left s0"></div>
+        <div class="dc-slice is-right s1"></div>
+        <div class="dc-slice is-left s2"></div>
+        <div class="dc-slice is-right s3"></div>
+        <div class="dc-slice is-left s4"></div>
+        <div class="dc-slice is-right s5"></div>
+        <div class="dc-slice is-left s6"></div>
+        <div class="dc-slice is-right s7"></div>
+        <div class="dc-slice is-left s8"></div>
+    </div>
+    <div class="dc-noise">
+        <div class="dc-scan"></div>
+        <div class="dc-vignette"></div>
+        <div class="dc-roll"></div>
+    </div>
+    <div class="dc-readout">
+    <div class="dc-readout-in">
+        <div class="dc-top">
+            <div class="dc-brand"><span>OPEN</span><span class="dc-yellow">//</span><span>77</span><span class="dc-brand-sub">NEURAL LINK</span></div>
+            <div class="dc-status">
+                <div class="dc-status-dot"></div>
+                <span class="when-down">BIOMONITOR // NO SIGNAL</span>
+                <span class="when-out">BIOMONITOR // ONLINE</span>
+            </div>
+        </div>
+        <div class="dc-head">
+            <span class="dc-eyebrow when-down">ICE BREACH · SIGNAL LOST</span>
+            <span class="dc-eyebrow when-out">SIGNAL RESTORED</span>
+            <div class="dc-title-box when-down">
+                <span class="dc-title">FLATLINED</span>
+                <span class="dc-title dc-ghost is-a">FLATLINED</span>
+                <span class="dc-title dc-ghost is-b">FLATLINED</span>
+            </div>
+            <div class="dc-title-box when-out">
+                <span class="dc-title">REBOOTING</span>
+                <span class="dc-title dc-ghost is-a">REBOOTING</span>
+                <span class="dc-title dc-ghost is-b">REBOOTING</span>
+            </div>
+        </div>
+        <path class="dc-ekg dc-ekg-track" view-box="0 0 1600 200" preserve-aspect="none" d="M0 100 H1600"/>
+        <path class="dc-ekg dc-ekg-line vis-down" view-box="0 0 1600 200" preserve-aspect="none" d="M0 100 H260 L284 92 L302 108 L320 100 H370 L396 38 L426 164 L450 100 H500 L522 94 L540 100 H1600"/>
+        <path class="dc-ekg dc-ekg-beat vis-out" view-box="0 0 1600 200" preserve-aspect="none" d="M0 100 H600 L630 90 L652 110 L672 100 H720 L748 24 L782 178 L808 100 H860 L888 88 L912 100 H1600"/>
+        <div class="dc-vitals vis-down">
+            <div class="dc-vital"><span>HR</span><span class="dc-vital-value">000</span></div>
+            <div class="dc-vital"><span>SpO2</span><span class="dc-vital-value">--</span></div>
+            <div class="dc-vital"><span>BP</span><span class="dc-vital-value">--/--</span></div>
+        </div>
+        <div class="dc-vitals vis-out">
+            <div class="dc-vital"><span>HR</span><span class="dc-vital-value">072</span></div>
+            <div class="dc-vital"><span>NEURAL LINK</span><div class="dc-boot"><div class="dc-boot-fill"></div></div></div>
+            <div class="dc-vital"><span>SYNC</span></div>
+        </div>
+    </div>
+    </div>
+    <div class="dc-flash"></div>
+</div>
+</body>
+</rml>

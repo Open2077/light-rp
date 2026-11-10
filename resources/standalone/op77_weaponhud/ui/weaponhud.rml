@@ -1,0 +1,95 @@
+<rml>
+<head>
+    <title>op77_weaponhud</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="weaponhud.rcss"/>
+</head>
+<!-- The holographic weapon HUD, the mirror of op77_speedometer at the bottom left. Driven by
+     client/ui.lua through the data model "wh" (only the values that changed are merged).
+     #lift is raised by the inset (motion engine), #stage is placed (left / bottom / scale from
+     the config), #kick carries the recoil kick, #rig the eye (perspective), #plane the 3D tilt,
+     #fold the unfold / fold, #holo the glow, the scanlines and the flicker. Everything inside
+     .face is laid out on a flat 420 x 210 dp plane. -->
+<body data-model="wh">
+<div id="lift">
+<div id="stage" class="stage"
+     data-class-is-live="live" data-class-is-covered="covered"
+     data-class-in-a="enter == 1" data-class-in-b="enter == 2" data-class-is-instant="enter == 3" data-class-is-off="leaving"
+     data-class-is-test="test" data-class-is-melee="melee" data-class-is-reloading="reloading"
+     data-class-is-empty="empty" data-class-is-low="low"
+     data-class-zeros-lit="zeros == 'lit'" data-class-zeros-off="zeros == 'off'">
+<div id="kick" class="kick" data-class-kick-a="kick == 1" data-class-kick-b="kick == 2">
+<div id="rig" class="rig">
+<div id="plane" class="plane">
+<div id="fold" class="fold">
+    <div id="haze" class="haze"></div>
+    <div id="holo" class="holo-layer" data-class-is-glitch="glitch">
+    <div class="flash">
+    <div class="face">
+        <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+        <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+
+        <div class="head">
+            <div class="name"><div class="name-bar"></div><span class="name-text">{{name}}</span></div>
+            <div class="badges">
+                <span class="badge" data-if="hasKlass" data-class-is-smart="klassSmart" data-class-is-tech="klassTech">{{klass}}</span>
+                <span class="kind" data-if="hasKind">{{kind}}</span>
+            </div>
+        </div>
+
+        <!-- the magazine bar: one cell per round (or per group of rounds). The data-for element
+             carries nothing else: a binding on it is evaluated once more for a removed row when
+             the array shrinks (RmlUi warns). The cells just
+             emptied fly off as one of the three .eject -->
+        <div id="cells" class="cells"><div class="cell" data-for="c : cells"><div class="cell-fill" data-class-on="c.on" data-class-tip="c.tip"><div class="cell-cool"></div></div></div></div>
+        <div class="ejects">
+            <div class="eject" data-class-fly-a="e1 == 1" data-class-fly-b="e1 == 2" data-style-left="e1x" data-style-width="ew"></div>
+            <div class="eject" data-class-fly-a="e2 == 1" data-class-fly-b="e2 == 2" data-style-left="e2x" data-style-width="ew"></div>
+            <div class="eject" data-class-fly-a="e3 == 1" data-class-fly-b="e3 == 2" data-style-left="e3x" data-style-width="ew"></div>
+        </div>
+
+        <!-- melee (blades, blunt, arm cyberware): an edge instead of a magazine -->
+        <div class="melee">
+            <path class="edge-back" view-box="0 0 228 112" d="M6 92 L150 30 L222 14 L170 44 L20 100 Z"/>
+            <path id="edge-front" class="edge-front" view-box="0 0 228 112" d="M14 96 L150 36 L210 22"/>
+            <path class="edge-guard" view-box="0 0 228 112" d="M44 74 L58 104 M52 70 L66 100"/>
+            <div class="melee-text">
+                <div class="melee-class">{{meleeClass}}</div>
+                <div class="melee-hint">MELEE · NO AMMUNITION</div>
+            </div>
+        </div>
+
+        <div class="readout">
+            <!-- seven-segment digits: per digit, the unlit segments and the lit ones as two paths -->
+            <div class="digits" data-class-hit-a="hit == 1" data-class-hit-b="hit == 2">
+                <div class="dg dg1" data-class-is-lead="lead1"><path class="dg-off" view-box="0 0 76 112" data-attr-d="d1off"/><path class="dg-on" view-box="0 0 76 112" data-attr-d="d1on"/></div>
+                <div class="dg dg2" data-class-is-lead="lead2"><path class="dg-off" view-box="0 0 76 112" data-attr-d="d2off"/><path class="dg-on" view-box="0 0 76 112" data-attr-d="d2on"/></div>
+                <div class="dg dg3"><path class="dg-off" view-box="0 0 76 112" data-attr-d="d3off"/><path class="dg-on" view-box="0 0 76 112" data-attr-d="d3on"/></div>
+            </div>
+            <div class="side">
+                <div class="side-label">RESERVE</div>
+                <div class="side-count" data-class-is-out="reserveOut">{{reserve}}</div>
+                <div class="tag" data-class-tag-reload="tagKind == 1" data-class-tag-reloading="tagKind == 2">{{tag}}</div>
+            </div>
+        </div>
+
+        <div class="foot">
+            <div class="progress">
+                <div id="progress-fill" class="progress-fill" data-style-transform="fill"></div>
+                <div class="progress-run"></div>
+            </div>
+            <div class="lefthand" data-if="hasLeft">{{leftHand}}</div>
+        </div>
+
+        <div class="sweep"></div>
+    </div>
+    </div>
+    </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body>
+</rml>
