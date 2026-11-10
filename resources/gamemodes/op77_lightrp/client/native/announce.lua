@@ -492,6 +492,9 @@ end)
 -- the document
 -- =====================================================================================
 local function gameplayHidden() -- App.tsx: the gameplay interface is hidden in the vehicle workshop
+    -- and under a loading screen (a WebUI cover the page's banners sat under)
+    local ui = LightRpUi
+    if ui and type(ui.loadingScreen) == "function" and ui.loadingScreen() == true then return true end
     local c = LightRpVehicleCustomizationClient
     if type(c) ~= "table" or type(c.isActive) ~= "function" then return false end
     local ok, active = pcall(c.isActive)

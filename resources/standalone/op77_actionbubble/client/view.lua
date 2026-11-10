@@ -342,7 +342,14 @@ end
 
 -- NativeUI draws over every WebUI page: while another interface holds the cursor (an
 -- inventory, a menu, the phone) the bubbles step aside, as they sat under those pages before.
+-- op77_loadscreen's zone cover is a WebUI page, below every NativeUI document: step aside
+-- while it is up (it sends op77_loadscreen:state; nothing happens without that resource).
+local loadCovered = false
+if type(AddEventHandler) == "function" then
+    AddEventHandler("op77_loadscreen:state", function(active) loadCovered = active == true end)
+end
 local function cursorTaken()
+    if loadCovered and not (LAB and LAB.ignoreCapture == true) then return true end
     if not hideUnderMenus or (LAB and LAB.ignoreCapture == true) then return false end
     if type(Open77.input) ~= "table" or type(Open77.input.isCaptured) ~= "function" then return false end
     local ok, _, cursor = pcall(Open77.input.isCaptured)

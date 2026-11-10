@@ -120,7 +120,14 @@ local function read(fn, ...)
     local ok, value = pcall(fn, ...)
     if ok then return value end
 end
+-- op77_loadscreen's zone cover is a WebUI page, below every NativeUI document: step aside
+-- while it is up (it sends op77_loadscreen:state; nothing happens without that resource).
+local loadCovered = false
+if type(AddEventHandler) == "function" then
+    AddEventHandler("op77_loadscreen:state", function(active) loadCovered = active == true end)
+end
 local function cursorTaken()
+    if loadCovered then return true end
     if type(Open77.input) ~= "table" or type(Open77.input.isCaptured) ~= "function" then return false end
     local ok, _, cursor = pcall(Open77.input.isCaptured)
     return ok and cursor == true

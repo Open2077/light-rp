@@ -285,6 +285,13 @@ function N.create()
     local lab = type(Op77UiLab) == "table" and Op77UiLab or nil
     local ui, why = Open77.ui.create({ document = "ui/chat.rml", layer = lab and lab.layer or "hud", zIndex = 30, visible = true })
     if not ui then return nil, why end
+    -- op77_loadscreen's zone cover is a WebUI page, below every NativeUI document: the chat
+    -- page sat under it, so the document steps aside while it is up (no-op without it).
+    if type(AddEventHandler) == "function" and not lab then
+        AddEventHandler("op77_loadscreen:state", function(active)
+            if active == true then ui:hide() else ui:show() end
+        end)
+    end
     -- DOM listeners, kept by name so that the lab can replay an input without the lease
     local listeners = {}
     local function listen(kind, selector, fn)

@@ -109,7 +109,11 @@ end
 local function syncLane()
     if not doc then return end
     local off = M.laneOff(N.state, customizing())
-    local tour = next(suppressed) ~= nil
+    -- under a loading screen (the zone cover is a WebUI page, below every NativeUI
+    -- document): the page's notices sat under it, so the lane waits it out
+    local ui = LightRpUi
+    local loading = ui and type(ui.loadingScreen) == "function" and ui.loadingScreen() == true
+    local tour = next(suppressed) ~= nil or loading
     if off ~= lane.off then lane.off = off; doc:class("#lane", "is-off", off) end
     if tour ~= lane.tour then lane.tour = tour; doc:class("#lane", "is-tour", tour) end
 end
