@@ -1,5 +1,5 @@
 resource "open-voice"
-version "0.2.1"
+version "0.3.0"
 open77_version ">=0.0.1"
 auto_start true
 reload_policy "reconnect"
@@ -11,11 +11,11 @@ server_scripts {
     "server/main.lua",
 }
 client_script "client/range_preview.lua"
+client_script "client/ui.lua"
 client_script "client/main.lua"
 
-web_ui_page "web/index.html"
-web_ui_auto_create false
-web_files { "web/**" }
+-- the HUD is a NativeUI document (the Light RP hologram plate)
+files { "ui/voice.rml", "ui/voice.rcss", "ui/fonts/*" }
 
 -- open77_voice remains the sole PTT/VAD/audio driver. This companion owns
 -- only server-authoritative reach presets, its F11 request edge, HUD and range ring.

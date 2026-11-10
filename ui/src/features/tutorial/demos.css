@@ -32,7 +32,6 @@
 
 /* ---------- Map of the hall ---------- */
 .demo-map { display: block; width: 100%; height: auto; max-height: 300px; overflow: visible; }
-.demo-map--compact { max-height: 190px; }
 .demo-map__ground { fill: #ffffff07; stroke: #ffffff14; stroke-width: .6; }
 .demo-map__avenue { stroke: #ffffff10; stroke-width: 7; }
 .demo-map__route { fill: none; stroke: #f4d65555; stroke-width: 1; stroke-dasharray: 2.5 2.5; animation: demo-dash 1.2s linear infinite; }
@@ -153,50 +152,6 @@
 .demo-work__stage.is-done > span { color: #7fd38a; }
 .demo-work__arrow { position: absolute; right: -14px; top: 38%; z-index: 1; color: #f4d65599; }
 
-/* ---------- In the objective card ---------- */
-.first-day__demo { margin: 14px 0 0; padding: 12px; background: #050a08aa; border: 1px solid #ffffff12; animation: first-day-in .4s ease both; }
-.demo-mini { display: flex; align-items: center; gap: 12px; min-height: 64px; }
-.demo-mini__menu { list-style: none; margin: 0; padding: 4px; flex: 1; display: flex; flex-direction: column; gap: 2px; background: #0f1714; border: 1px solid #ffffff14; opacity: 0; translate: -6px 0; transition: opacity .3s, translate .3s; }
-.demo-mini__menu.is-open { opacity: 1; translate: 0 0; }
-.demo-mini__menu li { display: flex; align-items: center; justify-content: space-between; padding: 3px 8px; font-size: 11px; color: #9fab9f; transition: background .25s, color .25s; }
-.demo-mini__menu li.is-on { background: #f4d65522; color: #f4f2e9; }
-.demo-mini__menu li.is-picked { background: #f4d655; color: #141912; }
-.demo-mini__grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; flex: 1; opacity: 0; scale: .96; transition: opacity .3s, scale .3s; }
-.demo-mini__grid.is-open { opacity: 1; scale: 1; }
-.demo-mini__grid > span:empty { height: 40px; background: #ffffff06; border: 1px solid #ffffff10; border-radius: 4px; }
-.demo-mini__grid .demo-item { width: auto; }
-.demo-mini__shop { flex: 1; display: flex; align-items: center; gap: 8px; }
-.demo-mini__shop > span:first-child { position: relative; opacity: .5; transition: opacity .3s; }
-.demo-mini__shop > span:first-child.is-on { opacity: 1; }
-.demo-mini__shop > span:first-child > svg { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; padding: 2px; border-radius: 50%; background: #f4d655; color: #141912; }
-.demo-mini__pay { display: flex; border: 1px solid #ffffff1c; }
-.demo-mini__pay i { padding: 4px 7px; font: normal 600 10px 'Share Tech Mono', monospace; color: #8d9a90; transition: all .25s; }
-.demo-mini__pay i.is-on { background: #f4d65533; color: #f4f2e9; }
-.demo-mini__confirm { margin-left: auto; display: grid; place-items: center; min-width: 74px; height: 28px; padding: 0 8px; border: 1px solid #f4d65566; font: 700 10px 'Chakra Petch', sans-serif; letter-spacing: .08em; color: #f4d655; transition: all .25s; }
-.demo-mini__confirm.is-on { background: #f4d655; color: #141912; animation: demo-press .5s ease both; }
-.demo-mini__confirm.is-done { background: #7fd38a; border-color: #7fd38a; color: #0c1413; }
-.demo-mini__use { position: relative; opacity: .5; transition: opacity .3s; }
-.demo-mini__use.is-on { opacity: 1; }
-.demo-mini__use i { position: absolute; left: 50%; bottom: -9px; translate: -50% 0; padding: 0 5px; background: #f4d655; color: #141912; font: normal 700 9px 'Chakra Petch', sans-serif; opacity: 0; transition: opacity .25s; }
-.demo-mini__use.is-on i { opacity: 1; }
-.demo-ring { position: relative; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: #8d9a90; background: conic-gradient(#f4d655 var(--p, 0%), #ffffff14 0); flex: none; }
-.demo-ring::before { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: #0c1413; }
-.demo-ring svg { position: relative; }
-.demo-ring.is-run { animation: demo-ring 2s linear both; color: #f4d655; }
-.demo-ring.is-done { --p: 100%; background: #7fd38a; color: #0c1413; }
-.demo-ring.is-done::before { display: none; }
-.demo-mini__vital { flex: 1; display: flex; align-items: center; gap: 8px; color: #72cbd5; }
-.demo-mini__vital .demo-bar i { background: #72cbd5; }
-.demo-mini__progress { flex: 1; display: flex; flex-direction: column; gap: 6px; }
-.demo-mini__progress small { font-size: 11px; color: #bcc6bd; }
-.demo-mini__token { position: relative; display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid #ffffff22; color: #f4d655; transition: all .35s ease; flex: none; }
-.demo-mini__token.is-gone { opacity: .2; scale: .8; }
-.demo-mini__token.is-wait { opacity: .3; }
-.demo-mini__token.is-new { border-color: #7fd38a; color: #7fd38a; animation: demo-pop .45s ease both; }
-.demo-mini__token b { position: absolute; top: -14px; font: 700 10px 'Share Tech Mono', monospace; color: #7fd38a; }
-
-@property --p { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
-@keyframes demo-ring { from { --p: 0%; } to { --p: 100%; } }
 @keyframes demo-panel-in { from { opacity: 0; translate: 0 10px; } to { opacity: 1; translate: 0 0; } }
 @keyframes demo-fly-in { 0% { opacity: 0; translate: -50% 18px; } 20%, 70% { opacity: 1; translate: -50% -4px; } 100% { opacity: 0; translate: -50% -14px; } }
 @keyframes demo-fly-out { 0% { opacity: 0; translate: -50% -6px; } 20%, 70% { opacity: 1; translate: -50% 6px; } 100% { opacity: 0; translate: -50% 16px; } }
@@ -209,4 +164,4 @@
 @keyframes demo-pop { 0% { scale: .6; opacity: 0; } 60% { scale: 1.12; opacity: 1; } 100% { scale: 1; } }
 @keyframes demo-nudge { 50% { translate: 4px 0; } }
 @media (max-height: 800px) { .first-day__showcase { width: min(380px, 100%); padding: 12px 16px 14px; } }
-@media (prefers-reduced-motion: reduce) { .first-day__showcase *, .first-day__demo * { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .first-day__showcase * { animation: none !important; transition: none !important; } }

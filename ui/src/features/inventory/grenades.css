@@ -6,6 +6,3 @@
 .inventory-grenade__main small{font-size:9px;color:var(--inv-muted)}
 .inventory-grenade__main button{display:grid;place-items:center;background:#ffffff07;color:var(--inv-muted);width:25px;height:25px;border-radius:4px}
 .inventory-grenade p{font-size:9px;line-height:1.5;color:var(--inv-muted);margin:7px 0 0}.inventory-grenade .is-error{color:#e4aa92}
-.hud-grenade{margin-left:100px;display:flex;align-items:center;gap:7px;color:var(--accent);font:11px var(--font-core);text-shadow:0 1px 4px #000;pointer-events:none}
-.hud-grenade>strong{font-size:14px;color:var(--text-hi)}.hud-grenade>span{font-size:9px;color:var(--text-dim);max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media(max-width:1280px){.hud-grenade{margin-left:90px}}@media(max-width:600px){.hud-grenade{margin-left:82px}}

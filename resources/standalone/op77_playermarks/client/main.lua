@@ -6,14 +6,17 @@
 --           (Open77.nameplates.set). The plugin projects, occludes (no plate through a wall),
 --           smooths and fades every plate in the frame that presents it, and reads the voice
 --           levels itself. No page, no anchors, no per-frame Lua.
---   page    an older client: one Open77.anchors anchor per other player around (an entity
---           anchor follows the body; the plugin projects it every frame and pushes the
---           screen position to the page, which only draws), and the talkers' voice levels
---           for the voice bars. It trails the camera on a fast turn (418 px measured) and
---           shows through walls; it stays exactly as it was for the clients without the
---           native drawer.
+--   document  a client without that drawer (or `native = false`): a NativeUI document
+--           (ui/playermarks.rml, client/view.lua) with one plate per other player around.
+--           Each plate has an Open77.anchors anchor on the body (an entity anchor follows
+--           it; the plugin projects it every frame, nothing of its own is drawn), read
+--           back every frame (Open77.anchors.frame) to move the plate, and the talkers'
+--           voice levels move the voice bars. No occlusion: a plate shows through walls.
+--           It replaces the WebUI page this resource had up to 0.2.0.
 local C = PlayerMarksConfig
+local View = PlayerMarksView
 
+-- What draws the plates of the document drawer: client/view.lua (a test attaches its own).
 local page, pageReady = nil, false
 local marks = {}          -- player id (string) -> { anchor, entity, name, talking, level }
 local anchorsOk = type(Open77.anchors) == "table" and type(Open77.anchors.create) == "function"
@@ -132,8 +135,10 @@ local function refresh()
             if ok and res ~= false then m.entity = entity else drop(key); m = nil end
         end
         if not m then
-            local id, why = Open77.anchors.create({ page = page, entity = entity, offset = { x = 0, y = 0, z = C.height },
-                tag = "playermark." .. key, maxDistance = C.radius, minDistance = 0.0 })
+            -- A native style needs no page; hidden, the plugin only projects it (the plate
+            -- is the document's).
+            local id, why = Open77.anchors.create({ entity = entity, offset = { x = 0, y = 0, z = C.height },
+                tag = "playermark." .. key, maxDistance = C.radius, minDistance = 0.0, render = "dot", visible = false })
             if id then
                 m = { anchor = id, entity = entity, name = name, talking = false, level = 0 }
                 marks[key] = m
@@ -149,7 +154,7 @@ local function refresh()
     end
 end
 
--- The talkers' state on the dots; only changes go to the page.
+-- The talkers' state on the plates; only changes go to the document.
 local function talk()
     if not pageReady or next(marks) == nil then return end
     local ok, talkers = pcall(Open77.voice.talkers)
@@ -174,8 +179,9 @@ end
 -- The native drawer.
 -- ---------------------------------------------------------------------------------------
 
--- The page's look (web/app.css) as the native drawer's theme. Colours are the CSS values,
--- an rgba() alpha written as its two hex digits, round(alpha * 255).
+-- The plate's look as the native drawer's theme: the values of the design's stylesheet (the
+-- selectors named on the right; ui/playermarks.rcss draws the same plate for NativeUI).
+-- An rgba() alpha is written as its two hex digits, round(alpha * 255).
 local function theme()
     local scale = C.page or {}
     return {
@@ -211,9 +217,9 @@ local function theme()
         fadeFrom = scale.fadeFrom or 0.75,  -- config page.fadeFrom
         fade = 160,                   -- .pm: transition opacity 160ms
         maxDistance = C.radius,       -- config radius (the anchors' maxDistance)
-        occlusion = true,             -- new: no plate through a wall (the page had none)
+        occlusion = true,             -- no plate through a wall (the document has none)
         offset = C.height - 1.92,     -- config height over the drawer's own head anchor (root + 1.92 standing)
-        showDistance = false,         -- the page showed no distance
+        showDistance = false,         -- the plate shows no distance
     }
 end
 
@@ -267,21 +273,9 @@ local function nativeRender(on)
 end
 
 -- A name cut at nameMax bytes can end inside a UTF-8 sequence: drop the broken tail.
-local function trimUtf8(text)
-    local n = #text
-    for i = n, math.max(1, n - 3), -1 do
-        local b = text:byte(i)
-        if b < 0x80 then return text end
-        if b >= 0xC0 then
-            local need = (b >= 0xF0 and 4) or (b >= 0xE0 and 3) or 2
-            if n - i + 1 >= need then return text end
-            return text:sub(1, i - 1)
-        end
-    end
-    return text
-end
+local trimUtf8 = View.trimUtf8
 
--- The plate's label: the page's name, without control characters (set() refuses them).
+-- The plate's label: the document's name, without control characters (set() refuses them).
 local function labelOf(key, account)
     local text = nameOf({ playerId = key, name = account }):gsub("%c", " ")
     return trimUtf8(text)
@@ -323,7 +317,7 @@ local function localKey()
 end
 
 -- open77_nameplates (the platform's own plates) is not in Light RP's load lists. Should an
--- operator add it, it would label the same players: next to the page that is a second set
+-- operator add it, it would label the same players: next to the document that is a second set
 -- of plates, and with the native drawer a second owner of the one drawer, which keeps it
 -- drawing through setHidden(true) (Prop Hunt). So while this resource runs it asks
 -- open77_nameplates to stand down (its setEnabled export) and gives it back on stop.
@@ -390,16 +384,16 @@ local function nativeSync()
     end
 end
 
--- The theme, then the drawer. false: this client draws with the page.
+-- The theme, then the drawer. false: this client draws with the document.
 local function startNative()
     if C.native == false or not nativeAvailable() then return false end
     if not applyStyle() then
-        warn("native", "native nameplates without the Light RP theme: page instead")
+        warn("native", "native nameplates without the Light RP theme: document instead")
         return false
     end
     local ok, done, why = pcall(Open77.nameplates.render, true)
     if not (ok and done) then
-        warn("native", "native nameplates refused (" .. tostring(ok and why or done) .. "): page instead")
+        warn("native", "native nameplates refused (" .. tostring(ok and why or done) .. "): document instead")
         pcall(Open77.nameplates.resetStyle)
         return false
     end
@@ -421,8 +415,8 @@ end
 
 -- setHidden(true[, ids]): hide every plate (no ids) or those players' (a list of server ids);
 -- setHidden(false): show again what this caller hid. Each caller's choice replaces its
--- previous one and goes when it stops. The native drawer applies it at once, the page on the
--- next refresh (refreshMs).
+-- previous one and goes when it stops. The native drawer applies it at once, the document on
+-- the next refresh (refreshMs).
 local function setHidden(owner, on, ids)
     if on ~= true then hiddenBy[owner] = nil; return true end
     if ids == nil then hiddenBy[owner] = true; return true end
@@ -466,28 +460,29 @@ PlayerMarks = { refresh = refresh, talk = talk, marks = marks, setHidden = setHi
     attach = function(p) page, pageReady = p, true end,
     native = Native, sync = nativeSync, theme = theme }
 
-local function createPage()
-    local created, why
-    for _ = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
-        created, why = WebUI.create({
-            entry = "web/index.html", layer = "hud", width = 1920, height = 1080,
-            fps = 60, zIndex = 600, transparent = true, visible = true,
-        })
-        if created or why ~= "resource_preparing" then break end
-        Wait(250)
+-- The document drawer: the NativeUI document, then the plates already known.
+local function createDocument()
+    if type(Open77.ui) ~= "table" or type(Open77.ui.create) ~= "function" then
+        print("[playermarks] NativeUI (Open77.ui) unavailable on this client: no nameplates")
+        return false
     end
-    if not created then print("[playermarks] no WebUI surface: " .. tostring(why)) return end
-    page = created
-    page:on("pm:ready", function()
-        pageReady = true
-        send("pm:config", { radius = C.radius, page = C.page })
-        for key, m in pairs(marks) do
-            send("pm:add", { player = key, anchor = tostring(m.anchor), name = m.name })
-            send("pm:talk", { player = key, talking = m.talking, level = m.level })
-        end
-    end)
-    if not anchorsOk then warn("anchors", "Open77.anchors unavailable on this client: no dots") end
+    if not anchorsOk then
+        print("[playermarks] Open77.anchors unavailable on this client: no nameplates")
+        return false
+    end
+    local ok, why = View.start({ hideUnderMenus = C.hideUnderMenus })
+    if not ok then print("[playermarks] no NativeUI document: " .. tostring(why)) return false end
+    page, pageReady = View, true
+    send("pm:config", { radius = C.radius, page = C.page, hideUnderMenus = C.hideUnderMenus })
+    for key, m in pairs(marks) do
+        send("pm:add", { player = key, anchor = tostring(m.anchor), name = m.name })
+        send("pm:talk", { player = key, talking = m.talking, level = m.level })
+    end
+    return true
 end
+
+-- The document drawer's loops end with it (no NativeUI, or the resource stops).
+local documentOff = false
 
 AddEventHandler("onClientResourceStart", function(name)
     if name ~= GetCurrentResourceName() or C.enabled == false then return end
@@ -500,9 +495,11 @@ AddEventHandler("onClientResourceStart", function(name)
         end)
         return
     end
-    CreateThread(createPage)
     CreateThread(function()
-        while true do
+        if not createDocument() then documentOff = true end
+    end)
+    CreateThread(function()
+        while not documentOff do
             standDownPlatformPlates()
             local ok, err = pcall(refresh)
             if not ok then warn("refresh", "refresh failed: " .. tostring(err)) end
@@ -510,10 +507,18 @@ AddEventHandler("onClientResourceStart", function(name)
         end
     end)
     CreateThread(function()
-        while true do
+        while not documentOff do
             local ok, err = pcall(talk)
             if not ok then warn("talk", "talkers failed: " .. tostring(err)) end
             Wait(C.talkMs)
+        end
+    end)
+    -- The plates follow their anchors every frame; nobody around: four looks a second.
+    CreateThread(function()
+        while not documentOff do
+            local ok, busy = pcall(View.frame)
+            if not ok then warn("frame", "frame failed: " .. tostring(busy)) end
+            Wait((ok and busy) and 0 or 250)
         end
     end)
 end)
@@ -536,8 +541,11 @@ AddEventHandler("onClientResourceStop", function(name)
             -- clear() drops this resource's overrides at once. Its render request and its
             -- theme go with the resource: the host releases them when it stops.
             pcall(Open77.nameplates.clear)
-        elseif anchorsOk then
-            pcall(Open77.anchors.clear)
+        else
+            documentOff = true
+            if anchorsOk then pcall(Open77.anchors.clear) end
+            page, pageReady = nil, false
+            View.stop()
         end
         giveBackPlatformPlates()
         return

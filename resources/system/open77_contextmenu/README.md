@@ -4,7 +4,7 @@ This resource gives players an ALT + click context menu on players, vehicles, NP
 Generic client-side ALT + click targeting framework. **No actions are installed
 by default.** Your consumer resource supplies actions through named client exports.
 No Freeroam dependency, hardcoded commands, admin privileges or server authority.
-This README describes version 1.3.0.
+This README describes version 1.4.0.
 
 - **Docs:** [Generic context menu — open77_contextmenu](https://open2077.net/docs/context-menu), [Screen picking and cursor utilities](https://open2077.net/docs/screen-picking)
 - **Starts:** on its own
@@ -27,8 +27,20 @@ Use the client build supporting `screenRaycast(..., {self=true})` and native wea
 wheel blocking. Reconnect clients after publishing resource changes.
 
 - Hold ALT, click an entity, surface, visible F7 body or empty space.
-- Icon/label rows, actual mouse hover, separate keyboard focus, configurable
-  accent/scale/groups in `shared/config.lua`.
+- Drawn with **NativeUI** since 1.4.0 (`ui/contextmenu.rml`, `client/ui.lua`), in the
+  Open//77 RP design system: the TargetEye (four corner brackets around a hex reticle)
+  follows the pointer and stays on the pick; the ContextMenu column has an accent header
+  (target // distance), icon/label rows, folders (submenus) with Back, the highlighted
+  row's description and a key legend. Mouse hover and keyboard focus share one highlight
+  (arrows, Home/End, Enter; Right opens a folder, Left/Backspace or right click goes
+  back); right click at the root or Escape closes. Accent colour, scale and group
+  headings are set in `shared/config.lua`.
+- The menu closes when ALT is released, the player dies, the game window stays in
+  the background, or another interface really takes the input. It no longer closes
+  when a NativeUI HUD or the chat moves the focus (the WebUI page did).
+- Needs a client with NativeUI; without it the resource logs one line and does nothing.
+- Tests (Lua 5.4, from this folder): `tests/ui.test.lua`, `tests/controller.test.lua`,
+  `tests/registry.test.lua`, `tests/rows.test.lua`, `tests/submenu.test.lua`.
 - `register`, `registerMany`, `update`, `get`, `unregister`, `unregisterMany`,
   `clear`, `setEnabled`, `list` manage **only the caller's** registrations.
 - `registerPlayers`, `registerVehicles`, `registerNpcs`, `registerProps`,

@@ -1,0 +1,49 @@
+/* The downed screen (ui/src/features/medical/medical.css) on NativeUI. 1920 x 1080: the
+   skull 108dp (10vh), the title 140dp, the timer 54dp (5vh), the lifeline from 25% to 75%. */
+
+/* An absolutely positioned element that toggles `display` comes back 0 x 0 (seen in game):
+   the root toggles `visibility`. */
+#md { position: absolute; left: 0; top: 0; right: 0; bottom: 0; visibility: hidden; color: #F2F3F5; }
+#md.is-on { visibility: visible; animation: 0.65s cubic-out md-fade-in; }
+
+/* radial-gradient(ellipse at 50% 42%, .52 -> .85 at 80%) over linear-gradient(0deg, .72 -> .12);
+   none while the flatline cover is under it */
+.md-scrim { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.md-scrim.is-linear { decorator: linear-gradient(0deg, #050506B8 0%, #0505061F 100%); }
+.md-scrim.is-radial { decorator: radial-gradient(ellipse farthest-corner at 50% 42%, #05050685 0%, #050506D9 80%); }
+#md.is-covered .md-scrim { visibility: hidden; }
+
+.md-life { display: block; position: absolute; left: 0; right: 0; top: 270dp; height: 540dp; fill: transparent; stroke: #FFCC00; stroke-width: 2dp; }
+.md-life-track { opacity: 0.12; }
+/* the page's dash of 100 on a path length of 1000, sliding for 4 s */
+.md-life-pulse { opacity: 0.55; trim-start: 0.9; trim-end: 1; filter: drop-shadow(#FFCC0066 0dp 0dp 5dp); }
+#md.is-on .md-life-pulse { animation: 4s linear-in-out infinite md-heartbeat; }
+
+.md-brand { position: absolute; top: 26dp; left: 32dp; right: 32dp; display: flex; flex-direction: row; align-items: center; gap: 5dp; font-family: "Zen Dots"; font-weight: normal; font-size: 14dp; line-height: 18dp; letter-spacing: 0.08em; }
+.md-brand-sub { margin-left: 14dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; opacity: 0.65; }
+.md-footer { position: absolute; bottom: 24dp; left: 32dp; right: 32dp; display: flex; flex-direction: row; align-items: center; justify-content: space-between; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 13dp; letter-spacing: 0.08em; opacity: 0.6; }
+
+.md-center { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: flex; flex-direction: row; align-items: center; justify-content: center; }
+.md-down { position: relative; display: flex; flex-direction: column; align-items: center; width: 672dp; padding: 80dp 24dp 70dp 24dp; text-align: center; }
+.md-skull { display: block; width: 108dp; height: 108dp; margin-bottom: 20dp; filter: drop-shadow(#FFCC0020 0dp 0dp 12dp); }
+.md-eyebrow { display: block; font-size: 16dp; line-height: 21dp; letter-spacing: 0.5em; padding-left: 8dp; white-space: nowrap; }
+.md-title { display: block; font-family: "Zen Dots"; font-weight: normal; font-size: 140dp; line-height: 161dp; letter-spacing: -0.05em; margin: 5dp 0 18dp 0; color: #FFCC00; white-space: nowrap; font-effect: shadow(0dp 4dp #00000088); }
+.md-timer { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 54dp; line-height: 65dp; letter-spacing: 0.05em; color: #FFCC00; white-space: nowrap; }
+.md-status { display: block; font-size: 11dp; line-height: 15dp; letter-spacing: 0.15em; text-transform: uppercase; margin-top: 8dp; }
+.md-text { max-width: 440dp; font-size: 14dp; line-height: 22dp; margin-top: 22dp; color: #C3C7D1; font-effect: shadow(0dp 2dp #000000); }
+.md-text.md-error { color: #FFEB85; }
+.md-actions { display: flex; flex-direction: column; align-items: center; gap: 12dp; min-height: 54dp; margin-top: 26dp; width: 672dp; }
+.md-question { font-size: 13dp; line-height: 17dp; }
+.md-buttons { display: flex; flex-direction: row; justify-content: center; flex-wrap: wrap; gap: 10dp; }
+/* the page's 8px keycap cut (top-right / bottom-left): a yellow slab, black label */
+.md-btn { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 24dp; min-height: 20dp; padding: 13dp 23dp; color: #050506; font-size: 12dp; line-height: 16dp; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; background-color: transparent; decorator: fx(chamfer-solid 8 0 1 0 #FFCC00); }
+.md-btn path.ic { width: 16dp; height: 16dp; stroke: #050506; }
+.md-btn.is-hover { decorator: fx(chamfer-solid 8 0 1 0 #FFDD40); }
+.md-btn.is-press { transform: translateY(1dp); }
+.md-btn.is-secondary { color: #F2F3F5; decorator: fx(chamfer 8 1 0.5 0 #FFFFFF40); }
+.md-btn.is-secondary.is-hover { decorator: fx(chamfer 8 1 0.38 0 #FFFFFF70); }
+.md-hint { display: flex; flex-direction: row; align-items: center; gap: 8dp; font-size: 11dp; line-height: 17dp; margin-top: 20dp; color: #C3C7D1; font-effect: shadow(0dp 2dp #000000); }
+.md-hint path.ic { width: 14dp; height: 14dp; stroke: #C3C7D1; }
+
+@keyframes md-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes md-heartbeat { 0% { trim-start: 0; trim-end: 0; } 10% { trim-start: 0; trim-end: 0.1; } 100% { trim-start: 0.9; trim-end: 1; } }

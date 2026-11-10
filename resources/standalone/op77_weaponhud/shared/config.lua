@@ -7,17 +7,19 @@ WeaponHudConfig = {
 
     -- Hide the game's own weapon HUD (ammo counter) while this resource runs (ui.vanilla.hud).
     hideNativeWeaponHud = true,
-    -- Hide it while another interface holds the mouse cursor (inventory, menus, phone...).
+    -- Fold it away while another interface holds the mouse cursor (inventory, menus, phone...).
+    -- NativeUI draws above every page: with false it keeps its state under a menu, but the
+    -- display still steps aside (at once, no fold) for as long as the cursor is held.
     hideUnderMenus = true,
     -- Keep it in vehicles: the speedometer is on the other side of the screen, and a drawn
     -- weapon in a car means drive-by shooting, where the ammo count matters.
     showInVehicles = true,
 
-    -- Where it sits, in CSS pixels of a 1080-pixel-high screen: distances from the LEFT and
+    -- Where it sits, in dp (pixels of a 1080-pixel-high screen): distances from the LEFT and
     -- bottom edges to the display's box (420 x 210 at scale 1). The default sits just above
     -- LightRP's circular gauges (they start at y 950) and is the mirror of op77_speedometer.
     -- A gamemode whose bottom-left stack grows (LightRP's grenade chip) lifts it with
-    -- op77_weaponhud:inset; the surface's crop leaves room for `maxInset` px of lift.
+    -- op77_weaponhud:inset, by `maxInset` dp at most.
     layout = {
         left = 36,
         bottom = 142,
@@ -65,7 +67,7 @@ WeaponHudConfig = {
     backoffMs = 2000,
     backoffMaxMs = 8000,
 
-    fps = 30,
-    zIndex = 705,     -- under LightRP's page (720), next to the speedometer (710)
+    fps = 30,         -- unused since the HUD is a NativeUI document (drawn at the game's frame rate)
+    zIndex = 705,     -- order among the NativeUI documents of the "hud" layer (the speedometer: 710)
     debug = false,
 }

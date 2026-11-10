@@ -254,3 +254,7 @@ resources/system/open77_wardrobe_ui/web/icons/f/
 resources/standalone/op77_tcg/web/img/
 
 __pycache__/
+
+# The NativeUI HUD lab: the real HUD documents fed by scenes, in the client without a server.
+!tools/native-lab/
+!tools/native-lab/**

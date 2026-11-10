@@ -46,6 +46,10 @@ ActionBubbleConfig = {
     -- (The platform allows 32 anchors per resource.)
     maxBubbles = 24,
 
+    -- NativeUI draws over every WebUI page: the bubbles step aside while another
+    -- interface holds the cursor (an inventory, a menu, the phone). Client side.
+    hideUnderMenus = true,
+
     -- Kinds: the label on the card and its accent. `action` is the default.
     kinds = {
         action = { label = "ACTION", accent = "#FFCC00" },

@@ -63,4 +63,12 @@ local nextId
 id = assert(A.progress({}, function() nextId = assert(A.hold({})) end)); ack(id); time = time + 5500; report(id, "success", "completed")
 assert(nextId and A.isActive() and focus, "callbacks can chain without releasing the new action's focus")
 A.cancel(nextId)
+-- the native bar (client/native/actions.lua) decides on the relayed keys and reports through
+-- Actions.report: the checks the page's actionResult went through
+id = assert(A.hold({}))
+A.report({ id = id, status = "success", reason = "completed" }); assert(A.isActive(), "a report before the page's acknowledgement is refused")
+ack(id); A.report({ id = id, status = "success", reason = "completed" }); assert(A.isActive(), "an early success is refused")
+time = time + 5500; A.report({ id = id, status = "cancelled", reason = "made_up" }); assert(A.isActive(), "an unknown reason is refused")
+A.report({ id = id, status = "success", reason = "completed", hits = 0, mistakes = 0, score = 0 })
+assert(not A.isActive() and not focus and A.result(id).status == "success" and sent[E.actionFinish].id == id, "a valid report finishes once")
 print("PASS actions Lua: validation, lifecycle, focus, ownership, callbacks, death, watchdog and stale completions")

@@ -1,0 +1,51 @@
+<rml>
+<head>
+    <title>Light RP Dogtown</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="dogtown.rcss"/>
+</head>
+<body data-model="dt">
+<!-- ui/src/features/dogtown/DogtownHud.tsx: the red banner on entry (top centre) and the
+     persistent tile top-left while inside or combat-tagged -->
+<div id="dt" data-class-is-on="show">
+
+    <div class="dt-banner-pos" data-class-is-in="bannerOn">
+        <div class="dt-banner-fade" data-class-is-out="bannerOut">
+        <div class="dt-banner" data-class-is-short="short">
+            <div class="dt-banner-bg"></div>
+            <div class="dt-banner-tint"></div><div class="dt-banner-tint is-corner"></div>
+            <div class="dt-banner-top"></div>
+            <div class="dt-banner-bar"><path class="ic" view-box="0 0 24 24" data-attr-d="icSkull"/><span>DANGER ZONE</span></div>
+            <div class="dt-banner-title">{{labelUpper}}</div>
+            <div class="dt-banner-law" data-class-is-safe="lawSafe"><span>{{lawA}}</span><span class="dt-dot">·</span><span>{{lawB}}</span></div>
+            <div class="dt-banner-cash">You carry <span class="dt-em">{{cashText}}</span> in cash</div>
+            <div class="dt-banner-stake" data-if="short">{{stakeText}}</div>
+            <div class="dt-banner-rule" data-if="!short">{{ruleText}}</div>
+        </div>
+        </div>
+    </div>
+
+    <div class="dt-tile-pos">
+    <div class="dt-tile" data-class-is-tagged="tagged" data-class-is-outside="outside" data-class-is-short="short" data-class-is-safe="safe" data-class-is-bounty="bounty">
+        <div class="dt-tile-bg"></div>
+        <div class="dt-tile-rail"></div>
+        <path class="ic dt-glyph" view-box="0 0 24 24" data-attr-d="tileIcon"/>
+        <div class="dt-body">
+            <div class="dt-label"><span>{{tileA}}</span><span class="dt-dot">·</span><span>{{tileB}}</span></div>
+            <div class="dt-strong">{{tileTitle}}</div>
+            <div class="dt-rows">
+                <div class="dt-row is-safe" data-if="safe"><path class="ic" view-box="0 0 24 24" data-attr-d="icShield"/><span>SAFE FOR {{safeClock}}</span></div>
+                <div class="dt-row is-escort" data-if="short"><path class="ic" view-box="0 0 24 24" data-attr-d="icTimer"/><span>ESCORTED OUT IN {{escortSeconds}} S</span></div>
+                <div class="dt-row is-tag" data-if="tagged"><path class="ic" view-box="0 0 24 24" data-attr-d="icTimer"/><span>IN COMBAT {{tagSeconds}} S</span></div>
+                <div class="dt-row is-bounty" data-if="bounty"><path class="ic" view-box="0 0 24 24" data-attr-d="icCrosshair"/><span>BOUNTY · ON EVERYONE'S MAP</span></div>
+                <div class="dt-row" data-if="streakOn"><path class="ic" view-box="0 0 24 24" data-attr-d="icFlame"/><span>{{streak}} in a row</span></div>
+                <div class="dt-row" data-if="!short"><path class="ic" view-box="0 0 24 24" data-attr-d="icCrosshair"/><span>{{riskText}}</span></div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+</div>
+</body>
+</rml>

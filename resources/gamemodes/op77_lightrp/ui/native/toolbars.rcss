@@ -1,0 +1,66 @@
+/* The passive key bars, bottom centre: the free camera's (ui/src/features/freecam/freecam.css)
+   and the Maneki-neko placement tool's (ui/src/features/maneki/maneki.css). */
+
+#tb { position: absolute; left: 0; top: 0; right: 0; bottom: 0; color: #F2F3F5; font-size: 15dp; line-height: 22dp; }
+.bar-pos { position: absolute; left: 0; right: 0; bottom: 26dp; display: flex; visibility: hidden; flex-direction: row; justify-content: center; }
+/* An absolutely positioned element that toggles `display` comes back 0 x 0 (seen in game):
+   the wrapper stays laid out and toggles `visibility`. */
+.bar-pos.is-in { visibility: visible; }
+/* the rise on .bar-rise, the paused / faded opacity on .bar: one opacity animation per element */
+.bar-pos.is-in .bar-rise { animation: 0.42s cubic-out bar-in; }
+.bar { position: relative; display: flex; flex-direction: column; min-width: 880dp; max-width: 1180dp; opacity: 1; transition: opacity 0.25s cubic-in-out; }
+.bar.is-paused { opacity: 0.45; }
+/* surface-hud, the HUD blur, shadow-hud + a 1px line-soft ring, the accent on top */
+.bar-glass { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: #060608B8; backdrop-filter: blur(8dp); border-width: 1dp; border-color: #FFCC0047; border-top-width: 2dp; border-top-color: #FFCC00; box-shadow: #000000A6 0 2dp 14dp 0; }
+.bar-head { position: relative; display: flex; flex-direction: row; align-items: center; gap: 18dp; padding: 11dp 18dp 9dp 18dp; border-bottom-width: 1dp; border-bottom-color: #FFCC0047; }
+.bar-title { display: flex; flex-direction: row; align-items: center; gap: 8dp; flex: 0 0 auto; font-size: 13dp; line-height: 16dp; letter-spacing: 0.14em; color: #FFCC00; white-space: nowrap; }
+.bar-title path.ic { width: 15dp; height: 15dp; stroke: #FFCC00; }
+.bar-dot { flex: 0 0 auto; width: 7dp; height: 7dp; border-radius: 3.5dp; background-color: #ff4d4d; box-shadow: #ff4d4daa 0 0 8dp 0;  }
+.bar-pos.is-in .bar-dot { animation: 1.4s sine-in-out infinite bar-rec; }
+.bar-status { display: block; flex: 1 1 0; min-width: 0; font-size: 12dp; line-height: 17dp; color: #8A8F9C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-readout { flex: 0 0 auto; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 13dp; letter-spacing: 0.22em; color: #8A8F9C; white-space: nowrap; }
+.fc-range { display: flex; flex-direction: row; align-items: center; gap: 10dp; flex: 0 0 auto; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 13dp; letter-spacing: 0.22em; color: #8A8F9C; white-space: nowrap; }
+.fc-range-text { min-width: 92dp; text-align: right; }
+.fc-gauge { position: relative; width: 120dp; height: 4dp; background-color: #ffffff1c; overflow: hidden; }
+.fc-gauge-fill { position: absolute; left: 0; top: 0; bottom: 0; background-color: #FFCC00; transition: width 0.14s linear-in-out; }
+.fc-range-note { display: block; min-width: 74dp; }
+.fc-range.is-near .fc-gauge-fill { background-color: #ffa23a; }
+.fc-range.is-near .fc-range-note { color: #ffa23a; }
+.fc-range.is-limit .fc-gauge-fill { background-color: #ff5a4d; }
+.fc-range.is-limit .fc-range-note, .fc-range.is-limit .fc-range-text .hi { color: #ff5a4d; }
+.bar-pos.is-in .fc-range.is-limit { animation: 0.5s sine-in-out infinite alternate bar-limit; }
+
+.bar-keys { position: relative; display: flex; flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 20dp; padding: 11dp 18dp 12dp 18dp; }
+.bar-item { display: flex; flex-direction: column; align-items: center; gap: 7dp; flex: 0 0 auto; }
+.bar-label { display: block; font-size: 11dp; line-height: 15dp; letter-spacing: 0.06em; text-transform: uppercase; color: #8A8F9C; white-space: nowrap; }
+.bar-item.is-exit { margin-left: 6dp; padding-left: 22dp; border-left-width: 1dp; border-left-color: #FFCC0047; }
+.key { display: block; flex: 0 0 auto; box-sizing: border-box; min-width: 26dp; height: 24dp; padding: 0 6dp; font-size: 12dp; line-height: 24dp; text-align: center; white-space: nowrap; color: #14140f; background-color: #FFCC00; border-radius: 3dp; box-shadow: #8f7a1c 0 2dp 0 0; }
+.key.wide { padding: 0 9dp; font-size: 11dp; letter-spacing: 0.04em; }
+.key-arrow { display: block; width: 12dp; height: 12dp; margin: 6dp auto 0 auto; fill: transparent; stroke: #14140f; stroke-width: 2dp; stroke-linecap: round; stroke-linejoin: round; }
+.fc-cross { display: flex; flex-direction: column; align-items: center; gap: 3dp; }
+.fc-cross-row { display: flex; flex-direction: row; align-items: center; gap: 3dp; }
+.fc-pair { display: flex; flex-direction: row; align-items: center; gap: 5dp; }
+.fc-plus { color: #8A8F9C; font-size: 12dp; line-height: 16dp; }
+.mouse { position: relative; flex: 0 0 auto; box-sizing: border-box; width: 16dp; height: 24dp; border-width: 1.5dp; border-color: #FFCC00; border-radius: 8dp; }
+.mouse-wheel { position: absolute; left: 5.5dp; top: 4dp; width: 2dp; height: 5dp; background-color: #FFCC00; border-radius: 1dp; }
+.bar-pos.is-in .mouse.is-sway { animation: 2.4s sine-in-out infinite bar-sway; }
+.bar-pos.is-in .mouse.is-wheel .mouse-wheel { animation: 1.3s sine-in-out infinite bar-wheel; }
+
+.fc-quiet { flex-direction: row; align-items: center; gap: 9dp; min-width: 0; padding: 8dp 14dp 7dp 14dp; transition: opacity 1s cubic-in-out; }
+.fc-quiet .bar-glass { border-top-width: 1dp; }
+.fc-quiet .bar-dot, .fc-quiet .key { position: relative; }
+.fc-quiet-text { position: relative; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 13dp; letter-spacing: 0.22em; color: #8A8F9C; white-space: nowrap; }
+.fc-quiet.is-faded { opacity: 0.35; }
+
+/* the Maneki-neko tool: the same bar with a gold mark */
+.mk { min-width: 760dp; }
+.mk .bar-dot { background-color: #ffcc00; box-shadow: #ffcc00aa 0 0 8dp 0; }
+.bar-pos.is-in .mk .bar-dot { animation: 1.6s sine-in-out infinite bar-rec; }
+.mk-message { position: relative; padding: 7dp 18dp; font-size: 12dp; line-height: 17dp; color: #3ddc84; border-bottom-width: 1dp; border-bottom-color: #FFCC0047; }
+.mk-message.is-error { color: #ff5a4d; }
+
+@keyframes bar-in { from { opacity: 0; transform: translateY(14dp); } to { opacity: 1; transform: translateY(0dp); } }
+@keyframes bar-rec { 0% { opacity: 1; } 50% { opacity: 0.25; } 100% { opacity: 1; } }
+@keyframes bar-limit { from { opacity: 1; } to { opacity: 0.6; } }
+@keyframes bar-sway { 0% { transform: translateX(-2dp); } 50% { transform: translateX(2dp); } 100% { transform: translateX(-2dp); } }
+@keyframes bar-wheel { 0% { transform: translateY(0dp); opacity: 1; } 50% { transform: translateY(4dp); opacity: 0.4; } 100% { transform: translateY(0dp); opacity: 1; } }

@@ -1,0 +1,248 @@
+<rml>
+<head>
+    <title>Light RP first day</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="tutorial.rcss"/>
+</head>
+<!-- The first day's overlays (ui/src/features/tutorial/Tutorial.tsx, demos.tsx StepDemo and
+     HallMap, ContextLesson.tsx, GuidePointer.tsx GuideReadout), driven by
+     client/native/tutorial.lua. The dialogs stay in the page.
+       #fd-reveal    the flight to the next stop: bars, the place, the hall from above, the skip key
+       #fd-done-row  "STEP COMPLETE", top centre
+       #fd-card      the objective card, middle right -->
+<body data-model="fd">
+<div id="root" class="fill shell" data-class-is-ready="ready" data-class-is-hidden="hidden" data-class-is-quiet="quiet">
+
+    <!-- ===================== the flight to the next stop ===================== -->
+    <div id="fd-reveal" class="fill fd-reveal" data-class-is-on="revealOn">
+        <div id="fd-bar-top" class="fd-bar fd-bar-top"></div>
+        <div id="fd-bar-bottom" class="fd-bar fd-bar-bottom"></div>
+        <div id="fd-reveal-title" class="fd-reveal-title">
+            <div class="fd-reveal-eyebrow">
+                <path class="ic" view-box="0 0 24 24" d="M3 19a3 3 0 1 0 6 0a3 3 0 1 0 -6 0zM9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15M15 5a3 3 0 1 0 6 0a3 3 0 1 0 -6 0z"/>
+                <span>{{revealEyebrow}}</span>
+            </div>
+            <div class="fd-reveal-name">{{revealName}}</div>
+            <div class="fd-reveal-line">{{revealDirection}}<span class="fd-reveal-dist">{{revealDistance}}</span> on foot</div>
+            <div class="fd-reveal-time"><div id="fd-reveal-fill" class="fd-reveal-fill"></div></div>
+        </div>
+        <div id="fd-reveal-map" class="fd-reveal-map" data-if="mapOn">
+            <div class="fd-map-eyebrow"><span class="fd-eyebrow-text">ARRIVAL HALL</span></div>
+            <div class="fd-map" data-style-height="mapH">
+                <div class="fd-map-ground" data-style-left="mgL" data-style-top="mgT" data-style-width="mgW" data-style-height="mgH"
+                     data-style-border-width="mgB" data-style-border-radius="mgR"></div>
+                <div class="fd-map-avenue" data-style-left="maL" data-style-top="maT" data-style-width="maW" data-style-height="maH"></div>
+                <path class="fd-map-route" view-box="0 0 222 190" data-attr-d="mapRoute" data-style-stroke-width="mapRouteW" data-style-stroke-dasharray="mapDash"/>
+                <div class="fd-map-cell" data-for="m : mapStops"><div class="fd-map-stop" data-class-is-done="m.done" data-class-is-now="m.now" data-class-is-next="m.next">
+                    <div class="fd-map-ping" data-if="m.now" data-style-left="m.pingL" data-style-top="m.pingT" data-style-width="m.pingS" data-style-height="m.pingS"
+                         data-style-border-width="m.pingB" data-style-border-radius="m.pingR"></div>
+                    <div class="fd-map-dot" data-style-left="m.dotL" data-style-top="m.dotT" data-style-width="m.dotS" data-style-height="m.dotS"
+                         data-style-border-width="m.dotB" data-style-border-radius="m.dotR"></div>
+                    <div class="fd-map-label" data-if="m.now" data-style-left="m.labelL" data-style-top="m.labelT" data-style-font-size="m.labelF"
+                         data-style-line-height="m.labelF">{{m.label}}</div>
+                </div></div>
+            </div>
+        </div>
+        <div id="fd-reveal-skip" class="fd-reveal-skip" data-if="skipOn">
+            <div class="fd-keycap"><span>{{keySkip}}</span></div>
+            <span>Skip</span>
+        </div>
+    </div>
+
+    <!-- ===================== STEP COMPLETE ===================== -->
+    <div id="fd-done-row" class="fd-done-row" data-class-is-on="doneOn">
+        <div class="fd-done">
+            <div class="fd-tick">
+                <div class="fd-tick-disc"></div>
+                <path class="fd-tick-ring" view-box="0 0 52 52" d="M49 26a23 23 0 1 1 -46 0a23 23 0 1 1 46 0"/>
+                <path class="fd-tick-mark" view-box="0 0 52 52" d="M15 27l7 7 15-16"/>
+            </div>
+            <div class="fd-done-text">
+                <div class="fd-done-eyebrow"><span class="fd-eyebrow-text">STEP COMPLETE</span></div>
+                <div class="fd-done-title">{{doneTitle}}</div>
+            </div>
+            <div class="fd-done-steps">
+                <div class="fd-dcell" data-for="s : steps"><div class="fd-dstep" data-class-is-done="s.done" data-class-is-now="s.now"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== the objective card ===================== -->
+    <div class="fill fd-card-col" data-class-is-on="cardOn">
+        <div id="fd-card" class="fd-card">
+            <div class="fd-head">
+                <span class="fd-eyebrow">FIRST DAY</span>
+                <div class="fd-count"><span class="fd-count-now">{{indexText}}</span> / {{totalText}}</div>
+            </div>
+            <div class="fd-steps">
+                <div class="fd-scell" data-for="s : steps"><div class="fd-step" data-class-is-done="s.done" data-class-is-now="s.now"></div></div>
+            </div>
+
+            <div id="fd-task" class="fd-task">
+                <div class="fd-title">{{title}}</div>
+                <div class="fd-todo" data-if="hasTodo">
+                    <div id="fd-r1" class="fd-row" data-if="r1On">
+                        <div class="fd-key" data-if="r1HasKey"><div class="fd-key-ring"></div><div class="fd-key-base"></div><div class="fd-key-face"><span>{{r1Key}}</span></div></div>
+                        <div class="fd-bullet" data-if="!r1HasKey"><path class="ic" view-box="0 0 24 24" data-attr-d="r1Icon"/></div>
+                        <div class="fd-row-text">{{r1Text}}</div>
+                    </div>
+                    <div id="fd-r2" class="fd-row" data-if="r2On">
+                        <div class="fd-key" data-if="r2HasKey"><div class="fd-key-ring"></div><div class="fd-key-base"></div><div class="fd-key-face"><span>{{r2Key}}</span></div></div>
+                        <div class="fd-bullet" data-if="!r2HasKey"><path class="ic" view-box="0 0 24 24" data-attr-d="r2Icon"/></div>
+                        <div class="fd-row-text">{{r2Text}}</div>
+                    </div>
+                    <div id="fd-r3" class="fd-row" data-if="r3On">
+                        <div class="fd-key" data-if="r3HasKey"><div class="fd-key-ring"></div><div class="fd-key-base"></div><div class="fd-key-face"><span>{{r3Key}}</span></div></div>
+                        <div class="fd-bullet" data-if="!r3HasKey"><path class="ic" view-box="0 0 24 24" data-attr-d="r3Icon"/></div>
+                        <div class="fd-row-text">{{r3Text}}</div>
+                    </div>
+                    <div id="fd-r4" class="fd-row" data-if="r4On">
+                        <div class="fd-key" data-if="r4HasKey"><div class="fd-key-ring"></div><div class="fd-key-base"></div><div class="fd-key-face"><span>{{r4Key}}</span></div></div>
+                        <div class="fd-bullet" data-if="!r4HasKey"><path class="ic" view-box="0 0 24 24" data-attr-d="r4Icon"/></div>
+                        <div class="fd-row-text">{{r4Text}}</div>
+                    </div>
+                    <div id="fd-r5" class="fd-row" data-if="r5On">
+                        <div class="fd-key" data-if="r5HasKey"><div class="fd-key-ring"></div><div class="fd-key-base"></div><div class="fd-key-face"><span>{{r5Key}}</span></div></div>
+                        <div class="fd-bullet" data-if="!r5HasKey"><path class="ic" view-box="0 0 24 24" data-attr-d="r5Icon"/></div>
+                        <div class="fd-row-text">{{r5Text}}</div>
+                    </div>
+                    <div id="fd-r6" class="fd-row" data-if="r6On">
+                        <div class="fd-key" data-if="r6HasKey"><div class="fd-key-ring"></div><div class="fd-key-base"></div><div class="fd-key-face"><span>{{r6Key}}</span></div></div>
+                        <div class="fd-bullet" data-if="!r6HasKey"><path class="ic" view-box="0 0 24 24" data-attr-d="r6Icon"/></div>
+                        <div class="fd-row-text">{{r6Text}}</div>
+                    </div>
+                </div>
+                <div class="fd-hint" data-if="!hasTodo">{{hint}}</div>
+
+                <!-- the step's example (demos.tsx StepDemo): one stage loop per example, client/native/tutorial.lua -->
+                <div id="fd-demo" class="fd-demo" data-if="demoOn">
+                    <div class="fd-mini">
+                        <div class="fd-cap" data-class-is-on="capOn" data-class-is-wide="capWide"><span>{{capText}}</span></div>
+
+                        <!-- menu: F1, the player menu opens, Identity is picked -->
+                        <div class="fd-menu" data-if="dmMenu" data-class-is-open="menuOpen">
+                            <div class="fd-menu-row" data-class-is-on="menuRowOn" data-class-is-picked="menuRowPicked">
+                                <span>Identity</span>
+                                <path class="ic" data-if="menuRowPicked" view-box="0 0 24 24" d="M14 4.1 12 6M5.1 8l-2.9-.8M6 12l-1.9 2M7.2 2.2 8 5.1M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/>
+                            </div>
+                            <div class="fd-menu-row"><span>Inventory</span></div>
+                            <div class="fd-menu-row"><span>Animations</span></div>
+                            <div class="fd-menu-row"><span>Free camera</span></div>
+                        </div>
+
+                        <!-- inventory: the bag opens on the starter food and water -->
+                        <div class="fd-grid" data-if="dmInv" data-class-is-open="invOpen">
+                            <div class="fd-gcell"><div class="fd-item"><img src="/web/img/items/water.png"/><span class="fd-item-count">x5</span></div></div>
+                            <div class="fd-gcell"><div class="fd-item"><img src="/web/img/items/burrito.png"/><span class="fd-item-count">x5</span></div></div>
+                            <div class="fd-gcell"><div class="fd-gempty"></div></div>
+                            <div class="fd-gcell"><div class="fd-gempty"></div></div>
+                            <div class="fd-gcell"><div class="fd-gempty"></div></div>
+                            <div class="fd-gcell"><div class="fd-gempty"></div></div>
+                        </div>
+
+                        <!-- shop: a drink added, cash or bank, confirmed -->
+                        <div class="fd-shop" data-if="dmShop">
+                            <div class="fd-shop-item" data-class-is-on="shopItemOn">
+                                <div class="fd-item"><img src="/web/img/items/water.png"/></div>
+                                <div class="fd-shop-plus"><path class="ic" view-box="0 0 24 24" d="M5 12h14M12 5v14"/></div>
+                            </div>
+                            <div class="fd-pay">
+                                <div class="fd-pay-opt" data-class-is-on="shopCash"><span>CASH</span></div>
+                                <div class="fd-pay-opt" data-class-is-on="shopBank"><span>BANK</span></div>
+                            </div>
+                            <div class="fd-spacer"></div>
+                            <div class="fd-confirm" data-class-is-on="shopConfirmOn" data-class-is-done="shopConfirmDone">
+                                <span data-if="!shopConfirmDone">CONFIRM</span>
+                                <path class="ic" data-if="shopConfirmDone" view-box="0 0 24 24" d="M20 6 9 17l-5-5"/>
+                            </div>
+                        </div>
+
+                        <!-- drink: use it, the action ring runs, thirst goes up -->
+                        <div class="fd-use" data-if="dmDrink" data-class-is-on="drinkUse">
+                            <div class="fd-item"><img src="/web/img/items/water.png"/></div>
+                            <div class="fd-use-tag"><span>USE</span></div>
+                        </div>
+                        <div class="fd-ring" data-if="dmDrink" data-class-is-run="drinkRun" data-class-is-done="drinkDone">
+                            <path class="fd-ring-track" view-box="0 0 36 36" d="M18 1.5a16.5 16.5 0 1 1 0 33a16.5 16.5 0 1 1 0 -33"/>
+                            <path class="fd-ring-fill" view-box="0 0 36 36" d="M18 1.5a16.5 16.5 0 1 1 0 33a16.5 16.5 0 1 1 0 -33"/>
+                            <div class="fd-ring-hole"></div>
+                            <path class="ic fd-ring-ic" view-box="0 0 24 24" data-attr-d="drinkIcon"/>
+                        </div>
+                        <div class="fd-vital" data-if="dmDrink">
+                            <path class="ic" view-box="0 0 24 24" d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>
+                            <div class="fd-bar"><div class="fd-bar-fill fd-vital-fill" data-class-is-full="drinkFull"></div></div>
+                        </div>
+
+                        <!-- collect / process / sell: E, the progress, what comes out -->
+                        <div class="fd-token" data-if="actFromOn" data-class-is-gone="actGone">
+                            <div class="fd-token-box"><path class="ic" view-box="0 0 24 24" data-attr-d="actFromIcon"/></div>
+                        </div>
+                        <div class="fd-progress" data-if="dmAct">
+                            <span class="fd-progress-label">{{actLabel}}</span>
+                            <div class="fd-bar"><div class="fd-bar-fill" data-class-is-run="actRun" data-class-is-full="actFull"></div></div>
+                        </div>
+                        <div class="fd-token" data-if="dmAct" data-class-is-new="actNew" data-class-is-wait="!actNew">
+                            <div class="fd-token-box"><path class="ic" view-box="0 0 24 24" data-attr-d="actToIcon"/></div>
+                            <div class="fd-token-pay" data-if="actPay"><span>+€$</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- the Alt lesson (ContextLesson.tsx) -->
+                <div class="fd-lesson" data-if="lessonOn">
+                    <div class="fd-gesture">
+                        <span class="fd-gesture-key">{{lessonAlt}}</span>
+                        <span>HOLD</span>
+                        <span>+</span>
+                        <path class="ic" view-box="0 0 24 24" d="M14 4.1 12 6M5.1 8l-2.9-.8M6 12l-1.9 2M7.2 2.2 8 5.1M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/>
+                        <span>LEFT CLICK</span>
+                    </div>
+                    <div class="fd-scene">
+                        <div class="fd-target"><path class="ic" view-box="0 0 24 24" data-attr-d="lessonTarget"/><div class="fd-target-mark"></div></div>
+                        <div class="fd-cmenu">
+                            <span class="fd-cmenu-title">{{lessonMenuTitle}}</span>
+                            <div class="fd-cmenu-back" data-if="lessonBack"><path class="ic" view-box="0 0 24 24" d="M15 18l-6-6 6-6"/><span>Back</span></div>
+                            <div class="fd-cmenu-action"><path class="ic" view-box="0 0 24 24" data-attr-d="lessonActionIcon"/><span>{{lessonAction}}</span></div>
+                        </div>
+                    </div>
+                    <div class="fd-lesson-p">Keep holding <span class="fd-strong">{{lessonAlt}}</span> while you select. Release to close.</div>
+                    <div class="fd-scope">
+                        <div class="fd-scope-item"><path class="ic" view-box="0 0 24 24" d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16ZM3.3 7l8.7 5 8.7-5M12 22V12"/><span>Objects</span></div>
+                        <div class="fd-scope-item"><path class="ic" view-box="0 0 24 24" d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M5 17a2 2 0 1 0 4 0a2 2 0 1 0 -4 0zM9 17h6M15 17a2 2 0 1 0 4 0a2 2 0 1 0 -4 0z"/><span>Vehicles</span></div>
+                        <div class="fd-scope-item"><path class="ic" view-box="0 0 24 24" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/><span>People</span></div>
+                    </div>
+                    <div class="fd-lesson-small">Only actions supported by this server and target appear.</div>
+                </div>
+
+                <div class="fd-hint" data-if="hasPracticeError">{{practiceError}}</div>
+            </div>
+
+            <!-- the way to the objective (GuideReadout): the arrow turned toward it, the distance, its name -->
+            <div class="fd-way" data-if="wayOn">
+                <div class="fd-beacon"><div class="fd-beacon-turn" data-style-transform="wayTurn"><path class="fd-beacon-glyph" view-box="0 0 24 24" d="M12 2 19 21 12 16.5 5 21Z"/></div></div>
+                <span class="fd-way-dist">{{wayDistance}}</span>
+                <span class="fd-way-label">{{wayLabel}}</span>
+            </div>
+
+            <div class="fd-quote" data-if="hasLine"><span class="fd-quote-who">{{guideName}}</span>{{line}}</div>
+
+            <!-- always in sight while the guide runs: its own key opens "Skip the first day?" -->
+            <div class="fd-skip"><span>Press</span><div class="fd-waykey"><span>{{keyQuit}}</span></div><span>to skip the tutorial</span></div>
+
+            <div class="fd-foot">
+                <div class="fd-foot-way" data-if="hasObjective"><div class="fd-waykey"><span>{{keyWay}}</span></div><span>Show me the way</span></div>
+                <div class="fd-foot-menu" data-if="footMenu">
+                    <span>{{keyMenu}}</span>
+                    <path class="ic" view-box="0 0 24 24" d="M5 12h14M12 5l7 7-7 7"/>
+                    <span>First day guide</span>
+                </div>
+                <span class="fd-foot-kbd" data-if="footKbd">{{footText}}</span>
+                <span>/tutorial pause</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</rml>

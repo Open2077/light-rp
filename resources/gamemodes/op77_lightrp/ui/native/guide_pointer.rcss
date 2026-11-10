@@ -1,0 +1,62 @@
+/* The way to the objective (ui/src/features/tutorial/guide.css): a waypoint over it in view,
+   an arrow on a ring round the screen centre out of view. Same gold as the beacon in the
+   world. gold #FFCC00  ink #0C1413
+   A .gp-point is a zero-sized box placed by guide_pointer.lua (left / top in %): its
+   children hang round it, centred with translateX(-50%) as the page's `translate: -50% 0`. */
+.gp-point { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; transition: opacity 0.25s quadratic-in-out; }
+.gp-point.is-shown { opacity: 1; }
+
+/* in view: the mark sits on the anchor, the name above it, the distance under it */
+.gp-mark
+{
+    position: absolute; left: -17dp; top: -17dp; width: 34dp; height: 34dp;
+    display: flex; flex-direction: row; align-items: center; justify-content: center;
+    filter: drop-shadow(#FFCC0099 0dp 0dp 6dp) drop-shadow(#000000CC 0dp 2dp 3dp);
+}
+/* nothing animates while it is hidden */
+.gp-point.is-shown .gp-mark { animation: 1.6s sine-in-out infinite gp-bob; }
+path.gp-pin { display: block; position: relative; width: 22dp; height: 22dp; fill: #FFCC00; }
+.gp-ping { position: absolute; left: 4dp; top: 4dp; right: 4dp; bottom: 4dp; box-sizing: border-box; border-width: 2dp; border-color: #FFCC00; border-radius: 13dp; opacity: 0; }
+.gp-point.is-shown .gp-ping { animation: 2.2s quadratic-out infinite gp-ping; }
+/* a row 400 dp wide centred on the point: what it holds is sized by its content and centred
+   (a shrink-to-fit box in the zero-wide point collapses) */
+.gp-row { position: absolute; left: -200dp; width: 400dp; display: flex; flex-direction: row; justify-content: center; }
+.gp-row-label { bottom: 22dp; }
+.gp-row-pin { top: 22dp; }
+.gp-row-rise { top: 48dp; }
+.gp-row-edge { top: 30dp; }
+.gp-label
+{
+    flex: 0 1 auto; max-width: 260dp; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #FFCC00; font-effect: shadow(0dp 1dp #000000), glow(0dp 5dp 0dp 0dp #000000AA);
+}
+.gp-distance
+{
+    flex: 0 0 auto; display: flex; flex-direction: row; align-items: center;
+    padding: 3dp 8dp 3dp 8dp; background-color: #0C1413D9; border-bottom-width: 2dp; border-bottom-color: #FFCC00; white-space: nowrap;
+    box-shadow: #00000077 0dp 4dp 14dp 0dp;
+}
+.gp-distance span { display: block; flex: 0 0 auto; font-family: "Share Tech Mono"; font-weight: normal; font-size: 14dp; line-height: 14dp; color: #F4F2E9; white-space: nowrap; }
+.gp-distance .gp-sep { margin: 0 8dp; }
+.gp-rise { flex: 0 0 auto; display: flex; flex-direction: row; align-items: center; white-space: nowrap; }
+.gp-rise span { display: block; flex: 0 0 auto; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; letter-spacing: 0.06em; color: #8FE3FF; white-space: nowrap; font-effect: shadow(0dp 1dp #000000); }
+/* the page's "▲" / "▼" (not in Share Tech Mono): a small triangle, turned for a way down */
+path.gp-rise-arrow { display: block; flex-shrink: 0; width: 8dp; height: 8dp; margin-right: 6dp; fill: #8FE3FF; }
+path.gp-rise-arrow.is-down { transform: rotate(180deg); }
+path.gp-rise-inline { width: 10dp; height: 10dp; margin-right: 8dp; fill: #F4F2E9; }
+
+/* out of view: a dark disc ringed in gold, the arrow turned toward the objective, the distance under it */
+.gp-arrow-box { position: absolute; left: -24dp; top: -24dp; width: 48dp; height: 48dp; }
+.gp-arrow
+{
+    width: 48dp; height: 48dp; border-radius: 24dp;
+    display: flex; flex-direction: row; align-items: center; justify-content: center;
+    decorator: radial-gradient(circle, #0C1413E6 58%, #0C141399 100%);
+    box-shadow: #FFCC00 0dp 0dp 0dp 2dp, #FFCC0055 0dp 0dp 18dp 0dp, #00000088 0dp 6dp 18dp 0dp;
+    transition: transform 0.12s linear-in-out;
+}
+path.gp-arrow-glyph { display: block; width: 26dp; height: 26dp; fill: #FFCC00; filter: drop-shadow(#FFCC00AA 0dp 0dp 4dp); }
+
+@keyframes gp-bob { 0% { transform: translateY(0dp); } 50% { transform: translateY(4dp); } 100% { transform: translateY(0dp); } }
+@keyframes gp-ping { 0% { opacity: 0.9; transform: scale(0.6); } 100% { opacity: 0; transform: scale(1.9); } }

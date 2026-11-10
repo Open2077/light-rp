@@ -26,7 +26,7 @@ const state={kind:'open',session:'custom:browser',nextRequest:1,price:1000,money
   assert.equal(await p.locator('.gameplay-interface').getAttribute('hidden'),null);
   await fire({kind:'presentation',session:state.session});
   await p.waitForFunction(()=>document.querySelector('.gameplay-interface').hidden);
-  await fire(state);const ui=p.getByRole('dialog',{name:'AUTO STUDIO_'});await ui.waitFor();assert(await p.locator('.gameplay-interface').isHidden());assert(await p.locator('.notices').isHidden());
+  await fire(state);const ui=p.getByRole('dialog',{name:'AUTO STUDIO_'});await ui.waitFor();assert(await p.locator('.gameplay-interface').isHidden());
   // Camera framing presets follow the selected category: counted apart from the requests.
   const calls=()=>p.evaluate(()=>testBridge.sent.filter(x=>x.name==='lightrp:ui:customization'&&x.payload.command!=='preset').map(x=>x.payload));
   const presets=()=>p.evaluate(()=>testBridge.sent.filter(x=>x.name==='lightrp:ui:customization'&&x.payload.command==='preset').map(x=>x.payload.category));
@@ -77,9 +77,9 @@ const state={kind:'open',session:'custom:browser',nextRequest:1,price:1000,money
   sent=await untilCalls(count+2);assert.equal(sent.request,6);assert.equal(sent.operation,'save');
   await fire({kind:'response',session:state.session,request:6,nextRequest:7,ok:false,paint:paid,text:'The database is unavailable. No money was moved.'});
   await p.getByRole('status').filter({hasText:'No money was moved'}).waitFor();
-  await p.keyboard.press('Escape');assert.equal(await ui.count(),0);assert.equal((await calls()).at(-1).operation,'close');assert.equal(await p.locator('.gameplay-interface').getAttribute('hidden'),null);assert(await p.locator('.notices').isVisible());
+  await p.keyboard.press('Escape');assert.equal(await ui.count(),0);assert.equal((await calls()).at(-1).operation,'close');assert.equal(await p.locator('.gameplay-interface').getAttribute('hidden'),null);
   await fire(state);await ui.waitFor();await fire({kind:'closed',session:'stale'});assert.equal(await ui.count(),1);assert(await p.locator('.gameplay-interface').isHidden());await fire({kind:'closed',session:state.session});assert.equal(await ui.count(),0);
-  await fire({kind:'unavailable',session:'failed',text:'Vehicle preview is unavailable.'});await p.getByText('Vehicle preview is unavailable.',{exact:true}).waitFor();
+  await fire({kind:'unavailable',session:'failed',text:'Vehicle preview is unavailable.'});await p.waitForFunction(()=>testBridge.sent.some(x=>x.name==='lightrp:ui:notice:push'&&x.payload.kind==='error'&&x.payload.title==='Auto Studio'&&x.payload.body==='Vehicle preview is unavailable.'));assert.equal(await p.getByText('Vehicle preview is unavailable.',{exact:true}).count(),0,'the notice is handed to Lua, not drawn by the page');
   // Lights and factory trim: per-category drafts, prices, payloads and confirmations.
   const studio={...state,session:'custom:categories',price:2500,prices:{paint:2500,lights:500,trim:2500},
    vehicle:{...state.vehicle,model:'hella',lightsHue:0.1,appearance:''},

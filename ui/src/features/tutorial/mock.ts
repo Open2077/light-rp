@@ -2,10 +2,11 @@ import { PAGE_EVENTS, type TutorialState } from "@/bridge/protocol";
 
 type Fire = (name: string, value: unknown) => void;
 
-/* ?tutorial=walk|edge|near|reveal (with ?registered=1): the first day guide on its way to a stop.
-   walk: the objective in view (the waypoint pinned to its anchor); edge: behind the camera (the
-   arrow on the ring, &angle=-120 turns it); near: within reach (the pointer gives way to the
-   prompt); reveal: the flight to the next stop. */
+/* ?tutorial=walk|edge|near|reveal (with ?registered=1): the first day guide on its way to a stop,
+   as the client feeds it. walk: the objective in view; edge: behind the camera (&angle=-120);
+   near: within reach; reveal: the flight to the next stop. The page draws none of it any more:
+   the card, the way and the flight are NativeUI (client/native/tutorial.lua, guide_pointer.lua;
+   tools/native-lab/scenes/60_tutorial.lua plays them). The page's dialogs read this state. */
 export function tutorialMock(fire: Fire, params: URLSearchParams) {
   const mode = params.get("tutorial");
   const tutorial: TutorialState | undefined = mode ? {

@@ -1,0 +1,40 @@
+<rml>
+<head>
+    <title>Light RP safe zone</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="safezone_tile.rcss"/>
+</head>
+<!-- The safe-zone tile (web/safezone/index.html): a green holographic square on the voice
+     plate's top-left corner. Entering a zone, the label unfolds out of it and folds back;
+     leaving, it unfolds in amber, then the tile goes. client/native/safezone_tile.lua sets
+     the classes (is-live, is-shown, is-open, is-leaving) and the texts. -->
+<body>
+<div id="root" class="fill">
+    <div id="anchor">
+        <div id="zone">
+            <div class="zone-rig">
+                <div class="zone-plane">
+                    <div class="zone-haze"></div>
+                    <!-- .zone-bloom glows, .zone-holo draws the scanlines (as open-voice's #bloom / #scan) -->
+                    <div class="zone-bloom">
+                    <div class="zone-holo">
+                        <div id="zone-tile" class="zone-tile">
+                            <div class="zone-frame"></div>
+                            <div class="zone-corner zone-corner-a"></div>
+                            <div class="zone-corner zone-corner-b"></div>
+                            <path class="zone-shield" view-box="0 0 24 24" d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.3 7.5 10 4.3-1.7 7.5-5.4 7.5-10v-6Z M8.5 12l2.5 2.5 4.5-5"/>
+                        </div>
+                        <div class="zone-label">
+                            <div id="zone-title" class="zone-title"></div>
+                            <div id="zone-hint" class="zone-hint"></div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</rml>

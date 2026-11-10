@@ -5,14 +5,14 @@
 -- counter, and LightRP's own weapon readout stands down while it runs
 -- (op77_weaponhud:state). Configuration: shared/config.lua; API: README.md.
 --
--- Client: reads the drawn weapon, feeds the page, exports.
+-- Client: reads the drawn weapon, drives the NativeUI document (client/ui.lua), exports.
 -- Server: runtime configuration for everyone or one player.
--- Page:   web/ (plain HTML/CSS/JS, no build step).
+-- HUD:    ui/weaponhud.rml + .rcss, drawn by NativeUI (Open77.ui, no browser).
 resource "op77_weaponhud"
-version "0.1.1"
+version "0.2.0"
 open77_version ">=0.0.1"
 auto_start true
--- The client owns a WebUI surface: a live reload would leave a stale one.
+-- The client owns a NativeUI document: reconnect rather than live reload.
 reload_policy "reconnect"
 
 shared_script "shared/config.lua"
@@ -21,11 +21,14 @@ shared_script "shared/weaponhud.lua"
 server_script "server/main.lua"
 
 client_script "client/catalogue.lua"
+client_script "client/ui.lua"
 client_script "client/main.lua"
 
-web_ui_page "web/index.html"
-web_ui_auto_create false
-web_files { "web/**" }
+files {
+    "ui/*.rml",
+    "ui/*.rcss",
+    "ui/fonts/*",
+}
 
 permissions {
     -- both sides: runtime configuration from the server

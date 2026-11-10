@@ -1,0 +1,83 @@
+<rml>
+<head>
+    <title>Light RP action bar</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="actions.rcss"/>
+</head>
+<!-- ui/src/features/actions/Actions.tsx: the progress / hold / timing card of
+     client/core/actions.lua, bottom centre. client/native/actions.lua runs the clock and
+     fills the model; the page only relays the keys. Two looks: the minimal bar (a plain
+     progress action) and the card (ring, hold, timing). Never bound to the shell: a dialog
+     or the F1 menu cancels the action instead. -->
+<body data-model="act">
+<div id="act-root" class="fill">
+    <div id="act-line" data-class-is-minimal="minimal">
+        <div id="act-card" class="act" data-class-is-on="on" data-class-is-a="flip == 1" data-class-is-b="flip == 2"
+             data-class-is-minimal="minimal" data-class-is-wide="wide" data-class-is-narrow="narrow"
+             data-class-is-success="status == 'success'" data-class-is-failed="status == 'failed'" data-class-is-cancelled="status == 'cancelled'"
+             data-class-is-feedback="feedback">
+
+            <!-- the minimal bar: a plain progress action -->
+            <div class="act-min" data-if="minimal">
+                <div class="act-headline">
+                    <span class="act-min-title">{{label}}</span>
+                    <div class="act-readout">
+                        <span class="act-min-result" data-if="hasResult">{{resultTitle}}</span>
+                        <span class="act-min-time" data-if="!hasResult">{{secs}}s</span>
+                        <span class="act-min-pct" data-if="!hasResult">{{pct}}<span class="act-min-small">%</span></span>
+                    </div>
+                </div>
+                <div class="act-min-track"><div class="act-fill" data-style-width="fill"></div></div>
+                <div class="act-meta">
+                    <span class="act-meta-text">{{detail}}</span>
+                    <div class="act-stop" data-if="showStop"><span class="act-min-kbd">Esc</span><span>Stop</span></div>
+                </div>
+            </div>
+
+            <!-- the card: ring, hold, timing -->
+            <div class="act-box" data-if="!minimal">
+                <div class="act-eyebrow">
+                    <div class="act-eb-left"><span>Light RP</span><div class="act-dot"></div><span>{{eyebrow}}</span></div>
+                    <span class="act-eb-step" data-if="timing">{{stepNo}} <span class="act-eb-of">/ {{stepCount}}</span></span>
+                </div>
+                <div class="act-main">
+                    <div class="act-dial" data-if="ring">
+                        <path class="act-dial-track" view-box="0 0 80 80" d="M40 6A34 34 0 1 1 40 74A34 34 0 1 1 40 6"/>
+                        <path class="act-dial-arc" view-box="0 0 80 80" d="M40 6A34 34 0 1 1 40 74A34 34 0 1 1 40 6" data-style-trim-end="trim"/>
+                        <path class="ic act-dial-ic" view-box="0 0 24 24" data-if="hasResult" data-attr-d="icon"/>
+                        <span class="act-dial-pct" data-if="!hasResult">{{pct}}<span class="act-dial-small">%</span></span>
+                    </div>
+                    <div class="act-icon" data-if="!ring"><path class="ic" view-box="0 0 24 24" data-attr-d="icon"/></div>
+                    <div class="act-copy">
+                        <div class="act-title">{{title}}</div>
+                        <div class="act-detail">{{detail}}</div>
+                    </div>
+                    <span class="act-pct" data-if="showPct">{{pct}}<span class="act-small">%</span></span>
+                </div>
+                <div class="act-track" data-if="!ring" data-class-is-timing="timing">
+                    <div class="act-fill" data-if="!timing" data-style-width="fill"></div>
+                    <div class="act-zone" data-if="timing" data-style-left="zoneLeft" data-style-width="zoneWidth"><div class="act-zone-mid"></div></div>
+                    <div class="act-cursor" data-if="timing" data-style-left="cursor"><path class="act-cursor-tip" view-box="0 0 9 5" d="M0 0H9L4.5 5Z"/></div>
+                </div>
+                <div class="act-footer">
+                    <div class="act-instr">
+                        <span class="act-kbd" data-if="showKey" data-class-is-down="held">{{keyText}}</span>
+                        <span>{{instruction}}</span>
+                    </div>
+                    <div class="act-steps" data-if="showSteps">
+                        <div data-for="s : steps"><div class="act-step" data-class-is-on="s.on" data-class-is-done="s.done" data-class-is-current="s.current"></div></div>
+                    </div>
+                    <span class="act-time" data-if="showTime">{{secs}}s left</span>
+                </div>
+                <div class="act-cancel" data-if="!hasResult">
+                    <span class="act-cancel-kbd" data-if="cancellable">Esc</span>
+                    <span>{{cancelText}}</span>
+                    <span class="act-misses" data-if="showMisses">{{misses}}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</rml>

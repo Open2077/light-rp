@@ -4,9 +4,6 @@
    value is a design token. */
 .table-layer { position: fixed; inset: 0; z-index: 140; cursor: default; color: var(--text-hi); font: var(--type-body); touch-action: none; }
 
-/* Notices keep their place (centre-left) but stay readable and clickable above the layer. */
-html[data-table-bar] .notices { z-index: 145; }
-
 .table-bar {
   position: absolute; left: 50%; bottom: var(--sp-7); transform: translateX(-50%);
   display: flex; flex-direction: column; gap: var(--sp-2);

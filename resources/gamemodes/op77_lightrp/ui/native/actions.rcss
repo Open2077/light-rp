@@ -1,0 +1,119 @@
+/* The action bar (ui/src/features/actions/actions.css), value for value at 1920 x 1080.
+   The page wrote the card in "Segoe UI" 14/1.45: Lato is the closest face the client embeds.
+   --action-accent: #FFCC00, success #BFE78C, failed #F18B80, cancelled #AAB0B3 (one rule per
+   use below, RCSS has no custom properties). */
+
+div, span, path { pointer-events: none; }
+
+/* .activity: left 50% + translateX(-50%), bottom clamp(80px, 12vh, 170px) = 130 at 1080;
+   the minimal bar bottom clamp(55px, 9vh, 130px) = 97 */
+#act-line { position: absolute; left: 0; right: 0; bottom: 130dp; display: flex; flex-direction: row; justify-content: center; }
+#act-line.is-minimal { bottom: 97dp; }
+
+.act { display: none; position: relative; flex: 0 0 auto; box-sizing: border-box; width: 440dp; padding: 22dp 25dp 18dp;
+       color: #F3F2E9; font-family: Lato; font-weight: normal; font-size: 14dp; line-height: 1.45;
+       /* linear-gradient(120deg, #111216f7, #121318eb): the two ends differ by one step */
+       background-color: #111217F1; border-width: 1dp; border-color: #FFFFFF12; border-radius: 8dp;
+       box-shadow: #00000055 0dp 16dp 50dp 0dp; }
+.act.is-wide { width: 490dp; }
+.act.is-narrow { width: 415dp; }
+.act.is-on { display: block; }
+/* activity-arrive .22s ease both; a/b restart it for every new action */
+.act.is-on.is-a { animation: 0.22s cubic-out act-arrive-a; }
+.act.is-on.is-b { animation: 0.22s cubic-out act-arrive-b; }
+@keyframes act-arrive-a { from { opacity: 0; transform: translateY(8dp); } to { opacity: 1; transform: translateY(0dp); } }
+@keyframes act-arrive-b { from { opacity: 0; transform: translateY(8dp); } to { opacity: 1; transform: translateY(0dp); } }
+
+/* ---- the card ------------------------------------------------------------------------------ */
+.act-eyebrow { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 15dp; margin-bottom: 20dp;
+               font-family: "Share Tech Mono"; font-size: 10dp; line-height: 1.2; letter-spacing: 0.12em; text-transform: uppercase; color: #BCBDB3; }
+.act-eb-left { display: flex; flex-direction: row; align-items: center; gap: 9dp; }
+.act-dot { width: 3dp; height: 3dp; border-radius: 1.5dp; background-color: #FFCC00; }
+.act-eb-step { display: block; white-space: nowrap; }
+.act-eb-of { color: #777C80; }
+
+.act-main { display: flex; flex-direction: row; align-items: center; gap: 15dp; min-height: 48dp; }
+.act-icon { display: flex; flex-direction: row; align-items: center; justify-content: center; flex: 0 0 39dp; width: 39dp; height: 39dp;
+            background-color: #FFCC000A; border-radius: 8dp; }
+.act-icon path.ic { width: 22dp; height: 22dp; stroke: #FFCC00; }
+.act-copy { flex: 1 1 0dp; min-width: 0; }
+.act-title { display: block; font-family: "Chakra Petch"; font-weight: bold; font-size: 20dp; line-height: 1.25; letter-spacing: -0.3dp; color: #F3F2E9; }
+.act-detail { display: block; margin-top: 5dp; font-size: 12dp; line-height: 1.5; color: #A5A9AB; }
+.act-pct { display: block; flex: 0 0 auto; font-family: "Chakra Petch"; font-weight: bold; font-size: 27dp; line-height: 1; color: #F3F2E9; white-space: nowrap; }
+.act-small { font-family: Lato; font-weight: normal; font-size: 11dp; line-height: 1; color: #AAAAAA; margin-left: 3dp; }
+
+/* the dial: two circles r 34 in an 80 box, the arc from the top, clockwise */
+.act-dial { position: relative; display: flex; flex-direction: row; align-items: center; justify-content: center; flex: 0 0 76dp; width: 76dp; height: 76dp; }
+.act-dial-track, .act-dial-arc { position: absolute; left: 0; top: 0; width: 76dp; height: 76dp; fill: transparent; stroke-width: 3dp; }
+.act-dial-track { stroke: #FFFFFF15; }
+.act-dial-arc { stroke: #FFCC00; stroke-linecap: round; trim-start: 0; trim-end: 0; }
+.act-dial path.act-dial-ic { width: 24dp; height: 24dp; stroke: #FFCC00; }
+.act-dial-pct { display: block; font-family: "Chakra Petch"; font-weight: bold; font-size: 21dp; line-height: 1.2; color: #F3F2E9; white-space: nowrap; }
+.act-dial-small { font-size: 10dp; margin-left: 2dp; color: #AAAAAA; }
+
+/* the track: a thin bar, or the timing ruler (ten cells, a 1 px line closing each) */
+.act-track { position: relative; height: 4dp; margin-top: 23dp; background-color: #FFFFFF12; border-radius: 3dp; }
+.act-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; background-color: #FFCC00; border-radius: 3dp; }
+.act-track.is-timing { box-sizing: border-box; height: 28dp; margin: 24dp 3dp 0dp 3dp; background-color: #FFFFFF06; border-width: 1dp; border-color: #FFFFFF15;
+                       decorator: repeating-linear-gradient(90deg, #FFFFFF00 0dp, #FFFFFF00 42dp, #FFFFFF16 42dp, #FFFFFF16 43dp); }
+.act-zone { position: absolute; top: -1dp; bottom: -1dp; box-sizing: border-box; border-width: 1dp; border-color: #FFCC00; border-radius: 3dp;
+            decorator: repeating-linear-gradient(120deg, #FFCC0038 0dp, #FFCC0038 3dp, #FFCC0017 3dp, #FFCC0017 7dp); }
+.act-zone-mid { position: absolute; left: 50%; top: 4dp; bottom: 4dp; width: 1dp; background-color: #FFCC0060; }
+/* the cursor: 3 px, centred on its left (translateX(-50%)), a small arrow above it */
+.act-cursor { position: absolute; top: -7dp; bottom: -7dp; width: 3dp; margin-left: -1.5dp; background-color: #FFFCE4; border-radius: 2dp;
+              box-shadow: #000000BB 0dp 0dp 8dp 0dp; }
+.act-cursor-tip { position: absolute; left: -3dp; top: -4dp; width: 9dp; height: 5dp; fill: #FFFCE4; }
+
+.act-footer { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 15dp; min-height: 27dp; margin-top: 16dp; font-size: 12dp; }
+.act-instr { display: flex; flex-direction: row; align-items: center; gap: 8dp; color: #D4D5D0; }
+.act-kbd { display: block; min-width: 23dp; box-sizing: border-box; padding: 2dp 5dp; text-align: center; font-family: Lato; font-size: 11dp; line-height: 1.6;
+           color: #FFCC00; border-width: 1dp; border-color: #FFCC0055; border-radius: 4dp; background-color: #FFCC000A;
+           transition: background-color 0.12s cubic-out, color 0.12s cubic-out; }
+.act-kbd.is-down { background-color: #FFCC00; color: #18170E; }
+.act-time { display: block; font-size: 11dp; color: #949B9F; white-space: nowrap; }
+/* steps: 8 x 4, the current one 16 wide; the 12 rows are kept, unused ones take no room */
+.act-steps { display: flex; flex-direction: row; align-items: center; margin-left: -5dp; }
+.act-step { display: none; width: 8dp; height: 4dp; margin-left: 5dp; border-radius: 1dp; background-color: #FFFFFF20; }
+.act-step.is-on { display: block; }
+.act-step.is-current { width: 16dp; background-color: #FFCC00; }
+.act-step.is-done { background-color: #B7BBA9; }
+
+.act-cancel { display: flex; flex-direction: row; align-items: center; gap: 6dp; margin-top: 13dp; padding-top: 12dp; border-top-width: 1dp; border-top-color: #FFFFFF0C;
+              color: #929899; font-size: 10dp; }
+.act-cancel-kbd { display: block; padding: 0dp 4dp; font-size: 9dp; line-height: 1.6; color: #E1E2DC; border-width: 1dp; border-color: #FFFFFF26; border-radius: 4dp; background-color: #FFFFFF06; }
+.act-misses { display: block; margin-left: auto; }
+
+/* the card's accent per outcome */
+.act.is-success .act-dot, .act.is-success .act-fill, .act.is-success .act-step.is-current { background-color: #BFE78C; }
+.act.is-failed .act-dot, .act.is-failed .act-fill, .act.is-failed .act-step.is-current { background-color: #F18B80; }
+.act.is-cancelled .act-dot, .act.is-cancelled .act-fill, .act.is-cancelled .act-step.is-current { background-color: #AAB0B3; }
+.act.is-success .act-icon path.ic, .act.is-success .act-dial-arc, .act.is-success .act-dial path.act-dial-ic { stroke: #BFE78C; }
+.act.is-failed .act-icon path.ic, .act.is-failed .act-dial-arc, .act.is-failed .act-dial path.act-dial-ic { stroke: #F18B80; }
+.act.is-cancelled .act-icon path.ic, .act.is-cancelled .act-dial-arc, .act.is-cancelled .act-dial path.act-dial-ic { stroke: #AAB0B3; }
+.act.is-success .act-zone { border-color: #BFE78C; }
+.act.is-failed .act-zone { border-color: #F18B80; }
+.act.is-cancelled .act-zone { border-color: #AAB0B3; }
+.act.is-success .act-instr { color: #BFE78C; }
+.act.is-failed .act-instr { color: #F18B80; }
+.act.is-feedback .act-instr { color: #FFCC00; }
+
+/* ---- the minimal bar ------------------------------------------------------------------------ */
+.act.is-minimal { width: 580dp; padding: 0; background-color: transparent; border-width: 0; border-radius: 0; box-shadow: none;
+                  font-effect: shadow(0dp 1dp #000000), glow(0dp 4dp 0dp 0dp #000000BB); }
+.act-headline { display: flex; flex-direction: row; align-items: baseline; justify-content: space-between; gap: 16dp; }
+.act-min-title { display: block; flex: 1 1 0dp; min-width: 0; font-family: "Chakra Petch"; font-weight: bold; font-size: 17dp; line-height: 1.3; color: #F3F2E9; }
+.act-readout { display: flex; flex-direction: row; align-items: baseline; gap: 14dp; flex: 0 0 auto; color: #FFCC00; font-family: "Share Tech Mono"; font-size: 12dp; }
+.act-min-result { display: block; white-space: nowrap; }
+.act-min-pct { display: block; font-family: "Share Tech Mono"; font-size: 18dp; line-height: 1; white-space: nowrap; }
+.act-min-small { font-family: "Share Tech Mono"; font-size: 12dp; }
+.act-min-time { display: block; font-family: "Share Tech Mono"; font-size: 12dp; color: #F2F3F5; white-space: nowrap; }
+.act-min-track { position: relative; height: 8dp; margin-top: 9dp; background-color: #F2F3F54D; box-shadow: #00000088 0dp 1dp 3dp 0dp, #00000033 0dp 0dp 0dp 1dp; }
+.act-min-track .act-fill { border-radius: 0; box-shadow: #FFCC0033 0dp 0dp 8dp 0dp; }
+.act-meta { display: flex; flex-direction: row; align-items: baseline; justify-content: space-between; gap: 16dp; margin-top: 8dp;
+            color: #F2F3F5; font-family: "Chakra Petch"; font-weight: bold; font-size: 12dp; line-height: 1.4; }
+.act-meta-text { display: block; flex: 1 1 0dp; min-width: 0; }
+.act-stop { display: flex; flex-direction: row; align-items: center; gap: 6dp; flex: 0 0 auto; }
+.act-min-kbd { display: block; padding: 0dp 4dp; border-width: 1dp; border-color: #F2F3F573; font-family: "Share Tech Mono"; font-size: 10dp; line-height: 1.4; }
+.act.is-minimal.is-success .act-readout { color: #BFE78C; }
+.act.is-minimal.is-failed .act-readout { color: #F18B80; }
+.act.is-minimal.is-cancelled .act-readout { color: #AAB0B3; }

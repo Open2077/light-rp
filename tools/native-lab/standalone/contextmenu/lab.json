@@ -1,0 +1,6 @@
+{
+  "resource": "resources/system/open77_contextmenu",
+  "scripts": ["shared/config.lua", "client/ui.lua"],
+  "files": ["ui/*.rml", "ui/*.rcss", "ui/fonts/*"],
+  "permissions": []
+}

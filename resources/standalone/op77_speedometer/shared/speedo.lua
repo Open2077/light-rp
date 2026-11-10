@@ -1,13 +1,11 @@
 -- op77_speedometer: the pure parts (no host calls), shared by the client, the server and
--- the tests: config merge and sanitizing, the surface crop, one vehicle sample -> the
--- page's payload, and when the display shows.
+-- the tests: config merge and sanitizing, one vehicle sample -> the display's payload, and
+-- when the display shows.
 Speedo = {}
 
--- The display's flat size before scale and tilt (CSS px; web/app.css draws at this size)
--- and the margin kept around it for the glow, the tilt and the shake.
+-- The display's flat size before scale and tilt (dp; ui/speedometer.rcss draws at this size).
 Speedo.WIDTH = 420
 Speedo.HEIGHT = 232
-Speedo.PAD = 48
 
 local function clamp(v, lo, hi, default)
     v = tonumber(v)
@@ -84,25 +82,6 @@ function Speedo.pageConfig(c)
             fullKph = clamp(shake.fullKph, 1, 999, 260),
             amplitude = clamp(shake.amplitude, 0, 6, 1.6),
         },
-    }
-end
-
--- The surface crop: only the display's rectangle (plus its margin) is composited. Anchored
--- to the bottom-right corner (negative x / y), so it needs no screen size. The page draws
--- the display at the same place from the same numbers.
-function Speedo.bounds(page)
-    local l = page.layout
-    local right = math.max(0, l.right - l.offsetX)
-    local bottom = math.max(0, l.bottom - l.offsetY)
-    local w = math.ceil(Speedo.WIDTH * l.scale)
-    local h = math.ceil(Speedo.HEIGHT * l.scale)
-    local pad = Speedo.PAD
-    local top = bottom + h + pad
-    return {
-        x = -math.floor(right + w + pad),
-        y = -math.floor(top),
-        width = math.floor(right + w + pad),
-        height = math.floor(math.min(h + 2 * pad, top)),
     }
 end
 

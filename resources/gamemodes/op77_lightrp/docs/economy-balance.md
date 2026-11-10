@@ -851,7 +851,7 @@ startup), read back after a restart. Daily maximum with 3 fighters: ≈ 3 × 2,1
 6,500 €$ and 450 reputation; solo, 3 × 3,000. Known limit: the web HUD has no text
 for this case; for a character at the cap, it shows the generic "no reward" line
 (the notice gives the reason). The `web/` bundle on main cannot be reproduced from
-`ui/` (a rebuild changes `app.js` and `app.css` and deletes `web/safezone`), so it
+`ui/` (a rebuild changes `app.js` and `app.css`), so it
 was not rebuilt here.
 
 ### 16.4 Casino: maximum stakes divided by 10

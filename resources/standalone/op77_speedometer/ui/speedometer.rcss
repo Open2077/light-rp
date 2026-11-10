@@ -1,0 +1,155 @@
+/* op77_speedometer on NativeUI: the holographic speedometer. A flat 420 x 232 plane, tilted
+   in 3D, lit like a projection: white-hot lit segments with a yellow bloom, ghost segments
+   for the unlit ones, scanlines, a slow scan sweep and the odd flicker. 1 dp = 1 px of a
+   1080-pixel-high screen.
+
+   ONE RULE PER LINE, colours as lowercase #rrggbb[aa]: client/ui.lua re-reads this file and
+   builds the theme layer (ui:stylesheet "theme") from the lines that hold a theme colour
+   (accent #ffcc00, core #fff7da, warn #ff3b3b, cool #7fd8ff), swapping them for the config's;
+   a line marked "gear" takes the gear colour for #ffcc00. Keyframes hold no colour (a
+   runtime layer only carries plain rules).
+
+   RmlUi notes: opacity is inherited, not multiplied (one level sets it on any branch; the
+   theme's opacity is an opacity() filter on #holo); a filter only composites its element's
+   box plus its own overflow, hence #holo and .flash 48 dp larger than the plane on every
+   side; animations do not keep their last frame, so the base style is the end state.
+   Set by client/ui.lua (config): #stage right / bottom / scale, #plane tilt, #holo filter
+   (bloom, scanlines, opacity: lengths follow the scale), #haze opacity. */
+
+body { width: 100%; height: 100%; pointer-events: none; font-family: "Chakra Petch"; font-weight: bold; font-size: 16dp; color: #fff7da; }
+
+/* ---- placement: bottom right, scaled from its bottom-right corner ---- */
+.stage { position: absolute; width: 420dp; height: 232dp; right: 36dp; bottom: 146dp; transform-origin: 100% 100%; transform: scale(0.6); display: none; }
+.stage.is-live { display: block; }
+.stage.is-covered { visibility: hidden; }
+.shake { position: absolute; left: 0; top: 0; width: 420dp; height: 232dp; }
+.rig { position: absolute; left: 0; top: 0; width: 420dp; height: 232dp; perspective: 900dp; perspective-origin: 70% 40%; }
+.plane { position: absolute; left: 0; top: 0; width: 420dp; height: 232dp; transform-origin: 100% 60%; transform: rotateX(8deg) rotateY(-16deg); }
+.fold { position: absolute; left: 0; top: 0; width: 420dp; height: 232dp; transform-origin: 100% 60%; opacity: 0; }
+
+/* enter: a thin line that unfolds (CRT on), overshoots, settles (in-a and in-b are the same
+   motion: alternating them restarts it). exit: folds to a line, out. */
+.stage.in-a .fold { opacity: 1; animation: 0.64s cubic-out sp-in-a; }
+.stage.in-b .fold { opacity: 1; animation: 0.64s cubic-out sp-in-b; }
+.stage.is-instant .fold { opacity: 1; }
+.stage.is-off .fold { opacity: 0; transform: scale(0.001, 0.01); animation: 0.38s cubic-in sp-out; }
+@keyframes sp-in-a { 0% { opacity: 0; transform: scale(0.35, 0.012); } 14% { opacity: 1; transform: scale(1.06, 0.018); } 38% { opacity: 1; transform: scale(1, 1.08); } 56% { opacity: 1; transform: scale(1, 0.96); } 100% { opacity: 1; transform: scale(1, 1); } }
+@keyframes sp-in-b { 0% { opacity: 0; transform: scale(0.35, 0.012); } 14% { opacity: 1; transform: scale(1.06, 0.018); } 38% { opacity: 1; transform: scale(1, 1.08); } 56% { opacity: 1; transform: scale(1, 0.96); } 100% { opacity: 1; transform: scale(1, 1); } }
+@keyframes sp-out { 0% { opacity: 1; transform: scale(1, 1); } 45% { opacity: 1; transform: scale(1.04, 0.015); } 100% { opacity: 0; transform: scale(0.001, 0.01); } }
+.flash { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.stage.in-a .flash { animation: 0.64s linear-in-out sp-flash-a; }
+.stage.in-b .flash { animation: 0.64s linear-in-out sp-flash-b; }
+.stage.is-off .flash { animation: 0.38s linear-in-out sp-flash-out; }
+@keyframes sp-flash-a { 0% { filter: brightness(3); } 25% { filter: brightness(0.5); } 45% { filter: brightness(1.7); } 100% { filter: brightness(1); } }
+@keyframes sp-flash-b { 0% { filter: brightness(3); } 25% { filter: brightness(0.5); } 45% { filter: brightness(1.7); } 100% { filter: brightness(1); } }
+@keyframes sp-flash-out { 0% { filter: brightness(1); } 40% { filter: brightness(2.6); } 100% { filter: brightness(3); } }
+
+/* ---- the hologram: bloom + scanlines on #holo, a soft dark backdrop outside the bloom ---- */
+.holo-layer { position: absolute; left: -48dp; top: -48dp; right: -48dp; bottom: -48dp; filter: drop-shadow(#ffcc00d9 0dp 0dp 1.2dp) drop-shadow(#ffcc006b 0dp 0dp 5.4dp) scanlines(0.3 2 0 0); transition: opacity 0.25s linear-in-out; }
+.holo-layer.is-glitch { opacity: 0.5; transform: translateX(2dp) skewX(-3deg); }
+.stage.is-idle .holo-layer { opacity: 0.62; }
+.face { position: absolute; left: 48dp; top: 48dp; width: 420dp; height: 232dp; }
+.haze { position: absolute; left: -40dp; top: -30dp; right: -40dp; bottom: -26dp; decorator: radial-gradient(ellipse 50% 50% at 50% 50%, #0404069e 0%, #04040675 48%, #04040629 76%, #04040600 100%), radial-gradient(ellipse 46% 44% at 50% 50%, #ffcc000d 0%, #ffcc0000 100%); }
+.stage.is-off .haze { opacity: 0; transition: opacity 0.3s linear-in-out; }
+.corner { position: absolute; width: 15dp; height: 15dp; border-color: #ffcc0099; }
+.corner-tl { left: -18dp; top: -10dp; border-left-width: 3dp; border-top-width: 3dp; }
+.corner-tr { right: -12dp; top: -10dp; border-right-width: 3dp; border-top-width: 3dp; }
+.corner-bl { left: -18dp; bottom: -4dp; border-left-width: 3dp; border-bottom-width: 3dp; }
+.corner-br { right: -12dp; bottom: -4dp; border-right-width: 3dp; border-bottom-width: 3dp; }
+
+.name { position: absolute; left: 0; top: 0; width: 320dp; height: 22dp; overflow: hidden; }
+.name-bar { position: absolute; left: 0; top: 8.5dp; width: 22dp; height: 5dp; background-color: #ffcc00; }
+.name-text { display: block; position: absolute; left: 32dp; top: 0; white-space: nowrap; font-family: "Share Tech Mono"; font-weight: normal; font-size: 19dp; line-height: 22dp; letter-spacing: 0.16em; color: #ffcc00e6; }
+.stage.no-name .name { display: none; }
+
+/* ---- RPM strip: slanted cells, redline at the end ---- */
+.rpm { position: absolute; left: 0; top: 30dp; width: 420dp; height: 12dp; }
+.rpm-cells { position: absolute; left: 4dp; top: 0; width: 296dp; height: 12dp; display: flex; flex-direction: row; gap: 3dp; transform: skewX(-28deg); }
+.rpm-cells .rc { flex: 1 1 0; height: 12dp; background-color: #ffcc0016; }
+.rpm-cells .rc.on { background-color: #ffcc00f2; }
+.rpm-cells .rc.hot { background-color: #fff7da; }
+.rpm-cells .rc.red { background-color: #ff3b3b38; }
+.rpm-cells .rc.red.on { background-color: #ff3b3b; }
+.rpm.is-shift .rpm-cells .rc.red.on { animation: 0.16s linear-in-out infinite sp-blink; }
+.rpm-label { position: absolute; left: 310dp; top: -3dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 16dp; line-height: 18dp; letter-spacing: 0.14em; color: #ffcc00bf; }
+
+/* ---- speed digits (seven segments) + indicator tags + vertical gauges ---- */
+.readout { position: absolute; left: 0; top: 50dp; width: 420dp; height: 112dp; transition: transform 0.08s linear-in-out; }
+.holo-layer.is-glitch .readout { transform: translateX(-4dp); }
+.digits { position: absolute; left: 0; top: 0; width: 240dp; height: 112dp; }
+.dg { position: absolute; top: 0; width: 76dp; height: 112dp; }
+.dg1 { left: 0dp; }
+.dg2 { left: 82dp; }
+.dg3 { left: 164dp; }
+.dg path { position: absolute; left: 0; top: 0; width: 76dp; height: 112dp; }
+.digits .dg-off { fill: #ffcc0016; }
+.digits .dg-on { fill: #fff7da; }
+.digits .dg.is-lead .dg-on { fill: #fff7da4d; }
+.stage.zeros-lit .digits .dg.is-lead .dg-on { fill: #fff7da; }
+.stage.zeros-off .digits .dg.is-lead .dg-on { fill: #ffcc0016; }
+.stage.is-over .digits .dg-on { fill: #ff3b3b; }
+
+.tags { position: absolute; left: 244dp; top: 0; width: 74dp; }
+.tag { width: 74dp; height: 34dp; padding-top: 1dp; margin-bottom: 5dp; font-family: "Chakra Petch"; font-weight: bold; font-size: 28dp; line-height: 34dp; letter-spacing: 0.06em; color: #fff7da21; }
+.tag.on { color: #fff7da; }
+.tag-warn.on { color: #ff3b3b; }
+.tag.blink.on { animation: 0.22s linear-in-out infinite sp-blink; }
+
+.gauges { position: absolute; left: 330dp; top: 0; width: 90dp; height: 112dp; }
+.vgauge { position: absolute; top: 0; width: 36dp; height: 112dp; }
+.vgauge-fuel { left: 6dp; }
+.vgauge-cond { left: 54dp; }
+.vg-cells { position: absolute; left: 11.5dp; top: 0; width: 13dp; height: 82dp; transform: skewY(-12deg); }
+.vg-cells .vc { width: 13dp; height: 5.5dp; margin-bottom: 3dp; background-color: #ffcc0016; }
+.vg-cells .vc.on { background-color: #ffcc00f2; }
+.vg-icon { position: absolute; left: 6dp; top: 88dp; width: 24dp; height: 24dp; fill: transparent; stroke: #ffcc00cc; stroke-width: 2.2dp; stroke-linecap: square; stroke-linejoin: miter; }
+.vgauge.is-low .vg-cells .vc.on { background-color: #ff3b3b; }
+.vgauge.is-low .vg-icon { stroke: #ff3b3b; }
+.vgauge.is-empty .vg-cells .vc { background-color: #ff3b3b4d; animation: 1s linear-in-out infinite sp-blink; }
+.vgauge.is-empty .vg-icon { animation: 1s linear-in-out infinite sp-blink; }
+.vgauge.is-none { opacity: 0.35; }
+
+/* ---- gear, unit, status icons ---- */
+.sub { position: absolute; left: 0; top: 168dp; width: 420dp; height: 30dp; }
+.gear { position: absolute; left: 2dp; top: 0; height: 30dp; white-space: nowrap; font-family: "Chakra Petch"; font-weight: bold; font-size: 30dp; line-height: 30dp; letter-spacing: 0.04em; color: #ffcc00; } /* gear */
+.gear-label { font-size: 22dp; line-height: 30dp; letter-spacing: 0.1em; color: #ffcc00e6; } /* gear */
+.gear-num { display: inline-block; min-width: 22dp; margin-left: 9dp; }
+.gear.is-r .gear-num { color: #7fd8ff; }
+.gear.is-n .gear-num { color: #ffcc008c; } /* gear */
+.gear-num.pop-a { animation: 0.3s back-out sp-pop-a; }
+.gear-num.pop-b { animation: 0.3s back-out sp-pop-b; }
+@keyframes sp-pop-a { 0% { transform: scale(1.5); filter: brightness(2); } 100% { transform: scale(1); filter: brightness(1); } }
+@keyframes sp-pop-b { 0% { transform: scale(1.5); filter: brightness(2); } 100% { transform: scale(1); filter: brightness(1); } }
+.unit { position: absolute; left: 160dp; top: 2dp; white-space: nowrap; font-family: "Share Tech Mono"; font-weight: normal; font-size: 25dp; line-height: 28dp; letter-spacing: 0.1em; color: #fff7daeb; }
+.icons { position: absolute; left: 244dp; top: 0; width: 108dp; height: 28dp; }
+.ico { position: absolute; top: 0; width: 28dp; height: 28dp; }
+.ico-lights { left: 0dp; }
+.ico-engine { left: 40dp; }
+.ico-tires { left: 80dp; }
+.ico path { position: absolute; left: 0; top: 0; width: 28dp; height: 28dp; fill: transparent; stroke: #fff7da21; stroke-width: 2.57dp; stroke-linecap: square; stroke-linejoin: miter; }
+.ico.on path { stroke: #ffcc00; }
+.ico.cool path { stroke: #7fd8ff; }
+.ico.warn path { stroke: #ff3b3b; }
+.ico.warn { animation: 0.9s linear-in-out infinite sp-blink; }
+.ico-count { position: absolute; right: -11dp; bottom: -6dp; white-space: nowrap; font-family: "Share Tech Mono"; font-weight: normal; font-size: 16dp; line-height: 16dp; color: #ff3b3b; }
+
+/* ---- speed bar ---- */
+.bar { position: absolute; left: 0; top: 206dp; width: 420dp; height: 16dp; }
+.bar-track { position: absolute; left: 0; top: 0; width: 420dp; height: 4dp; background-color: #ffcc0029; }
+.bar-fill { position: absolute; left: 0; top: 0; width: 420dp; height: 4dp; decorator: linear-gradient(90deg, #ffcc00cc 0%, #fff7da 100%); transform-origin: 0% 50%; transform: scaleX(0); }
+.bar-head { position: absolute; left: 0; top: -4dp; width: 5dp; height: 12dp; background-color: #fff7da; }
+.stage.is-over .bar-fill { decorator: none; background-color: #ff3b3b; }
+.bar-ticks { position: absolute; left: 0; top: 9dp; width: 420dp; height: 6dp; }
+/* the data-for element (.tick-slot) carries no binding: one would be evaluated once more for a
+   removed row when the array shrinks (mph -> kph) */
+.tick-slot { display: block; height: 0; }
+.bar-tick { position: absolute; top: 0; width: 2dp; height: 4dp; background-color: #ffcc0073; }
+.bar-tick.major { height: 7dp; background-color: #ffcc00b3; }
+
+/* a faint band sweeping down the projection */
+.sweep { position: absolute; left: -22dp; right: -18dp; top: -14dp; height: 34dp; opacity: 0; decorator: linear-gradient(180deg, #fff7da00 0%, #fff7da12 50%, #fff7da00 100%); }
+.stage.in-a .sweep, .stage.in-b .sweep, .stage.is-instant .sweep { animation: 4.6s 1s linear-in-out infinite sp-sweep; }
+
+/* steps(2, end) around "50% { opacity: .25 }": 1, .625, .25, .625 */
+@keyframes sp-blink { 0% { opacity: 1; } 24% { opacity: 1; } 25% { opacity: 0.625; } 49% { opacity: 0.625; } 50% { opacity: 0.25; } 74% { opacity: 0.25; } 75% { opacity: 0.625; } 100% { opacity: 0.625; } }
+@keyframes sp-sweep { 0% { transform: translateY(0dp); opacity: 0; } 10% { opacity: 1; } 70% { transform: translateY(232dp); opacity: 1; } 71% { transform: translateY(232dp); opacity: 0; } 100% { transform: translateY(232dp); opacity: 0; } }

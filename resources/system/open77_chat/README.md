@@ -1,14 +1,16 @@
 # open77_chat
 
 This resource is the in-game chat: players press T to talk and run slash commands with completion, and other resources post messages and register command suggestions through it.
-`open77_chat` is Open77's server-distributed chat resource. It provides an animated WebUI chat
-overlay, authenticated messages, slash-command dispatch, completion, and a small client API for
-other resources. Its HUD follows the Open77 Design System: the passive feed stays compact in
-the top-left corner, while opening chat unfolds the full channel panel and command index. The surface
-requests the runtime's maximum 240 fps cadence for uncapped-feeling input and transitions; an idle
-page is damage-driven and does not repaint continuously.
+`open77_chat` is Open77's server-distributed chat resource (the Light RP copy). It provides an
+animated chat overlay, authenticated messages, slash-command dispatch, completion, and a small
+client API for other resources. The overlay is a NativeUI document (`ui/chat.rml`, `ui/chat.rcss`)
+drawn by the game's renderer, in the Open//77 RP design system: the passive feed stays compact in
+the top-left corner, while opening chat turns the log into a panel with the composer and the
+command index under it. `client/ui.lua` is the presentation layer; `client/main.lua` keeps the
+logic and talks to it with the page API it always used. Needs a client with NativeUI; without
+it the resource logs one line and has no chat surface.
 
-If the client WebHost restarts, the chat resource restores its last 48 messages
+If the document is reloaded, the chat resource restores its last 48 messages
 in order (at most 256 KiB of serialized history). The composer closes and releases
 input; press `T` to reopen it after recovery. `chat:clear` and the `clear` export
 also clear the retained history. This recovery state belongs to the running Lua
@@ -26,17 +28,24 @@ resource and is not retained across resource stops or game restarts.
 - `Escape` closes chat without sending.
 - Arrow keys select a suggestion.
 - `Tab` completes the selected suggestion.
+- `Page Up` / `Page Down` read back through the log.
 
-The log has a fixed height (`--chat-log-h`, 248 px at 1920x1080) in both states, its lines stacked
+The composer takes the keyboard only; the mouse stays with the game.
+
+The log has a fixed height (248 dp, pixels of a 1920x1080 screen) in both states, its lines stacked
 against the bottom edge: the newest line is always fully visible. Older lines dissolve into the top
 edge. New lines open their height (the ones above slide up), come in from the left with a sheen;
 a mention pulses, an error shakes, an announcement tears in. More than 3 lines in one frame (a
 history replay) arrive without animation.
 
-Open, the log becomes a scrollable panel. If the player has scrolled away from the newest line, new
+Open, the log becomes a scrollable panel. If the player has paged away from the newest line, new
 lines count on a NEW chip instead of moving the view. The length counter shows from 160 characters.
 Closed, the whole chat hides 10 s after the last message (a message's `duration` can keep it longer)
-and 6 s after closing; any new message brings it back.
+and 6 s after closing; any new message brings it back. A line shows a time (open panel only) when
+its sender gave one (`time`): the client sandbox has no local clock.
+
+Tests (Lua 5.4, from the resource folder): `tests/ui.test.lua` (rows, command index, the
+document's behaviour) and `tests/recovery.test.lua` (history replay, focus, quoting rules).
 
 ## Messages and commands
 
@@ -124,7 +133,7 @@ Exports:
 - Source IDs are supplied by the authenticated server session.
 - Slash commands cannot bypass the server ACL.
 - Messages are sanitized and limited to 256 UTF-8 bytes.
-- WebUI content is rendered as text, never injected as HTML.
+- Message content is escaped before it reaches the document, never injected as markup.
 - Local client events cannot invoke protected server commands.
 
 See the full [chat guide](https://open2077.net/docs/chat) and the repository

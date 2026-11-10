@@ -1,0 +1,68 @@
+<rml>
+<head>
+    <title>Open//77 Chat</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="chat.rcss"/>
+</head>
+<!-- The Light RP chat. The log has a fixed height, its newest line always at the bottom
+     edge. Closed: bare lines on light plates that hide after a while without activity.
+     Open (T): a panel, scrollable, with the composer under it, then the command index
+     while the line starts with "/", else the keys. client/ui.lua writes #list (one .msg
+     per line), #suggestion-list, #chars, #unread and the classes of #root and #chat. -->
+<body>
+<div id="root" class="empty">
+<div id="chat" class="idle">
+
+    <div id="frame">
+        <!-- the open panel (top-right notch), faded in under the lines -->
+        <div id="panel" class="np">
+            <div class="np-top"></div><div class="np-body"></div>
+            <path class="np-cut" view-box="0 0 14 14" d="M0 0L14 14L0 14Z"/>
+            <path class="np-edge" view-box="0 0 14 14" d="M0 0L14 14"/>
+        </div>
+        <div id="tick"></div>
+        <div id="log"><div id="list"></div></div>
+        <div id="empty">No messages yet. Say something.</div>
+        <div id="latest">
+            <div class="lt-t">
+                <span id="unread">1</span><span class="lt-new">NEW</span>
+                <path class="lt-arrow" view-box="0 0 10 10" d="M5 1.5V8.5M2 5.5L5 8.5L8 5.5"/>
+            </div>
+            <path class="lt-s" view-box="0 0 8 21" preserve-aspect="none" d="M0 0L8 0L0 21Z"/>
+        </div>
+    </div>
+
+    <div id="composer">
+        <div class="np">
+            <div class="np-top"></div><div class="np-body"></div>
+            <path class="np-cut" view-box="0 0 14 14" d="M0 0L14 14L0 14Z"/>
+            <path class="np-edge" view-box="0 0 14 14" d="M0 0L14 14"/>
+        </div>
+        <span class="prompt">›</span>
+        <input id="input" type="text" maxlength="256" placeholder="Say something, or /command"/>
+        <span id="chars">0/256</span>
+        <div id="send" class="disabled">ENTER</div>
+    </div>
+
+    <!-- under the composer: the command index (bottom-right cut) or the keys -->
+    <div id="suggestions">
+        <div class="np flip">
+            <div class="np-top"></div><div class="np-body"></div>
+            <path class="np-cut" view-box="0 0 10 10" d="M0 0L10 10L0 10Z"/>
+            <path class="np-edge" view-box="0 0 10 10" d="M0 0L10 10"/>
+        </div>
+        <div id="suggestion-list"></div>
+    </div>
+    <div id="foot">
+        <div class="fg"><div class="key">ESC</div><span>Close</span></div>
+        <div class="fg"><div class="key">TAB</div><span>Complete</span></div>
+        <div class="fg">
+            <div class="key"><path class="arr" view-box="0 0 10 10" d="M5 8.5V1.5M2 4.5L5 1.5L8 4.5"/></div>
+            <div class="key"><path class="arr" view-box="0 0 10 10" d="M5 1.5V8.5M2 5.5L5 8.5L8 5.5"/></div>
+            <span>History</span>
+        </div>
+    </div>
+</div>
+</div>
+</body>
+</rml>

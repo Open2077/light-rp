@@ -1,0 +1,41 @@
+<rml>
+<head>
+    <title>Light RP guide pointer</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="guide_pointer.rcss"/>
+</head>
+<!-- The way to the first day's objective (ui/src/features/tutorial/GuidePointer.tsx):
+       #waypoint  in view: a mark over the objective, its name above, the distance under it
+       #edge      out of view: an arrow on a ring round the screen centre, turned toward it
+     client/native/guide_pointer.lua places the two (left / top in % of the screen), turns
+     the arrow and fills the model. -->
+<body data-model="guide">
+<div id="root" class="fill shell" data-class-is-ready="ready" data-class-is-hidden="hidden" data-class-is-quiet="quiet">
+
+    <div id="waypoint" class="gp-point" data-class-is-shown="inView">
+        <div class="gp-row gp-row-label" data-if="hasLabel"><div class="gp-label">{{label}}</div></div>
+        <div class="gp-mark">
+            <div class="gp-ping"></div>
+            <path class="gp-pin" view-box="0 0 24 24" d="M12 21 4 9h16Z"/>
+        </div>
+        <div class="gp-row gp-row-pin"><div class="gp-distance"><span>{{distance}}</span></div></div>
+        <div class="gp-row gp-row-rise" data-if="hasRise"><div class="gp-rise">
+            <path class="gp-rise-arrow" view-box="0 0 10 10" d="M5 1 9.5 9h-9Z" data-class-is-down="riseDown"/>
+            <span>{{rise}}</span>
+        </div></div>
+    </div>
+
+    <div id="edge" class="gp-point" data-class-is-shown="atEdge">
+        <div class="gp-arrow-box"><div id="arrow" class="gp-arrow"><path class="gp-arrow-glyph" view-box="0 0 24 24" d="M12 2 19 21 12 16.5 5 21Z"/></div></div>
+        <div class="gp-row gp-row-edge"><div class="gp-distance">
+            <span>{{distance}}</span>
+            <span class="gp-sep" data-if="hasRise">·</span>
+            <path class="gp-rise-arrow gp-rise-inline" view-box="0 0 10 10" d="M5 1 9.5 9h-9Z" data-if="hasRise" data-class-is-down="riseDown"/>
+            <span data-if="hasRise">{{rise}}</span>
+        </div></div>
+    </div>
+
+</div>
+</body>
+</rml>

@@ -1,0 +1,50 @@
+<rml>
+<head>
+    <title>Light RP downed screen</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="medical.rcss"/>
+</head>
+<body data-model="med">
+<!-- ui/src/features/medical/Medical.tsx: the downed / bleeding-out screen, above the flatline
+     cover (deathcover.rml). Never bound to the shell. The two give-up buttons are hit-tested
+     from Lua with the pointer the page already holds (client/native/medical.lua). -->
+<div id="md" data-class-is-on="downed" data-class-is-covered="covered">
+    <div class="md-scrim is-linear"></div>
+    <div class="md-scrim is-radial"></div>
+    <path class="md-life md-life-track" view-box="0 0 1600 400" preserve-aspect="none" d="M0 220 H220 L250 200 L280 240 L310 220 H460 L500 180 L535 260 L580 25 L635 375 L685 145 L730 220 H970 L1000 195 L1030 245 L1060 220 H1600"/>
+    <path class="md-life md-life-pulse" view-box="0 0 1600 400" preserve-aspect="none" d="M0 220 H220 L250 200 L280 240 L310 220 H460 L500 180 L535 260 L580 25 L635 375 L685 145 L730 220 H970 L1000 195 L1030 245 L1060 220 H1600"/>
+    <div class="md-brand"><span>OPEN</span><span>//</span><span>77</span><span class="md-brand-sub">EMERGENCY PROTOCOL</span></div>
+    <div class="md-center">
+        <div class="md-down">
+            <img class="md-skull" src="/web/img/medical/cyberpunk-skull.png"/>
+            <span class="md-eyebrow">YOU ARE</span>
+            <span class="md-title">{{title}}</span>
+            <span class="md-timer">{{timer}}</span>
+            <span class="md-status">{{status}}</span>
+            <div class="md-text">{{text}}</div>
+            <div class="md-text md-error" data-if="hasError">{{error}}</div>
+            <div class="md-actions">
+                <div id="md-ask" class="md-btn" data-if="askOn" data-class-is-hover="hover == 'ask'" data-class-is-press="press == 'ask'">
+                    <span>Give up and go to hospital</span><path class="ic" view-box="0 0 24 24" d="M5 12h14M12 5l7 7l-7 7"/>
+                </div>
+                <div class="md-question" data-if="confirmOn">{{question}}</div>
+                <div class="md-buttons" data-if="confirmOn">
+                    <div id="md-confirm" class="md-btn" data-class-is-hover="hover == 'confirm'" data-class-is-press="press == 'confirm'">
+                        <span>Confirm hospital transfer</span><path class="ic" view-box="0 0 24 24" d="M5 12h14M12 5l7 7l-7 7"/>
+                    </div>
+                    <div id="md-keep" class="md-btn is-secondary" data-class-is-hover="hover == 'keep'" data-class-is-press="press == 'keep'">
+                        <span>Keep waiting</span>
+                    </div>
+                </div>
+            </div>
+            <div class="md-hint">
+                <path class="ic" view-box="0 0 24 24" d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1zM9 12h6M12 9v6"/>
+                <span>You can still speak to nearby players while waiting for help.</span>
+            </div>
+        </div>
+    </div>
+    <div class="md-footer"><span>VITAL SIGNAL // LOST</span><span>TRAUMA RESPONSE SYSTEM</span></div>
+</div>
+</body>
+</rml>

@@ -1,12 +1,12 @@
 -- op77_weaponhud: the pure parts (no host calls), shared by the client, the server and the
--- tests: config merge and sanitizing, the surface crop, snapshot rows -> what is held,
+-- tests: config merge and sanitizing, snapshot rows -> what is held,
 -- names and classes, and what changed between two samples (shots, reloads, switches).
 WeaponHud = {}
 local W = WeaponHud
 
+-- The display's flat size before scale and tilt (dp; ui/weaponhud.rcss draws at this size).
 W.WIDTH = 420
 W.HEIGHT = 210
-W.PAD = 48
 
 local function clamp(v, lo, hi, default)
     v = tonumber(v)
@@ -74,24 +74,6 @@ function W.pageConfig(c)
             scanlines = t.scanlines ~= false,
             flicker = t.flicker ~= false,
         },
-    }
-end
-
--- The crop, anchored to the bottom-LEFT corner (x from the left edge, y negative from the
--- bottom), tall enough for the display lifted by up to `maxInset`.
-function W.bounds(page)
-    local l = page.layout
-    local left = math.max(0, l.left + l.offsetX)
-    local bottom = math.max(0, l.bottom - l.offsetY)
-    local w = math.ceil(W.WIDTH * l.scale)
-    local h = math.ceil(W.HEIGHT * l.scale)
-    local pad = W.PAD
-    local top = bottom + l.maxInset + h + pad
-    return {
-        x = 0,
-        y = -math.floor(top),
-        width = math.floor(left + w + pad),
-        height = math.floor(math.min(h + 2 * pad + l.maxInset, top)),
     }
 end
 

@@ -1,14 +1,16 @@
 -- op77_weaponhud client: reads the drawn weapon (Open77.weapons.snapshot, one request in
--- flight) and feeds the holographic weapon HUD page (web/). One small WebUI surface,
--- cropped to the bottom-left corner, created visible and transparent: the page shows and
--- hides its own content. There is no shot event: shots are magazine deltas between two
--- snapshots; reloads come from the snapshot's flag and Open77.players.isReloading().
+-- flight) and feeds the holographic weapon HUD (client/ui.lua: a NativeUI document behind
+-- the page API the WebUI page had; it shows and hides its own content). There is no shot
+-- event: shots are magazine deltas between two snapshots; reloads come from the snapshot's
+-- flag and Open77.players.isReloading().
 local W = WeaponHud
 local base = W.copy(WeaponHudConfig)
 local config = W.copy(base)
 local pageConfig = W.pageConfig(config)
 
-local page, pageReady, creating, boundsKey = nil, false, false, nil
+-- NativeUI draws the HUD; a client without it gets no HUD at all (and says so once).
+local available = type(Open77.ui) == "table" and type(Open77.ui.create) == "function"
+local page, pageReady = nil, false
 local pending = nil           -- { id, at, rows }
 local lastRequest = -100000
 local hotUntil = 0           -- fast sampling until then (firing, reloading, a new weapon)
@@ -30,7 +32,7 @@ local function send(name, payload) if page and pageReady then pcall(page.send, p
 
 -- ── gamemode handshake (LightRP's own weapon readout stands down while this one runs) ──
 local function announce()
-    local active = config.enabled ~= false
+    local active = available and config.enabled ~= false
     if announced == active then return end
     announced = active
     TriggerEvent("op77_weaponhud:state", { active = active })
@@ -38,7 +40,7 @@ end
 AddEventHandler("op77_weaponhud:query", function() announced = nil; announce() end)
 
 local function syncNative()
-    local want = config.enabled ~= false and config.hideNativeWeaponHud ~= false
+    local want = available and config.enabled ~= false and config.hideNativeWeaponHud ~= false
     if want == nativeHidden then return end
     if type(Open77.hud) ~= "table" or type(Open77.hud.setVisible) ~= "function" then return end
     local ok, accepted = pcall(Open77.hud.setVisible, "weapon", not want)
@@ -76,32 +78,12 @@ local function describe(record)
     return W.describe(record, info or nil, WeaponHudCatalogue, labelFor(record), config.weaponNames)
 end
 
--- ── the surface ──
+-- ── the document ──
 local function createSurface()
-    if creating then return end
-    creating = true
-    local bounds = W.bounds(pageConfig)
-    local key = string.format("%d:%d:%d:%d", bounds.x, bounds.y, bounds.width, bounds.height)
     if page then pcall(page.destroy, page); page, pageReady = nil, false end
-    local options = {
-        entry = "web/index.html", layer = "hud", width = 1920, height = 1080, transparent = true, visible = true,
-        fps = math.max(10, math.min(60, math.floor(tonumber(config.fps) or 30))),
-        zIndex = math.floor(tonumber(config.zIndex) or 705), drawBounds = bounds,
-    }
-    local created, why
-    for _ = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
-        created, why = WebUI.create(options)
-        if created or why ~= "resource_preparing" then break end
-        Wait(250)
-    end
-    if not created and why == "invalid_webui_draw_bounds" then
-        warn("bounds", "crop refused, drawn on a full-screen surface")
-        options.drawBounds = nil
-        created, why = WebUI.create(options)
-    end
-    creating = false
-    if not created then print("[weaponhud] no WebUI surface: " .. tostring(why)) return end
-    page, boundsKey = created, key
+    local created, why = WeaponHudUi.create({ zIndex = config.zIndex })
+    if not created then print("[weaponhud] no NativeUI document: " .. tostring(why)) return end
+    page = created
     created:on("weapon:ready", function()
         pageReady = true
         send("weapon:config", pageConfig)
@@ -114,14 +96,13 @@ local function createSurface()
 end
 
 local function syncSurface()
+    if not available then return end
     if config.enabled == false then
-        if page then pcall(page.destroy, page); page, pageReady, boundsKey = nil, false, nil end
+        if page then pcall(page.destroy, page); page, pageReady = nil, false end
         shown = false
         return
     end
-    local b = W.bounds(pageConfig)
-    local key = string.format("%d:%d:%d:%d", b.x, b.y, b.width, b.height)
-    if (page == nil or key ~= boundsKey) and not creating then shown = false; CreateThread(createSurface) end
+    if page == nil then shown = false; createSurface() end
 end
 
 local function apply(patch)
@@ -139,7 +120,14 @@ local function read(fn, ...)
     local ok, value = pcall(fn, ...)
     if ok then return value end
 end
+-- op77_loadscreen's zone cover is a WebUI page, below every NativeUI document: step aside
+-- while it is up (it sends op77_loadscreen:state; nothing happens without that resource).
+local loadCovered = false
+if type(AddEventHandler) == "function" then
+    AddEventHandler("op77_loadscreen:state", function(active) loadCovered = active == true end)
+end
 local function cursorTaken()
+    if loadCovered then return true end
     if type(Open77.input) ~= "table" or type(Open77.input.isCaptured) ~= "function" then return false end
     local ok, _, cursor = pcall(Open77.input.isCaptured)
     return ok and cursor == true
@@ -238,7 +226,9 @@ end)
 -- ── start ──
 AddEventHandler("onClientResourceStart", function(name)
     if name ~= GetCurrentResourceName() then return end
-    announce(); syncNative(); syncSurface()
+    announce()
+    if not available then print("[weaponhud] NativeUI (Open77.ui) is not available on this client: no weapon HUD") return end
+    syncNative(); syncSurface()
     if type(TriggerServerEvent) == "function" then TriggerServerEvent("op77_weaponhud:hello") end
     CreateThread(function()
         while true do

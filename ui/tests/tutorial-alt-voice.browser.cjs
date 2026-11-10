@@ -74,12 +74,9 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'E:/Open77/Gta2CPP
     await page.getByRole('button',{name:'Continue guide'}).click();await page.getByRole('heading',{name:'Be heard. On your terms.'}).waitFor();
     await fire('tutorial',{voice:{...await page.evaluate(()=>window.testBridge.voice),available:false},voiceError:'Device disconnected'});
     await page.getByRole('button',{name:'Set up my voice'}).click();assert(await page.getByRole('button',{name:'Continue',exact:true}).isDisabled());assert.match(await page.locator('.voice-lesson').innerText(),/Device disconnected/);
-    await guide('context_prop',{index:8,kind:'context',demo:'context',title:'Alt opens the world',todo:[{text:'Stand near the marked crate'},{key:'context',text:'Keep holding it; left-click the crate'},{text:'Click Inspect practice crate in the menu'}],line:'Keep Alt held while choosing. Releasing it or pressing Escape closes the menu. Objects, cars and people offer different actions.'});
-    for(const [w,h] of [[1920,1080],[1366,768],[1024,768]]){
-      await page.setViewportSize({width:w,height:h});const b=await page.locator('.first-day__objective').boundingBox();assert(b.y>=0&&b.y+b.height<=h+1,`context fits ${w}x${h}`);await shot(`context-prop-${w}`);
-    }
-    await guide('vehicle_open',{index:9,kind:'context',demo:'context',title:'Explore the submenus',todo:[{key:'context',text:'Hold and click the car again'},{text:'Open Trunk & hood → Open trunk'}]});
-    assert.match(await page.locator('.context-lesson').innerText(),/TRUNK & HOOD[\s\S]*Open trunk/);await shot('context-car');
-    assert.deepEqual(errors,[]);console.log('PASS: voice choices, devices, keyboard + five mouse binds, Escape cancellation, genuine meter gating, local test lifecycle, offline/skip/reopen, server range key, 4 viewports and Alt prop/car instructions');
+    // The Alt lesson lives in the objective card: NativeUI (client/native/tutorial.lua), nothing in the page.
+    await guide('context_prop',{index:8,kind:'context',demo:'context',title:'Alt opens the world',todo:[{text:'Stand near the marked crate'},{key:'context',text:'Keep holding it; left-click the crate'},{text:'Click Inspect practice crate in the menu'}]});
+    assert.equal(await page.locator('.first-day').count(),0,'the Alt lesson is not drawn by the page');
+    assert.deepEqual(errors,[]);console.log('PASS: voice choices, devices, keyboard + five mouse binds, Escape cancellation, genuine meter gating, local test lifecycle, offline/skip/reopen, server range key, 4 viewports; the Alt lesson left to NativeUI');
   } finally { await browser.close(); }
 })().catch(e=>{console.error(e);process.exit(1);});

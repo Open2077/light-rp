@@ -1,0 +1,79 @@
+/* Dogtown, the PvP zone (ui/src/features/dogtown/dogtown.css) on NativeUI: the entry
+   banner (top centre, 17vh = 184dp) and the persistent tile (top-left: the minimap and
+   the F1 menu hold the top-right). glow-danger = 1px #FF2E3C80 + 22px #FF2E3C47. */
+
+/* An absolutely positioned element that toggles `display` comes back 0 x 0 (seen in game): the
+   root and the positioned wrappers stay laid out and toggle `visibility`. `show` is the shell
+   (ready, not hidden, not quiet) and the zone state together (client/native/dogtown.lua). */
+#dt { position: absolute; left: 0; top: 0; right: 0; bottom: 0; opacity: 0; transition: opacity 0.2s cubic-out; }
+#dt.is-on { opacity: 1; }
+.dt-dot { color: #8A8F9C; }
+
+/* ---- banner ---- */
+.dt-banner-pos { position: absolute; left: 0; right: 0; top: 184dp; display: flex; visibility: hidden; flex-direction: row; justify-content: center; }
+#dt.is-on .dt-banner-pos.is-in { visibility: visible; }
+/* the fade on a wrapper, the drop on the banner: one opacity animation per element */
+.dt-banner-fade { opacity: 1; transition: opacity 0.5s cubic-in; }
+.dt-banner-fade.is-out { opacity: 0; }
+.dt-banner { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6dp; min-width: 432dp; padding: 14dp 44dp 16dp 44dp; }
+#dt.is-on .dt-banner-pos.is-in .dt-banner { animation: 0.34s cubic-out dt-drop; }
+.dt-banner-bg { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform: scaleX(-1); decorator: fx(chamfer 18 1 0.82 0 #FF2E3C80); box-shadow: #FF2E3C47 0 0 22dp 0; }
+/* the page's linear-gradient(180deg, red-dim .55, hud .82 62%): a red tint over the dark plate */
+.dt-banner-tint { position: absolute; left: 18dp; top: 0; right: 0; height: 62%; decorator: linear-gradient(180deg, #7A11198C 0%, #7A111900 100%); }
+.dt-banner-tint.is-corner { left: 0; right: auto; width: 18dp; top: 18dp; height: 50%; decorator: linear-gradient(180deg, #7A111975 0%, #7A111900 100%); }
+.dt-banner-top { position: absolute; left: 18dp; top: 0; right: 0; height: 2dp; background-color: #FF2E3C; }
+.dt-banner-bar { position: relative; display: flex; flex-direction: row; align-items: center; gap: 8dp; color: #FF2E3C; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 14dp; letter-spacing: 0.32em; white-space: nowrap; }
+.dt-banner-bar path.ic { width: 18dp; height: 18dp; stroke: #FF2E3C; }
+#dt.is-on .dt-banner-pos.is-in .dt-banner-bar path.ic { animation: 1s linear-in-out infinite dt-pulse; }
+.dt-banner-title { position: relative; font-family: "Zen Dots"; font-weight: normal; font-size: 46dp; line-height: 46dp; letter-spacing: 0.08em; color: #F2F3F5; white-space: nowrap; font-effect: glow(1dp 9dp 0dp 0dp #FF2E3C73); }
+.dt-banner-law { position: relative; display: flex; flex-direction: row; align-items: center; font-size: 15dp; line-height: 20dp; letter-spacing: 0.14em; color: #FF2E3C; white-space: nowrap; }
+.dt-banner-law .dt-dot { padding: 0 6dp; }
+.dt-banner.is-short .dt-banner-law { color: #FFCC00; }
+.dt-banner-law.is-safe { color: #8FE04A; }
+.dt-banner-cash { position: relative; margin-top: 4dp; font-size: 14dp; line-height: 19dp; color: #C3C7D1; white-space: nowrap; }
+.dt-em { font-family: "Share Tech Mono"; font-weight: normal; color: #F2F3F5; }
+.dt-banner-rule { position: relative; font-size: 11dp; line-height: 15dp; color: #8A8F9C; white-space: nowrap; }
+.dt-banner-stake { position: relative; max-width: 440dp; text-align: center; font-size: 12dp; line-height: 16dp; color: #FFCC00; }
+
+/* ---- tile ---- */
+.dt-tile-pos { position: absolute; top: 26dp; left: 32dp; display: flex; flex-direction: row; visibility: hidden; }
+#dt.is-on .dt-tile-pos { visibility: visible; }
+.dt-tile { position: relative; display: flex; flex-direction: row; align-items: flex-start; gap: 10dp; max-width: 274dp; padding: 9dp 14dp 9dp 12dp; }
+#dt.is-on .dt-tile { animation: 0.24s cubic-out dt-wipe; }
+.dt-tile-bg { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform: scaleX(-1); decorator: fx(chamfer 6 0 0.72 0 #00000000); box-shadow: #000000A6 0 2dp 14dp 0; }
+.dt-tile-rail { position: absolute; left: 0; top: 6dp; bottom: 0; width: 2dp; background-color: #FF2E3C; }
+.dt-tile .dt-glyph { position: relative; width: 20dp; height: 20dp; margin-top: 2dp; stroke: #FF2E3C; }
+.dt-body { position: relative; display: flex; flex-direction: column; gap: 3dp; min-width: 0; }
+.dt-label { display: flex; flex-direction: row; color: #FF2E3C; font-family: "Share Tech Mono"; font-weight: normal; font-size: 9dp; line-height: 12dp; letter-spacing: 0.08em; white-space: nowrap; }
+.dt-label .dt-dot { padding: 0 3dp; }
+.dt-strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13dp; line-height: 17dp; color: #F2F3F5; }
+.dt-rows { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4dp 12dp; margin-top: 1dp; }
+.dt-row { display: flex; flex-direction: row; align-items: center; gap: 5dp; font-size: 10dp; line-height: 13dp; color: #8A8F9C; white-space: nowrap; }
+.dt-row path.ic { width: 11dp; height: 11dp; stroke: #C3C7D1; }
+.dt-row.is-tag, .dt-row.is-escort, .dt-row.is-safe, .dt-row.is-bounty { font-family: "Share Tech Mono"; font-weight: normal; letter-spacing: 0.06em; }
+.dt-row.is-tag { color: #FF2E3C; }
+.dt-row.is-tag path.ic { stroke: #FF2E3C; }
+.dt-tile.is-tagged .dt-tile-bg, .dt-tile.is-bounty .dt-tile-bg { decorator: fx(chamfer 6 1 0.72 0 #FF2E3C80); box-shadow: #000000A6 0 2dp 14dp 0, #FF2E3C47 0 0 22dp 0; }
+#dt.is-on .dt-tile.is-tagged .dt-glyph { animation: 0.8s linear-in-out infinite dt-pulse; }
+/* outside the walls, still tagged: the page's dashed left border */
+.dt-tile.is-outside .dt-tile-rail { background-color: transparent; decorator: repeating-linear-gradient(180deg, #FF2E3C 0dp, #FF2E3C 5dp, #FF2E3C00 5dp, #FF2E3C00 8dp); }
+/* inside without the stake: the accent (a warning, not a threat) and the escort countdown */
+.dt-tile.is-short .dt-tile-rail { background-color: #FFCC00; }
+.dt-tile.is-short .dt-glyph { stroke: #FFCC00; }
+.dt-tile.is-short .dt-label { color: #FFCC00; }
+.dt-row.is-escort { color: #FFCC00; }
+.dt-row.is-escort path.ic { stroke: #FFCC00; }
+/* entry protection: green, a countdown, no threat yet */
+.dt-tile.is-safe .dt-tile-rail { background-color: #8FE04A; }
+.dt-tile.is-safe .dt-glyph { stroke: #8FE04A; }
+.dt-tile.is-safe .dt-label { color: #8FE04A; }
+.dt-row.is-safe { color: #8FE04A; }
+.dt-row.is-safe path.ic { stroke: #8FE04A; }
+/* a bounty: the player is on everyone's map */
+.dt-row.is-bounty { color: #FF2E3C; }
+#dt.is-on .dt-row.is-bounty { animation: 1s linear-in-out infinite dt-pulse; }
+.dt-row.is-bounty path.ic { stroke: #FF2E3C; }
+
+@keyframes dt-drop { from { opacity: 0; transform: translateY(-14dp); } to { opacity: 1; transform: translateY(0dp); } }
+@keyframes dt-wipe { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dt-pulse { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.35; } }

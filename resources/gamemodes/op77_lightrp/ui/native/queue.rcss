@@ -1,0 +1,59 @@
+/* The queue panel (ui/src/features/queue/queue-panel.css). .qp: top hud-safe-y (26), centred,
+   row, gap sp-5 (12), max-width 860, min-height 38, padding 4 6 4 14, the activity HUD's
+   plate (scanlines over rgba(10,10,12,.9) -> rgba(6,6,8,.78), chamfer 10 on the top-left and
+   bottom-right corners, a hairline, the 2 px accent rail on the left), body type 15/1.45.
+   The page centred it with left 50% + translateX(-50%); here the line is a centred flex row
+   so the drop-in can animate the panel's own transform. */
+
+div, span, path { pointer-events: none; }
+
+#qp-line { position: absolute; left: 0; right: 0; top: 26dp; display: flex; flex-direction: row; justify-content: center; }
+/* under the running mission's / the fixer gig's chip */
+#qp-line.is-under { top: 66dp; }
+
+.qp { position: relative; display: none; flex: 0 0 auto; max-width: 860dp; font-size: 15dp; line-height: 1.45; color: #C3C7D1; }
+/* qp-drop .32s steps(4, end): four mechanical steps, not a tween */
+.qp.is-on { display: block; animation: 0.32s linear-in-out qp-drop; }
+@keyframes qp-drop
+{
+    0%, 24% { opacity: 0; transform: translateY(-10dp); }
+    25%, 49% { opacity: 0.25; transform: translateY(-7.5dp); }
+    50%, 74% { opacity: 0.5; transform: translateY(-5dp); }
+    75%, 99% { opacity: 0.75; transform: translateY(-2.5dp); }
+    100% { opacity: 1; transform: translateY(0dp); }
+}
+
+/* the plate: fx(chamfer) cuts top-right / bottom-left, the page's --clip-chamfer the other
+   two, hence the mirror. Fill .84 = the middle of the page's .9 -> .78 gradient. */
+.qp-plate { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform: scaleX(-1); decorator: fx(chamfer 10 1 0.84 0 #FFCC0024); }
+.qp.is-starting .qp-plate { decorator: fx(chamfer 10 1 0.84 0 #FFCC00); }
+/* --tex-scanline, kept off the two cut corners */
+.qp-scan { position: absolute; left: 10dp; top: 0; right: 10dp; bottom: 0; decorator: repeating-linear-gradient(180deg, #FFFFFF09 0dp, #FFFFFF09 1dp, #FFFFFF00 1dp, #FFFFFF00 3dp); }
+.qp-rail { position: absolute; left: 0; top: 10dp; bottom: 0; width: 2dp; background-color: #FFCC00; }
+
+.qp-row { position: relative; display: flex; flex-direction: row; align-items: center; gap: 12dp; box-sizing: border-box; min-height: 38dp; padding: 4dp 6dp 4dp 14dp; }
+
+/* the tag: --clip-tag (the right edge slanted over 8 px) */
+.qp-tag { display: flex; flex-direction: row; flex: 0 0 auto; height: 18dp; }
+.qp-tag-text { display: block; padding: 4dp 4dp 3dp 7dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; letter-spacing: 0.14em; white-space: nowrap; color: #8A8F9C; background-color: #202127; }
+.qp-tag-cut { display: block; flex: 0 0 auto; width: 8dp; height: 18dp; fill: #202127; }
+.qp-tag.is-accent .qp-tag-text { color: #FFCC00; background-color: #FFCC0038; }
+.qp-tag.is-accent .qp-tag-cut { fill: #FFCC0038; }
+.qp-tag.is-go .qp-tag-text { color: #050506; background-color: #FFCC00; }
+.qp-tag.is-go .qp-tag-cut { fill: #FFCC00; }
+
+.qp-id { display: flex; flex-direction: row; align-items: baseline; gap: 6dp; flex: 0 0 auto; }
+.qp-label { display: block; flex: 0 0 auto; max-width: 220dp; font-size: 15dp; line-height: 15dp; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #F2F3F5; }
+.qp-mode { display: block; flex: 0 0 auto; max-width: 150dp; font-size: 13dp; line-height: 13dp; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #8A8F9C; }
+
+.qp-cell { display: flex; flex-direction: row; align-items: baseline; gap: 4dp; flex: 0 0 auto; padding-left: 12dp; border-left-width: 1dp; border-left-color: #FFCC0024; white-space: nowrap; }
+.qp-k { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 10dp; letter-spacing: 0.14em; color: #565A66; }
+.qp-v { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 15dp; line-height: 15dp; letter-spacing: 0.02em; color: #F2F3F5; }
+.qp-note { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 10dp; letter-spacing: 0.14em; color: #8A8F9C; }
+/* --glow-text: 0 0 12px rgba(255, 204, 0, .45) */
+.qp-cell.is-start .qp-v { color: #FFCC00; font-effect: glow(0dp 6dp 0dp 0dp #FFCC0073); }
+
+.qp-cancel { display: flex; flex-direction: row; align-items: center; gap: 4dp; flex: 0 0 auto; padding: 3dp 4dp 3dp 8dp; border-left-width: 1dp; border-left-color: #FFCC0024; }
+.qp-cancel-text { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; letter-spacing: 0.14em; white-space: nowrap; color: #8A8F9C; }
+/* Keycap size="sm": ink-700, an inset line-soft hairline, --clip-keycap (4 px, the corners fx(chamfer) cuts) */
+.qp-cap { display: block; box-sizing: border-box; min-width: 16dp; padding: 1dp 5dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 10.5dp; letter-spacing: 0.06em; text-transform: uppercase; text-align: center; white-space: nowrap; color: #C3C7D1; decorator: fx(chamfer 4 1 1 0 #FFCC0047); }

@@ -1,0 +1,107 @@
+<rml>
+<head>
+    <title>Light RP work order</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="workorder.rcss"/>
+</head>
+<!-- The work order tracker (ui/src/features/jobs/JobRunHud.tsx), docked right under the
+     minimap, and the pump approach hint (FuelApproach in features/fuel/FuelDialog.tsx),
+     bottom centre. client/native/workorder.lua fills the model. -->
+<body data-model="wo">
+<div id="root" class="shell fill" data-class-is-ready="ready" data-class-is-hidden="hidden" data-class-is-quiet="quiet">
+
+    <div id="wo" class="wo" data-class-is-on="on" data-class-is-near="near">
+        <!-- the plate: top-left corner cut 18, bottom-right 10, the hairline frame, the accent rail -->
+        <div class="wo-plate">
+            <path class="wo-p-tl" view-box="0 0 18 18" d="M18 0V18H0Z"/>
+            <div class="wo-p-top"></div>
+            <div class="wo-p-mid"></div>
+            <div class="wo-p-bot"></div>
+            <path class="wo-p-br" view-box="0 0 10 10" d="M0 0H10L0 10Z"/>
+            <div class="wo-scan"></div>
+            <div class="wo-l-top"></div>
+            <div class="wo-l-right"></div>
+            <div class="wo-l-bottom"></div>
+            <div class="wo-rail"></div>
+        </div>
+        <div class="wo-body">
+            <div class="wo-head">
+                <span class="wo-stamp">WORK ORDER</span>
+                <div class="wo-job"><path class="ic" view-box="0 0 24 24" data-attr-d="jobIcon"/><span class="wo-job-text">{{job}}</span></div>
+                <div class="wo-timer" data-if="hasTimer" data-class-is-low="timerLow"><path class="ic" view-box="0 0 24 24" data-attr-d="icTimer"/><span>{{timer}}</span></div>
+            </div>
+            <div class="wo-hazard"></div>
+            <div class="wo-duo" data-if="hasDuo">
+                <path class="ic" view-box="0 0 24 24" data-attr-d="icUsers"/><span class="wo-duo-text">{{duo}}</span>
+                <span class="grow"></span><span class="wo-duo-with" data-if="hasPartner">{{partner}}</span>
+            </div>
+
+            <div class="wo-next" data-class-swap-a="swapA" data-class-swap-b="swapB">
+                <div class="wo-next-tag">
+                    <div class="wo-kind"><path class="ic" view-box="0 0 24 24" data-attr-d="kindIcon"/><span>{{kind}}</span></div>
+                    <div class="wo-stop"><span class="wo-stop-n">{{stop}}</span><span class="wo-stop-of">{{stopOf}}</span></div>
+                </div>
+                <div class="wo-title">{{title}}</div>
+                <div class="wo-read">
+                    <div class="wo-press" data-if="near"><div class="wo-key"><div class="wo-key-bg"></div><span class="wo-key-text">E</span></div><span class="wo-press-text">{{press}}</span></div>
+                    <div class="wo-dist" data-if="!near">
+                        <path class="ic" view-box="0 0 24 24" data-attr-d="icNavigation"/>
+                        <span class="wo-dist-n">{{distance}}</span><span class="wo-dist-unit" data-if="hasDistance">{{unit}}</span>
+                        <span class="wo-gps" data-if="gps">GPS ON</span>
+                        <span class="wo-gps is-off" data-if="!gps">{{noRoute}}</span>
+                    </div>
+                </div>
+                <div class="wo-hint">{{hint}}</div>
+            </div>
+
+            <div class="wo-cells">
+                <div class="wo-cell" data-for="c : cells" data-class-is-gone="c.gone" data-class-is-done="c.done" data-class-is-now="c.now"></div>
+            </div>
+
+            <div class="wo-list" data-if="hasList">
+                <div class="wo-list-head"><span class="wo-list-k">MANIFEST</span><span class="wo-list-v">{{listHead}}</span></div>
+                <div class="wo-manifest">
+                    <div class="wo-row" data-for="r : rows" data-class-is-gone="r.gone" data-class-is-live="r.live" data-class-is-done="r.done">
+                        <span class="wo-n">{{r.n}}</span>
+                        <div class="wo-leg">
+                            <div class="wo-glyph" data-class-is-done="r.aDone" data-class-is-now="r.aNow"><path class="ic" view-box="0 0 24 24" data-if="r.aDone" data-attr-d="icCheck"/></div>
+                            <span class="wo-place">{{r.a}}</span>
+                        </div>
+                        <div class="wo-arrow" data-if="r.pair"><path class="ic" view-box="0 0 24 24" data-attr-d="icArrow"/></div>
+                        <div class="wo-leg" data-if="r.pair">
+                            <div class="wo-glyph" data-class-is-done="r.bDone" data-class-is-now="r.bNow"><path class="ic" view-box="0 0 24 24" data-if="r.bDone" data-attr-d="icCheck"/></div>
+                            <span class="wo-place">{{r.b}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wo-foot">
+                <div class="wo-foot-bg"><div class="wo-f-main"></div><div class="wo-f-bot"></div><path class="wo-f-br" view-box="0 0 10 10" d="M0 0H10L0 10Z"/><div class="wo-f-line"></div></div>
+                <div class="wo-foot-row">
+                    <div class="wo-pay"><span class="wo-pay-n">{{reward}}</span><span class="wo-pay-k">{{rewardWhen}}</span></div>
+                    <div class="wo-menu">
+                        <span class="wo-menu-key">{{menuKey}}</span>
+                        <div class="wo-menu-text"><span class="wo-menu-a">MY JOB</span><span class="wo-menu-b">GPS · ABANDON</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FuelApproach: the pump is reserved, walk to the vehicle -->
+    <div id="pr-line">
+        <div id="pr" class="pr" data-class-is-on="fuelOn">
+            <path class="ic" view-box="0 0 24 24" data-attr-d="icFuel"/>
+            <div class="pr-text">
+                <div class="pr-tag">PUMP RESERVED · {{fuelLeft}}s</div>
+                <div class="pr-title">Walk beside your {{fuelLabel}}</div>
+                <div class="pr-keys"><span>Face the vehicle.</span><span class="pr-kbd">E</span><span>Start filling</span><span class="pr-dot">·</span><span class="pr-kbd">{{fuelCancel}}</span><span>Cancel</span></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</rml>

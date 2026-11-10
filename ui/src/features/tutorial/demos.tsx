@@ -7,9 +7,10 @@ import { VehicleCluster } from "@/features/hud/VehicleCluster";
 import "./demos.css";
 
 /* Examples of the UI the first day talks about, played in a loop beside the
-   dialogue (a line's `demo`) or in the objective card (a step's `demo`). They
-   are pictures of the real screens, never the screens themselves: nothing here
-   sends an action. With reduced motion each one holds its last frame. */
+   dialogue (a line's `demo`). They are pictures of the real screens, never the
+   screens themselves: nothing here sends an action. With reduced motion each one
+   holds its last frame. The objective card's examples (a step's `demo`) and the
+   hall map of the flight to the next stop are NativeUI (client/native/tutorial.lua). */
 
 export type DemoKeys = Record<string, string | undefined>;
 
@@ -59,7 +60,7 @@ const DONE = <Icon name="check" size={14} />;
 
 /* ---------- The hall from above ---------- */
 
-export function HallMap({ stops, tour = false, compact = false }: { stops: TutorialStop[]; tour?: boolean; compact?: boolean }) {
+export function HallMap({ stops, tour = false }: { stops: TutorialStop[]; tour?: boolean }) {
   const route = stops.filter(s => s.step !== "intro");
   const lit = useTicker(0, route.length + 1, 1, 750);
   if (!stops.length) return null;
@@ -68,7 +69,7 @@ export function HallMap({ stops, tour = false, compact = false }: { stops: Tutor
   const w = maxX - minX, h = maxY - minY;
   const at = (s: TutorialStop) => [s.x - minX, maxY - s.y] as const;
   const line = stops.map(s => at(s).join(",")).join(" ");
-  return <svg className={`demo-map${compact ? " demo-map--compact" : ""}`} viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Map of the arrival hall">
+  return <svg className="demo-map" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Map of the arrival hall">
     <rect className="demo-map__ground" x={0} y={0} width={w} height={h} rx={4} />
     <line className="demo-map__avenue" x1={-minX} y1={0} x2={-minX} y2={h} />
     <polyline className="demo-map__route" points={line} />
@@ -79,7 +80,7 @@ export function HallMap({ stops, tour = false, compact = false }: { stops: Tutor
       return <g key={i} className={`demo-map__stop is-${state}`} transform={`translate(${x} ${y})`}>
         {state === "now" && <circle className="demo-map__ping" r={7} />}
         <circle r={s.step === "intro" ? 2.4 : 3.4} />
-        {(state === "now" || (!compact && tour)) && <text y={-6.5}>{s.label}</text>}
+        {(state === "now" || tour) && <text y={-6.5}>{s.label}</text>}
       </g>;
     })}
   </svg>;
@@ -232,59 +233,6 @@ function Payday() {
   </div>;
 }
 
-/* ---------- In the objective card ---------- */
-
-function MenuDemo({ keys }: { keys: DemoKeys }) {
-  const stage = useStage([900, 700, 700, 1600]);
-  const rows = ["Identity", "Inventory", "Animations", "Free camera"];
-  return <div className="demo-mini">
-    <Cap on={stage === 0}>{keys.menu ?? "F1"}</Cap>
-    <ul className={`demo-mini__menu${stage > 0 ? " is-open" : ""}`}>{rows.map((r, i) =>
-      <li key={r} className={i === 0 && stage >= 2 ? (stage === 3 ? "is-picked" : "is-on") : ""}>{r}{i === 0 && stage === 3 && <Icon name="mouse-pointer-click" size={13} />}</li>)}</ul>
-  </div>;
-}
-function InventoryDemo({ keys }: { keys: DemoKeys }) {
-  const stage = useStage([900, 2600]);
-  return <div className="demo-mini">
-    <Cap on={stage === 0}>{keys.inventory ?? "I"}</Cap>
-    <div className={`demo-mini__grid${stage > 0 ? " is-open" : ""}`}>
-      <Item name="water" icon="droplet" count={5} /><Item name="burrito" icon="sandwich" count={5} /><span /><span /><span /><span />
-    </div>
-  </div>;
-}
-function ShopDemo({ keys }: { keys: DemoKeys }) {
-  const stage = useStage([900, 900, 900, 900, 1500]);
-  return <div className="demo-mini">
-    <Cap on={stage === 0}>{keys.interact ?? "E"}</Cap>
-    <div className="demo-mini__shop">
-      <span className={stage >= 1 ? "is-on" : ""}><Item name="water" icon="droplet" /><Icon name="plus" size={12} /></span>
-      <span className="demo-mini__pay"><i className={stage >= 2 && stage % 2 === 0 ? "is-on" : ""}>CASH</i><i className={stage === 3 ? "is-on" : ""}>BANK</i></span>
-      <span className={`demo-mini__confirm${stage === 4 ? " is-done" : stage === 3 ? " is-on" : ""}`}>{stage === 4 ? DONE : "CONFIRM"}</span>
-    </div>
-  </div>;
-}
-function DrinkDemo({ keys }: { keys: DemoKeys }) {
-  const stage = useStage([900, 800, 2000, 1400]);
-  return <div className="demo-mini">
-    <Cap on={stage === 0}>{keys.inventory ?? "I"}</Cap>
-    <span className={`demo-mini__use${stage >= 1 ? " is-on" : ""}`}><Item name="water" icon="droplet" /><i>USE</i></span>
-    <span className={`demo-ring${stage === 2 ? " is-run" : stage === 3 ? " is-done" : ""}`}><Icon name={stage === 3 ? "check" : "footprints"} size={14} /></span>
-    <span className="demo-mini__vital"><Icon name="droplet" size={14} /><span className="demo-bar"><i style={{ width: stage === 3 ? "78%" : "38%" }} /></span></span>
-  </div>;
-}
-function ActivityDemo({ keys, kind }: { keys: DemoKeys; kind: "collect" | "process" | "sell" }) {
-  const stage = useStage([900, 2200, 1500]);
-  const from = { collect: null, process: "box", sell: "package-open" }[kind];
-  const to = { collect: "box", process: "package-open", sell: "landmark" }[kind];
-  const label = { collect: "Collecting… stay still", process: "Sorting parts… stay still", sell: "Selling" }[kind];
-  return <div className="demo-mini">
-    <Cap on={stage === 0}>{keys.interact ?? "E"}</Cap>
-    {from && <span className={`demo-mini__token${stage >= 1 ? " is-gone" : ""}`}><Icon name={from} size={18} /></span>}
-    <span className="demo-mini__progress"><small>{stage === 2 ? "Done" : label}</small><span className="demo-bar"><i className={stage === 1 ? "is-run" : ""} style={{ width: stage === 0 ? "0%" : "100%" }} /></span></span>
-    <span className={`demo-mini__token${stage === 2 ? " is-new" : " is-wait"}`}><Icon name={to} size={18} />{kind === "sell" && stage === 2 && <b>+€$</b>}</span>
-  </div>;
-}
-
 /** The title over a dialogue demo. */
 const TITLES: Record<string, string> = {
   rules: "Out there", tour: "Your first day", card: "Your citizen card", money: "Cash and bank", transfer: "Bank transfer",
@@ -304,12 +252,4 @@ export function DialogueDemo({ id, keys, map }: { id: string; keys: DemoKeys; ma
     <header><span>EXAMPLE</span><b>{TITLES[id] ?? id}</b></header>
     {body}
   </aside>;
-}
-
-export function StepDemo({ id, keys }: { id: string; keys: DemoKeys }) {
-  const body = {
-    menu: <MenuDemo keys={keys} />, inventory: <InventoryDemo keys={keys} />, shop: <ShopDemo keys={keys} />, drink: <DrinkDemo keys={keys} />,
-    collect: <ActivityDemo keys={keys} kind="collect" />, process: <ActivityDemo keys={keys} kind="process" />, sell: <ActivityDemo keys={keys} kind="sell" />,
-  }[id];
-  return body ? <div className="first-day__demo" aria-hidden="true" key={id}>{body}</div> : null;
 }

@@ -111,7 +111,7 @@ local function openChat()
     -- fault: no surface at all, a gamemode that turned the chat off, and a
     -- latched `opened` left behind by a close that never ran.
     if not chat then
-        print("[open77_chat] open refused: the WebUI surface was never created")
+        print("[open77_chat] open refused: the chat document was never created")
         return
     end
     if not enabled then
@@ -122,15 +122,12 @@ local function openChat()
         print("[open77_chat] open ignored: already open")
         return
     end
-    -- Focus BEFORE the page is told to open, and that order is the point.
-    -- `setFocus` reaches the WebHost as `CefBrowserHost::SetFocus`, while
-    -- `chat:open` reaches the page as a script that ends up calling
-    -- `input.focus()`. Both travel the same ordered pipe, so asking for browser
-    -- focus first means the element focus lands in a browser that already has
-    -- it, instead of racing a browser that does not yet.
+    -- The keyboard lease BEFORE the document is told to open: both calls are
+    -- queued in order, so the composer's element focus lands in a document that
+    -- already holds the keyboard. Keyboard only: the cursor stays with the game.
     local focused = chat:setFocus(true, false)
     if not focused then
-        print("[open77_chat] open deferred: WebUI is unavailable")
+        print("[open77_chat] open deferred: NativeUI focus is unavailable")
         return
     end
     opened = true
@@ -142,8 +139,8 @@ end
 local function addMessage(message)
     if type(message) == "string" then message = { text = message } end
     if type(message) ~= "table" then return false end
-    -- Keep the same 48-message window as the page, with an additional byte
-    -- bound. The Lua owner survives a browser crash; the lost DOM does not.
+    -- Keep the same 48-message window as the document, with an additional byte
+    -- bound. The Lua owner survives a document reload; its rows do not.
     local ok, encoded = pcall(Open77.json.encode, message)
     if ok and type(encoded) == "string" and #encoded <= 262144 then
         messageHistory[#messageHistory + 1] = encoded
@@ -216,7 +213,7 @@ AddEventHandler("open77:chat:requestVisibility", function()
     TriggerEvent("open77:chat:visibility", opened == true)
 end)
 
--- Native Escape is swallowed before CEF sees it. Release this modal directly.
+-- Native Escape may never reach the document. Release this modal directly.
 AddEventHandler("open77:pauseKey", closeChat)
 AddEventHandler("open77:chat:open", openChat)
 AddEventHandler("chat:open", openChat)
@@ -247,24 +244,16 @@ exports("isEnabled", function() return enabled end)
 AddEventHandler("onClientResourceStart", function(name)
     if name ~= GetCurrentResourceName() then return end
     local reason
-    chat, reason = WebUI.create({
-        entry = "web/index.html",
-        layer = "hud",
-        width = 1920,
-        height = 1080,
-        -- Maximum supported WebUI cadence. Chromium only produces a frame when
-        -- the page is damaged, so an idle chat does not continuously repaint.
-        fps = 240,
-        zIndex = 700,
-        transparent = true,
-        visible = true
-    })
+    -- NativeUI (client/ui.lua, ui/chat.rml): the page API this file always used.
+    -- Without NativeUI: one line below and no chat surface.
+    chat, reason = ChatUi.create()
     if not chat then
-        print("Open77 chat WebUI failed: " .. tostring(reason))
+        print("Open77 chat NativeUI failed: " .. tostring(reason))
         return
     end
 
-    chat:on("webui:host-lost", closeChat)
+    -- A page took the keyboard from the composer (or the lease was refused).
+    chat:on("chat:focusLost", closeChat)
     chat:on("chat:ready", function()
         closeChat()
         send("chat:state", { enabled = enabled })
@@ -343,6 +332,7 @@ end)
 AddEventHandler("onClientResourceStop", function(name)
     if name ~= GetCurrentResourceName() then return end
     opened = false
+    if chat and chat.destroy then chat:destroy() end
     chat = nil
     TriggerEvent("open77:chat:visibility", false)
 end)

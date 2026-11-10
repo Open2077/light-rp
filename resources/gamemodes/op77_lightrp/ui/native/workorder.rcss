@@ -1,0 +1,171 @@
+/* The work order tracker (ui/src/features/jobs/job-run.css) and the pump approach hint
+   (.pump-route of features/fuel/fuel.css).
+
+   .wo: top 31vh, right hud-safe-x (32), width clamp(300, 21vw, 372) = 372 at 1920, body type
+   15/1.45, the dispatch sheet's plate: scanlines over rgba(10,10,12,.9) -> rgba(6,6,8,.78),
+   the top-left corner cut 18 and the bottom-right 10, a hairline frame and the 2 px accent
+   rail (4 px near the stop). The two cuts differ, so the plate is three bands and two
+   triangles instead of fx(chamfer). The page's steps() timings are written as held
+   keyframes: the motion is mechanical, not eased. */
+
+div, span, path { pointer-events: none; }
+
+path.ic { display: block; flex: 0 0 auto; fill: transparent; stroke-linecap: round; stroke-linejoin: round; }
+
+.wo { position: absolute; top: 31%; right: 32dp; width: 372dp; display: none; font-size: 15dp; line-height: 1.45; color: #C3C7D1; }
+/* wo-in .42s steps(6, end) */
+.wo.is-on { display: block; animation: 0.42s linear-in-out wo-in; }
+@keyframes wo-in
+{
+    0%, 16% { opacity: 0; transform: translateX(24dp); }
+    17%, 33% { opacity: 0.21; transform: translateX(20dp); }
+    34%, 49% { opacity: 0.42; transform: translateX(16dp); }
+    50%, 66% { opacity: 0.58; transform: translateX(12dp); }
+    67%, 83% { opacity: 0.72; transform: translateX(8dp); }
+    84%, 99% { opacity: 0.86; transform: translateX(4dp); }
+    100% { opacity: 1; transform: translateX(0dp); }
+}
+/* wo-blink: 50% { opacity: .45 } with steps(2, end) */
+@keyframes wo-blink { 0%, 24% { opacity: 1; } 25%, 49% { opacity: 0.725; } 50%, 74% { opacity: 0.45; } 75%, 99% { opacity: 0.725; } 100% { opacity: 1; } }
+
+/* ---- the plate ------------------------------------------------------------------------ */
+.wo-plate { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.wo-p-tl { position: absolute; left: 0; top: 0; width: 18dp; height: 18dp; fill: #0A0A0CE6; }
+.wo-p-top { position: absolute; left: 18dp; top: 0; right: 0; height: 18dp; background-color: #0A0A0CE6; }
+.wo-p-mid { position: absolute; left: 0; top: 18dp; right: 0; bottom: 10dp; decorator: linear-gradient(180deg, #0A0A0CE6 0%, #060608C7 100%); }
+.wo-p-bot { position: absolute; left: 0; bottom: 0; right: 10dp; height: 10dp; background-color: #060608C7; }
+.wo-p-br { position: absolute; right: 0; bottom: 0; width: 10dp; height: 10dp; fill: #060608C7; }
+/* --tex-scanline */
+.wo-scan { position: absolute; left: 0; top: 18dp; right: 0; bottom: 10dp; decorator: repeating-linear-gradient(180deg, #FFFFFF09 0dp, #FFFFFF09 1dp, #FFFFFF00 1dp, #FFFFFF00 3dp); }
+/* the frame the page drew inside the clip: no line along the two cuts */
+.wo-l-top { position: absolute; left: 18dp; top: 0; right: 0; height: 1dp; background-color: #FFCC0024; }
+.wo-l-right { position: absolute; right: 0; top: 1dp; bottom: 10dp; width: 1dp; background-color: #FFCC0024; }
+.wo-l-bottom { position: absolute; left: 2dp; bottom: 0; right: 10dp; height: 1dp; background-color: #FFCC0024; }
+.wo-rail { position: absolute; left: 0; top: 18dp; bottom: 0; width: 2dp; background-color: #FFCC00; }
+.wo.is-near .wo-rail { width: 4dp; }
+.wo-body { position: relative; }
+
+/* ---- header: the stamp, the job, the clock --------------------------------------------- */
+.wo-head { display: flex; flex-direction: row; align-items: center; gap: 12dp; padding: 12dp 16dp 8dp 22dp; }
+.wo-stamp { display: block; flex: 0 0 auto; padding: 3dp 7dp 2dp 7dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; letter-spacing: 0.14em; white-space: nowrap; color: #050506; background-color: #FFCC00; }
+.wo-job { display: flex; flex-direction: row; align-items: center; gap: 6dp; flex: 1 1 0; overflow: hidden; }
+.wo-job path.ic { width: 13dp; height: 13dp; stroke: #FFCC00; stroke-width: 1.08dp; }
+.wo-job-text { display: block; flex: 1 1 0; font-size: 13dp; line-height: 13dp; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #FFCC00; }
+.wo-timer { display: flex; flex-direction: row; align-items: center; gap: 5dp; flex: 0 0 auto; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 12.6dp; letter-spacing: 0.06em; color: #8A8F9C; }
+.wo-timer path.ic { width: 12dp; height: 12dp; stroke: #8A8F9C; stroke-width: 1dp; }
+.wo-timer.is-low { color: #FF2E3C; animation: 1s linear-in-out infinite wo-blink; }
+.wo-timer.is-low path.ic { stroke: #FF2E3C; }
+/* repeating-linear-gradient(-45deg, accent 0 5px, transparent 5px 10px) */
+.wo-hazard { height: 5dp; width: 72dp; margin-left: 22dp; opacity: 0.9; decorator: repeating-linear-gradient(315deg, #FFCC00 0dp, #FFCC00 5dp, #FFCC0000 5dp, #FFCC0000 10dp); }
+.wo-duo { display: flex; flex-direction: row; align-items: center; gap: 6dp; margin: 6dp 16dp 0 22dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 1.13; letter-spacing: 0.12em; color: #8A8F9C; }
+.wo-duo path.ic { width: 12dp; height: 12dp; stroke: #8A8F9C; stroke-width: 1dp; }
+.wo-duo-text { display: block; flex: 0 0 auto; white-space: nowrap; }
+.wo-duo-with { display: block; flex: 0 1 auto; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #F2F3F5; }
+
+/* ---- the next stop ---------------------------------------------------------------------- */
+.wo-next { padding: 16dp 16dp 12dp 20dp; }
+/* wo-swap .32s steps(4, end), replayed on every new stop (two names: a new animation restarts) */
+.wo-next.swap-a { animation: 0.32s linear-in-out wo-swap-a; }
+.wo-next.swap-b { animation: 0.32s linear-in-out wo-swap-b; }
+@keyframes wo-swap-a
+{
+    0%, 24% { opacity: 0; transform: translateY(6dp); }
+    25%, 49% { opacity: 0.25; transform: translateY(4.5dp); }
+    50%, 74% { opacity: 0.5; transform: translateY(3dp); }
+    75%, 99% { opacity: 0.75; transform: translateY(1.5dp); }
+    100% { opacity: 1; transform: translateY(0dp); }
+}
+@keyframes wo-swap-b
+{
+    0%, 24% { opacity: 0; transform: translateY(6dp); }
+    25%, 49% { opacity: 0.25; transform: translateY(4.5dp); }
+    50%, 74% { opacity: 0.5; transform: translateY(3dp); }
+    75%, 99% { opacity: 0.75; transform: translateY(1.5dp); }
+    100% { opacity: 1; transform: translateY(0dp); }
+}
+.wo-next-tag { display: flex; flex-direction: row; align-items: center; justify-content: space-between; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 12.6dp; letter-spacing: 0.14em; }
+.wo-kind { display: flex; flex-direction: row; align-items: center; gap: 6dp; color: #FFCC00; white-space: nowrap; }
+.wo-kind path.ic { width: 13dp; height: 13dp; stroke: #FFCC00; stroke-width: 1.08dp; }
+.wo-stop { display: block; flex: 0 0 auto; white-space: nowrap; }
+.wo-stop-n { color: #F2F3F5; }
+.wo-stop-of { color: #565A66; }
+.wo-title { margin: 8dp 0 12dp 0; font-size: 22dp; line-height: 1.2; letter-spacing: 0.01em; color: #F2F3F5; }
+.wo-read { display: flex; flex-direction: row; align-items: center; min-height: 34dp; margin-bottom: 8dp; }
+.wo-dist { display: flex; flex-direction: row; align-items: baseline; gap: 5dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 13dp; line-height: 13dp; letter-spacing: 0.08em; color: #8A8F9C; white-space: nowrap; }
+.wo-dist path.ic { align-self: center; width: 14dp; height: 14dp; margin-right: 4dp; stroke: #FFCC00; stroke-width: 1.17dp; }
+.wo-dist-n { display: block; font-size: 30dp; line-height: 30dp; letter-spacing: -0.02em; color: #F2F3F5; }
+.wo-dist-unit { display: block; }
+.wo-gps { display: block; margin-left: 12dp; padding: 2dp 6dp; font-size: 10dp; line-height: 12dp; letter-spacing: 0.14em; color: #FFCC00; background-color: #FFCC001F; }
+.wo-gps.is-off { color: #FF2E3C; background-color: #FF2E3C1F; animation: 1s linear-in-out infinite wo-blink; }
+.wo-press { display: flex; flex-direction: row; align-items: center; gap: 12dp; }
+.wo-press-text { display: block; font-size: 13dp; line-height: 1.2; letter-spacing: 0.04em; text-transform: uppercase; color: #F2F3F5; }
+/* the E key: 34 x 30, accent, --clip-chamfer-sm (the page's glow is clipped away with it) */
+.wo-key { position: relative; flex: 0 0 auto; width: 34dp; height: 30dp; }
+.wo-key-bg { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform: scaleX(-1); decorator: fx(chamfer-solid 6 0 0 0 #FFCC00); }
+.wo-key-text { position: absolute; left: 0; top: 0; right: 0; display: block; text-align: center; font-size: 15dp; line-height: 30dp; color: #050506; }
+.wo-hint { font-size: 13dp; line-height: 1.45; color: #8A8F9C; }
+
+/* ---- the route: one cell per stop -------------------------------------------------------- */
+.wo-cells { display: flex; flex-direction: row; gap: 3dp; padding: 0 16dp 0 20dp; }
+.wo-cell { flex: 1 1 0; height: 4dp; background-color: #2B2D34; }
+.wo-cell.is-done { background-color: #8F6D00; }
+.wo-cell.is-now { background-color: #FFCC00; box-shadow: #FFCC008C 0 0 8dp 0; animation: 1.4s linear-in-out infinite wo-blink; }
+
+/* ---- manifest ------------------------------------------------------------------------------ */
+.wo-list { margin-top: 16dp; padding: 12dp 16dp 12dp 20dp; border-top-width: 1dp; border-top-color: #FFCC0024; background-color: #FFFFFF04; }
+.wo-list-head { display: flex; flex-direction: row; justify-content: space-between; gap: 8dp; margin-bottom: 8dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 12.6dp; }
+.wo-list-k { display: block; flex: 0 0 auto; letter-spacing: 0.14em; color: #565A66; }
+.wo-list-v { display: block; letter-spacing: 0.06em; color: #8A8F9C; text-align: right; }
+.wo-manifest { display: flex; flex-direction: column; gap: 2dp; }
+/* a live row: accent-quiet and the 2 px inset rail (the border takes 2 dp of the left padding) */
+.wo-row { display: flex; flex-direction: row; align-items: center; gap: 6dp; padding: 5dp 6dp 5dp 4dp; border-left-width: 2dp; border-left-color: #FFCC0000; font-size: 13dp; line-height: 1.45; color: #8A8F9C; }
+.wo-row.is-live { background-color: #FFCC001F; border-left-color: #FFCC00; color: #F2F3F5; }
+.wo-row.is-done { color: #565A66; }
+.wo-n { display: block; flex: 0 0 auto; width: 22dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; color: #565A66; }
+.wo-row.is-live .wo-n { color: #FFCC00; }
+.wo-leg { display: flex; flex-direction: row; align-items: center; gap: 6dp; flex: 1 1 0; overflow: hidden; }
+.wo-place { display: block; flex: 1 1 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wo-row.is-done .wo-place { text-decoration: line-through; }
+.wo-arrow { flex: 0 0 auto; width: 14dp; }
+.wo-arrow path.ic { width: 12dp; height: 12dp; stroke: #3A3D46; stroke-width: 1dp; }
+.wo-glyph { position: relative; flex: 0 0 auto; box-sizing: border-box; width: 12dp; height: 12dp; border-width: 1dp; border-color: #3A3D46; }
+.wo-glyph path.ic { position: absolute; left: -0.5dp; top: -0.5dp; width: 11dp; height: 11dp; stroke: #050506; stroke-width: 0.92dp; }
+.wo-glyph.is-done { background-color: #8F6D00; border-color: #8F6D00; }
+.wo-glyph.is-now { background-color: #FFCC00; border-color: #FFCC00; box-shadow: #FFCC0099 0 0 6dp 0; animation: 1.4s linear-in-out infinite wo-blink; }
+
+/* ---- footer: the pay, where the options are ---------------------------------------------- */
+.wo-foot { position: relative; }
+/* rgba(0, 0, 0, .25) under the same bottom-right cut */
+.wo-foot-bg { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.wo-f-main { position: absolute; left: 0; top: 0; right: 0; bottom: 10dp; background-color: #00000040; }
+.wo-f-bot { position: absolute; left: 0; bottom: 0; right: 10dp; height: 10dp; background-color: #00000040; }
+.wo-f-br { position: absolute; right: 0; bottom: 0; width: 10dp; height: 10dp; fill: #00000040; }
+.wo-f-line { position: absolute; left: 0; top: 0; right: 0; height: 1dp; background-color: #FFCC0024; }
+.wo-foot-row { position: relative; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12dp; padding: 13dp 16dp 12dp 20dp; }
+.wo-pay { display: flex; flex-direction: column; gap: 3dp; }
+/* --glow-text */
+.wo-pay-n { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 17dp; line-height: 17dp; white-space: nowrap; color: #FFCC00; font-effect: glow(0dp 6dp 0dp 0dp #FFCC0073); }
+.wo-pay-k { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 10dp; letter-spacing: 0.14em; white-space: nowrap; color: #565A66; }
+.wo-menu { display: flex; flex-direction: row; align-items: center; gap: 8dp; flex: 0 0 auto; }
+.wo-menu-key { display: block; box-sizing: border-box; min-width: 28dp; height: 24dp; padding: 0 6dp; border-width: 1dp; border-color: #FFCC0047; text-align: center; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 22dp; white-space: nowrap; color: #FFCC00; }
+.wo-menu-text { display: flex; flex-direction: column; gap: 3dp; }
+.wo-menu-a { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 11dp; letter-spacing: 0.14em; white-space: nowrap; color: #C3C7D1; }
+.wo-menu-b { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 10dp; letter-spacing: 0.14em; white-space: nowrap; color: #565A66; }
+
+/* ---- the pump approach hint (.pump-route): bottom 12vh, centred, max-width 480 ------------ */
+#pr-line { position: absolute; left: 0; right: 0; bottom: 12%; display: flex; flex-direction: row; justify-content: center; }
+.pr { display: none; flex: 0 0 auto; flex-direction: row; align-items: center; gap: 18dp; box-sizing: border-box; max-width: 480dp; padding: 17dp 21dp; background-color: #111411F0; border-width: 1dp; border-color: #FFFFFF20; border-left-width: 3dp; border-left-color: #FFCC00; border-radius: 6dp; color: #F3F3ED; }
+/* fuel-hint .2s ease-out: opacity 0 and 8 px lower */
+.pr.is-on { display: flex; animation: 0.2s cubic-out pr-in; }
+@keyframes pr-in { from { opacity: 0; transform: translateY(8dp); } to { opacity: 1; transform: translateY(0dp); } }
+.pr path.ic { width: 24dp; height: 24dp; stroke: #FFCC00; stroke-width: 2dp; }
+.pr-text { display: block; flex: 0 1 auto; }
+.pr-tag { font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 1.13; letter-spacing: 1dp; color: #FFCC00; }
+.pr-title { margin: 6dp 0; font-size: 17dp; line-height: 1.3; color: #F3F3ED; }
+/* the page wrote this line in "Segoe UI" 11/1.6; Lato is the closest face the client embeds */
+.pr-keys { font-family: Lato; font-weight: normal; font-size: 11dp; line-height: 1.6; color: #B6B8AE; }
+.pr-kbd { display: inline-block; margin: 0 4dp; padding: 2dp 4dp; border-width: 1dp; border-color: #FFFFFF30; border-radius: 3dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 1.13; color: #E9E9DF; }
+.pr-dot { display: inline-block; margin: 0 8dp; }
+
+/* blank rows that keep a data-for array from shrinking (workorder.lua hold) */
+.wo-cell.is-gone, .wo-row.is-gone { display: none; }

@@ -1,0 +1,161 @@
+/* The weapon wheel (ui/src/features/weaponwheel/weaponwheel.css), value for value at
+   1920 x 1080. One accent, near-blacks, mechanical motion with a little spring: the wheel
+   lands with an overshoot, the aimed slot pops out of the ring, the hub kicks on every change,
+   the chosen slot flashes as it locks. The page's cubic-bezier springs are back-out here.
+   The segments' radial gradients (#ww-seg, #ww-seg-on) are drawn as their mean colour: a
+   <path> fills with one colour. */
+
+div, span, path, img { pointer-events: none; }
+
+.ww { display: none; position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.ww.is-shown { display: block; }
+
+/* the scrim: radial .18 -> .55 at 34 % -> .86 at 72 %, over --tex-scanline */
+.ww-scrim { position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+            decorator: radial-gradient(circle farthest-corner at 50% 50%, #0505062E 0%, #0505068C 34%, #050506DB 72%),
+                       repeating-linear-gradient(180deg, #FFFFFF09 0dp, #FFFFFF09 1dp, #FFFFFF00 1dp, #FFFFFF00 3dp); }
+.ww.is-open .ww-scrim { animation: 0.16s cubic-out ww-fade; }
+.ww.is-closing .ww-scrim { opacity: 0; animation: 0.2s cubic-in ww-fade-out; }
+
+/* the wheel: a 680 square in the screen centre */
+.ww-wheel { position: absolute; left: 50%; top: 50%; width: 680dp; height: 680dp; margin-left: -340dp; margin-top: -340dp; transform-origin: 50% 50%; }
+.ww.is-open .ww-wheel { animation: 0.34s cubic-out ww-in; }
+.ww.is-closing .ww-wheel { opacity: 0; animation: 0.2s cubic-in ww-out; }
+
+path.ww-layer { position: absolute; left: 0; top: 0; width: 680dp; height: 680dp; fill: transparent; }
+.ww-spin { position: absolute; left: 0; top: 0; width: 680dp; height: 680dp; transform-origin: 50% 50%; }
+.ww-spin-far { animation: 28s linear-in-out infinite ww-spin; }
+.ww-spin-hub { opacity: 0.7; animation: 3.2s linear-in-out infinite ww-spin; }
+
+path.ww-orbit { stroke: #FFCC0024; stroke-width: 1dp; stroke-dasharray: 2 7; }
+path.ww-orbit.is-far { stroke: #FFCC0012; stroke-dasharray: 36 10 4 10; }
+path.ww-tick { stroke: #FFCC0047; stroke-width: 1.5dp; }
+
+/* the segments: one wrapper per slot (the opening fade), the slot (the pop), its four layers */
+.ww-seg-fade { display: none; position: absolute; left: 0; top: 0; width: 680dp; height: 680dp; }
+.ww-seg-fade.is-show { display: block; }
+.ww-seg { position: absolute; left: 0; top: 0; width: 680dp; height: 680dp; transition: transform 0.26s back-out; }
+/* #ww-seg: #0A0A0C .94 -> #17181C .9 */
+path.ww-seg-fill { fill: #111114EB; stroke: #FFCC0033; stroke-width: 1dp; }
+path.ww-seg-rim { stroke: #FFCC0052; stroke-width: 3dp; stroke-linecap: butt; }
+path.ww-seg-inner { stroke: #FFFFFF0D; stroke-width: 2dp; }
+path.ww-seg-lock { fill: #FFCC00; opacity: 0; }
+.ww-seg.is-empty path.ww-seg-fill { fill: #0A0A0C9E; stroke: #FFFFFF0F; stroke-dasharray: 3 5; }
+.ww-seg.is-empty path.ww-seg-rim { stroke: #FFFFFF0F; }
+.ww-seg.is-held path.ww-seg-inner { stroke: #FFCC00; stroke-width: 3dp; }
+/* #ww-seg-on: #241B00 .96 -> #4A3800 .92; drop-shadow(0 0 14px rgba(255, 204, 0, .35)) */
+.ww-seg.is-on path.ww-seg-fill { fill: #372A00F0; stroke: #FFCC00; filter: drop-shadow(#FFCC0059 0dp 0dp 14dp); }
+.ww-seg.is-on path.ww-seg-rim { stroke: #FFCC00; stroke-width: 6dp; }
+/* ww-lock: the chosen slot flashes the accent, then settles */
+.ww-seg.is-chosen path.ww-seg-lock { animation: 0.22s cubic-out ww-lock; }
+
+/* the hub's ring and the spinning dash */
+path.ww-hub-ring { fill: #050506E6; stroke: #FFCC0047; stroke-width: 1.5dp; }
+path.ww-hub-spin { stroke: #FFCC00; stroke-width: 2dp; stroke-dasharray: 22 340; }
+
+/* the needle: the virtual stick's direction */
+.ww-needle { position: absolute; left: 0; top: 0; width: 680dp; height: 680dp; transform-origin: 50% 50%; transition: transform 0.09s cubic-out; }
+path.ww-needle-tip { fill: #FFCC00; filter: drop-shadow(#FFCC0099 0dp 0dp 6dp); }
+
+/* the items: centred on their point of the ring (translate(-50%, -50%)) */
+.ww-item { display: none; position: absolute; transform: translate(-50%, -50%); color: #8A8F9C;
+           transition: left 0.26s back-out, top 0.26s back-out; }
+.ww-item.is-show { display: block; }
+.ww-item.is-on { color: #FFCC00; }
+.ww-item-pop { display: flex; flex-direction: column; align-items: center; }
+.ww-item-pop.is-chosen { animation: 0.26s cubic-out ww-chosen; }
+.ww-weapon { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4dp; }
+.ww-art { display: flex; flex-direction: row; align-items: center; justify-content: center; width: 118dp; height: 58dp; }
+/* every weapon picture is 256 x 128: contained in 118 x 58 */
+.ww-art-img { width: 116dp; height: 58dp; opacity: 0.78; filter: grayscale(0.35) drop-shadow(#000000CC 0dp 3dp 6dp); transition: opacity 0.14s cubic-out; }
+.ww-item.is-on .ww-art { transform: scale(1.1); animation: 0.28s back-out ww-pop; }
+.ww-item.is-on .ww-art-img { opacity: 1; filter: drop-shadow(#FFCC0066 0dp 0dp 10dp) drop-shadow(#000000CC 0dp 3dp 6dp); }
+/* --type-hud-readout, letter-spacing .12em */
+.ww-rounds { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 1.05; letter-spacing: 0.12em; color: #8A8F9C; white-space: nowrap; }
+.ww-rounds.is-empty { color: #FF2E3C; }
+.ww-item.is-on .ww-rounds { color: #F2F3F5; }
+.ww-item.is-on .ww-rounds.is-empty { color: #FF2E3C; }
+.ww-held { position: absolute; top: -12dp; right: 6dp; width: 8dp; height: 8dp; fill: #FFCC00; filter: drop-shadow(#FFCC0059 0dp 0dp 4dp); }
+.ww-held.is-holstered { fill: #7FB4D6; }
+.ww-unarmed { display: flex; flex-direction: column; align-items: center; gap: 4dp; }
+.ww-fist-box { width: 46dp; height: 46dp; }
+.ww-item.is-on .ww-fist-box { transform: scale(1.1); animation: 0.28s back-out ww-pop; }
+path.ww-fist { display: block; width: 46dp; height: 46dp; fill: transparent; stroke: #8A8F9C; stroke-width: 2.3dp; stroke-linecap: round; stroke-linejoin: round; }
+.ww-item.is-on path.ww-fist { stroke: #FFCC00; }
+.ww-item-label { display: block; font-family: "Chakra Petch"; font-weight: bold; font-size: 11dp; line-height: 1; letter-spacing: 0.22em; white-space: nowrap; }
+.ww-dash { width: 18dp; height: 2dp; background-color: #FFFFFF1F; }
+
+/* the hub: 236 round, the aimed slot's card */
+.ww-hub { position: absolute; left: 222dp; top: 222dp; width: 236dp; height: 236dp; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.ww-hub-body { display: flex; flex-direction: column; align-items: center; gap: 6dp; padding: 0dp 22dp; }
+.ww-hub-body.is-a { animation: 0.24s back-out ww-kick-a; }
+.ww-hub-body.is-b { animation: 0.24s back-out ww-kick-b; }
+.ww-tag { display: block; font-family: "Chakra Petch"; font-weight: bold; font-size: 11dp; line-height: 1; letter-spacing: 0.22em; color: #FFCC00; white-space: nowrap; }
+.ww-name { display: block; max-width: 196dp; font-family: "Chakra Petch"; font-weight: bold; font-size: 19dp; line-height: 1.1; letter-spacing: 0.02em;
+           text-transform: uppercase; color: #F2F3F5; font-effect: glow(0dp 7dp 0dp 0dp #000000E6); }
+.ww-ammo { display: flex; flex-direction: row; align-items: baseline; gap: 7dp; }
+.ww-ammo-n { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 38dp; line-height: 1; letter-spacing: 0.04em; color: #FFCC00;
+             font-effect: glow(0dp 6dp 0dp 0dp #FFCC0073); }
+.ww-ammo-n.is-empty { color: #FF2E3C; font-effect: glow(0dp 6dp 0dp 0dp #FF2E3C80); }
+.ww-ammo-label { display: block; max-width: 70dp; font-family: "Chakra Petch"; font-weight: bold; font-size: 10dp; line-height: 1.1; letter-spacing: 0.16em; color: #8A8F9C; text-align: left; }
+/* the chip: --clip-chamfer 5 px (top-left, bottom-right): fx(chamfer-solid) cuts the other two, hence the mirror */
+.ww-chip { position: relative; padding: 4dp 8dp; }
+.ww-chip-bg { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform: scaleX(-1); background-color: transparent; decorator: fx(chamfer-solid 5 0 0 0 #FFCC00); }
+.ww-chip-text { display: block; position: relative; font-family: "Chakra Petch"; font-weight: bold; font-size: 10dp; line-height: 1; letter-spacing: 0.2em; color: #050506; white-space: nowrap; }
+.ww-chip.is-steel .ww-chip-bg { decorator: fx(chamfer-solid 5 0 0 0 #1E3B4C); }
+.ww-chip.is-steel .ww-chip-text { color: #7FB4D6; }
+.ww-chip.is-dim .ww-chip-bg { decorator: fx(chamfer-solid 5 0 0 0 #202127); }
+.ww-chip.is-dim .ww-chip-text { color: #8A8F9C; }
+.ww-chip.is-danger .ww-chip-bg { decorator: fx(chamfer-solid 5 0 0 0 #7A1119); }
+.ww-chip.is-danger .ww-chip-text { color: #FFB3B9; }
+.ww-serial { display: block; font-family: "Share Tech Mono"; font-weight: normal; font-size: 11dp; line-height: 1; letter-spacing: 0.1em; color: #565A66; white-space: nowrap; }
+.ww-fist-big { width: 54dp; height: 54dp; filter: drop-shadow(#FFCC0059 0dp 0dp 10dp); }
+.ww-fist-big path.ww-fist { width: 54dp; height: 54dp; stroke: #FFCC00; stroke-width: 2.7dp; }
+/* ww-blink 900 ms steps(2, start) to .2: two levels, .6 then .2 */
+.ww-sync { position: absolute; left: 0; right: 0; bottom: 26dp; text-align: center; font-family: "Chakra Petch"; font-weight: bold; font-size: 9dp; line-height: 1;
+           letter-spacing: 0.24em; color: #FFCC00; animation: 0.9s linear-in-out infinite ww-blink; }
+
+/* the key hints, 9 % above the bottom */
+.ww-hints-line { position: absolute; left: 0; right: 0; bottom: 9%; display: flex; flex-direction: row; justify-content: center; transition: opacity 0.12s cubic-out; }
+.ww.is-closing .ww-hints-line { opacity: 0; }
+.ww-hints { display: flex; flex-direction: row; align-items: center; gap: 22dp; white-space: nowrap; font-family: "Chakra Petch"; font-weight: bold; font-size: 11dp;
+            line-height: 1; letter-spacing: 0.14em; color: #8A8F9C; }
+.ww.is-open .ww-hints { animation: 0.3s 0.12s cubic-out ww-hints-in; }
+.ww-hint { display: flex; flex-direction: row; align-items: center; gap: 8dp; }
+.ww-kbd { display: block; padding: 4dp 7dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 10dp; line-height: 1; letter-spacing: 0.08em; color: #050506; background-color: #FFCC00; }
+
+/* the confirmation: bottom 23 %, --surface-hud, a 2 px accent top (error: red) */
+#ww-toast-line { display: none; position: absolute; left: 0; right: 0; bottom: 23%; flex-direction: row; justify-content: center; }
+#ww-toast-line.is-on { display: flex; }
+/* opacity 0 outside the animation: it ends faded out, a frame before Lua hides the line */
+.ww-toast { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4dp; padding: 10dp 22dp 11dp; opacity: 0; }
+.ww-toast.is-a { animation: 2.2s linear-in-out ww-toast-a; }
+.ww-toast.is-b { animation: 2.2s linear-in-out ww-toast-b; }
+.ww-toast.is-error.is-a { animation: 3.6s linear-in-out ww-toast-a; }
+.ww-toast.is-error.is-b { animation: 3.6s linear-in-out ww-toast-b; }
+.ww-toast-band { position: absolute; left: 10dp; right: 10dp; top: 0; height: 10dp; box-sizing: border-box; background-color: #060608B8; border-top-width: 2dp; border-top-color: #FFCC00; }
+.ww-toast.is-error .ww-toast-band { border-top-color: #FF2E3C; }
+.ww-toast-cut { position: absolute; top: 0; width: 10dp; height: 10dp; fill: #060608B8; }
+.ww-toast-cut.is-left { left: 0; }
+.ww-toast-cut.is-right { right: 0; }
+.ww-toast-body { position: absolute; left: 0; right: 0; top: 10dp; bottom: 0; background-color: #060608B8; }
+.ww-toast-title { display: block; position: relative; font-family: "Chakra Petch"; font-weight: bold; font-size: 11dp; line-height: 1; letter-spacing: 0.22em; color: #FFCC00; white-space: nowrap; }
+.ww-toast-text { display: block; position: relative; font-family: "Chakra Petch"; font-weight: bold; font-size: 15dp; line-height: 1.2; letter-spacing: 0.04em;
+                 text-transform: uppercase; color: #F2F3F5; white-space: nowrap; text-align: center; }
+.ww-toast.is-error .ww-toast-title { color: #FF2E3C; }
+.ww-toast.is-error .ww-toast-text { text-transform: none; font-size: 13dp; color: #C3C7D1; max-width: 520dp; white-space: normal; }
+
+@keyframes ww-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ww-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ww-in { 0% { opacity: 0; transform: scale(0.78) rotate(-14deg); } 60% { opacity: 1; transform: scale(1.035) rotate(1.5deg); } 100% { opacity: 1; transform: scale(1) rotate(0deg); } }
+@keyframes ww-out { from { opacity: 1; transform: scale(1) rotate(0deg); } to { opacity: 0; transform: scale(0.88) rotate(6deg); } }
+@keyframes ww-pop { 0% { transform: scale(1); } 45% { transform: scale(1.22); } 100% { transform: scale(1.1); } }
+@keyframes ww-kick-a { 0% { opacity: 0; transform: translateY(8dp) scale(0.94); } 100% { opacity: 1; transform: translateY(0dp) scale(1); } }
+@keyframes ww-kick-b { 0% { opacity: 0; transform: translateY(8dp) scale(0.94); } 100% { opacity: 1; transform: translateY(0dp) scale(1); } }
+@keyframes ww-lock { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ww-chosen { 0% { transform: scale(1.1); } 50% { transform: scale(1.32); } 100% { transform: scale(1.15); } }
+@keyframes ww-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes ww-blink { 0%, 49% { opacity: 0.6; } 50%, 100% { opacity: 0.2; } }
+@keyframes ww-hints-in { from { opacity: 0; transform: translateY(8dp); } to { opacity: 1; transform: translateY(0dp); } }
+@keyframes ww-toast-a { 0% { opacity: 0; transform: translateY(10dp) scale(0.96); } 8% { opacity: 1; transform: translateY(0dp) scale(1.03); } 14% { opacity: 1; transform: translateY(0dp) scale(1); } 85% { opacity: 1; transform: translateY(0dp) scale(1); } 100% { opacity: 0; transform: translateY(0dp) scale(1); } }
+@keyframes ww-toast-b { 0% { opacity: 0; transform: translateY(10dp) scale(0.96); } 8% { opacity: 1; transform: translateY(0dp) scale(1.03); } 14% { opacity: 1; transform: translateY(0dp) scale(1); } 85% { opacity: 1; transform: translateY(0dp) scale(1); } 100% { opacity: 0; transform: translateY(0dp) scale(1); } }

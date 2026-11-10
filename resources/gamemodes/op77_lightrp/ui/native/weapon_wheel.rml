@@ -1,0 +1,96 @@
+<rml>
+<head>
+    <title>Light RP weapon wheel</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="weapon_wheel.rcss"/>
+</head>
+<!-- ui/src/features/weaponwheel/WeaponWheel.tsx: the radial of client/core/weapon_wheel.lua
+     (hold TAB). client/native/weapon_wheel.lua fills the model and picks with the pointer the
+     page holds. Every ring layer is a <path> in the wheel's own 680 x 680 frame (view-box
+     -340 -340 680 680, origin at the centre): the page's SVG, value for value. Never bound to
+     the shell: the wheel holds the cursor, which hides the HUD. -->
+<body data-model="ww">
+<div id="ww-root" class="fill">
+    <!-- the confirmation under the wheel: --clip-notch top corners (two triangles, a band, a body) -->
+    <div id="ww-toast-line" data-class-is-on="toastOn">
+        <div class="ww-toast" data-class-is-a="toastFlip == 1" data-class-is-b="toastFlip == 2" data-class-is-error="toastError">
+            <div class="ww-toast-band"></div>
+            <path class="ww-toast-cut is-left" view-box="0 0 10 10" preserve-aspect="none" d="M10 0L10 10L0 10Z"/>
+            <path class="ww-toast-cut is-right" view-box="0 0 10 10" preserve-aspect="none" d="M0 0L10 10L0 10Z"/>
+            <div class="ww-toast-body"></div>
+            <span class="ww-toast-title">{{toastTitle}}</span>
+            <span class="ww-toast-text" data-if="hasToastText">{{toastText}}</span>
+        </div>
+    </div>
+
+    <div id="ww" class="ww" data-class-is-shown="shown" data-class-is-open="open" data-class-is-closing="closing">
+        <div class="ww-scrim"></div>
+        <div id="ww-wheel" class="ww-wheel">
+            <path class="ww-layer ww-orbit" view-box="-340 -340 680 680" d="M0 -326A326 326 0 1 1 0 326A326 326 0 1 1 0 -326Z"/>
+            <div class="ww-spin ww-spin-far"><path class="ww-layer ww-orbit is-far" view-box="-340 -340 680 680" d="M0 -336A336 336 0 1 1 0 336A336 336 0 1 1 0 -336Z"/></div>
+            <path class="ww-layer ww-tick" view-box="-340 -340 680 680" data-attr-d="ticks"/>
+
+            <div data-for="s : rows"><div class="ww-seg-fade" data-class-is-show="s.show">
+                <div class="ww-seg" data-style-transform="s.segT" data-class-is-on="s.on" data-class-is-empty="s.empty" data-class-is-held="s.held" data-class-is-chosen="s.chosen">
+                    <path class="ww-layer ww-seg-fill" view-box="-340 -340 680 680" data-attr-d="s.segD"/>
+                    <path class="ww-layer ww-seg-lock" view-box="-340 -340 680 680" data-attr-d="s.segD"/>
+                    <path class="ww-layer ww-seg-rim" view-box="-340 -340 680 680" data-attr-d="s.rimD"/>
+                    <path class="ww-layer ww-seg-inner" view-box="-340 -340 680 680" data-attr-d="s.innerD"/>
+                </div>
+            </div></div>
+
+            <path class="ww-layer ww-hub-ring" view-box="-340 -340 680 680" d="M0 -132A132 132 0 1 1 0 132A132 132 0 1 1 0 -132Z"/>
+            <div class="ww-spin ww-spin-hub"><path class="ww-layer ww-hub-spin" view-box="-340 -340 680 680" d="M0 -132A132 132 0 1 1 0 132A132 132 0 1 1 0 -132Z"/></div>
+            <div class="ww-needle" data-if="needleOn" data-style-transform="needleT">
+                <path class="ww-layer ww-needle-tip" view-box="-340 -340 680 680" d="M136 -7L148 0L136 7Z"/>
+            </div>
+
+            <div data-for="s : rows"><div class="ww-item" data-class-is-show="s.show" data-class-is-on="s.on" data-style-left="s.left" data-style-top="s.top">
+                <div class="ww-item-in"><div class="ww-item-pop" data-class-is-chosen="s.chosen">
+                    <div class="ww-weapon" data-if="s.weapon">
+                        <div class="ww-art"><img class="ww-art-img" data-if="s.hasImage" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" data-attr-src="s.image"/></div>
+                        <span class="ww-rounds is-kit" data-if="s.kit">KIT</span>
+                        <span class="ww-rounds" data-if="!s.kit" data-class-is-empty="s.roundsEmpty">{{s.rounds}}</span>
+                        <path class="ww-held" data-if="s.held" data-class-is-holstered="s.holstered" view-box="0 0 8 8" d="M4 0L8 4L4 8L0 4Z"/>
+                    </div>
+                    <div class="ww-unarmed" data-if="s.unarmed">
+                        <div class="ww-fist-box"><path class="ww-fist" view-box="0 0 48 48" d="M14 22v-6a3 3 0 0 1 6 0v4M20 19v-5a3 3 0 0 1 6 0v6M26 20v-4a3 3 0 0 1 6 0v6M32 22v-2a3 3 0 0 1 6 0v8c0 7-5 12-12 12h-2c-6 0-10-4-10-9v-5c0-2 1-3 3-3h4a3 3 0 0 1 0 6h-5"/></div>
+                        <span class="ww-item-label">HOLSTER</span>
+                    </div>
+                    <div class="ww-dash" data-if="s.empty"></div>
+                </div></div>
+            </div></div>
+
+            <div class="ww-hub">
+                <div class="ww-hub-body" data-class-is-a="kick == 1" data-class-is-b="kick == 2">
+                    <span class="ww-tag">{{tag}}</span>
+                    <div class="ww-fist-big" data-if="hubUnarmed"><path class="ww-fist" view-box="0 0 48 48" d="M14 22v-6a3 3 0 0 1 6 0v4M20 19v-5a3 3 0 0 1 6 0v6M26 20v-4a3 3 0 0 1 6 0v6M32 22v-2a3 3 0 0 1 6 0v8c0 7-5 12-12 12h-2c-6 0-10-4-10-9v-5c0-2 1-3 3-3h4a3 3 0 0 1 0 6h-5"/></div>
+                    <span class="ww-name">{{name}}</span>
+                    <div class="ww-ammo" data-if="showAmmo">
+                        <span class="ww-ammo-n" data-class-is-empty="ammoEmpty">{{ammo}}</span>
+                        <span class="ww-ammo-label">{{ammoLabel}}</span>
+                    </div>
+                    <div class="ww-chip" data-if="showChip" data-class-is-steel="chipTone == 'steel'" data-class-is-dim="chipTone == 'dim'" data-class-is-danger="chipTone == 'danger'">
+                        <div class="ww-chip-bg"></div>
+                        <span class="ww-chip-text">{{chip}}</span>
+                    </div>
+                    <span class="ww-serial">{{serial}}</span>
+                </div>
+                <span class="ww-sync" data-if="sync">SYNCHRONIZING</span>
+            </div>
+        </div>
+
+        <div class="ww-hints-line">
+            <div class="ww-hints">
+                <div class="ww-hint" data-if="latched"><span class="ww-kbd">CLICK</span><span class="ww-kbd">{{keyText}}</span><span>EQUIP</span></div>
+                <div class="ww-hint" data-if="!latched"><span class="ww-kbd">{{keyText}}</span><span>RELEASE TO EQUIP</span></div>
+                <div class="ww-hint"><span class="ww-kbd">MOUSE</span><span>AIM</span></div>
+                <div class="ww-hint"><span class="ww-kbd">WHEEL</span><span>CYCLE</span></div>
+                <div class="ww-hint"><span class="ww-kbd">RMB</span><span>CANCEL</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</rml>

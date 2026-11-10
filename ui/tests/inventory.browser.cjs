@@ -188,18 +188,7 @@ const hud = { ready: true, health: { value: 78, max: 100 }, stamina: { value: 90
       await page.screenshot({ path: `${process.env.SCREENSHOT_DIR}/inventory-browser.png` });
     }
     await page.getByRole('button', { name: 'Close inventory' }).click();
-    await fire('hud', { ...hud, health: { value: 20, max: 100 } });
-    await fire('state', { needs: { food: 10, drink: 15 } });
-    assert.equal(await page.locator('.player-vital--low').count(), 3);
-    assert.match(await page.locator('.player-vitals__warning').innerText(), /Low health.*Hungry.*Thirsty/);
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    assert.equal(await page.locator('.player-vital__fill').first().evaluate(el => getComputedStyle(el).transitionDuration), '0s');
-    await fire('hud', hud); await fire('state', { needs: { food: 64, drink: 38 } });
-    if (process.env.SCREENSHOT_DIR) {
-      await page.waitForTimeout(350);
-      await page.screenshot({ path: `${process.env.SCREENSHOT_DIR}/hud-browser.png` });
-    }
     assert.deepEqual(errors, []);
-    console.log('PASS inventory actions, quantities, confirmations, keyboard/focus, drag cancellation, Shift transfer, Lua snapshots, 4 resolutions, HUD warnings and reduced motion.');
+    console.log('PASS inventory actions, quantities, confirmations, keyboard/focus, drag cancellation, Shift transfer, Lua snapshots, 4 resolutions.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

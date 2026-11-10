@@ -1,0 +1,145 @@
+/* Light RP target actions on NativeUI, in the Open//77 RP design system's language
+   (HUD / ContextMenu + TargetEye). Tokens as literal values (RCSS has no custom properties):
+     accent #FFCC00   accent-quiet #FFCC001F (.12)   line-soft #FFCC0047 (.28)
+     line-hairline #FFCC0024   black #050506   white #F2F3F5   red #FF2E3C
+     ink-800 #111114   ink-200 #8A8F9C   text-body #C3C7D1   text-dim #8A8F9C
+     text-disabled #565A66   surface-hud #060608B8 (.72)   blur-hud 8
+   The accent (and its two tints) is applied by client/ui.lua as the stylesheet layer
+   "accent": every rule below that uses #FFCC00 is its default. The layer "scale" resizes
+   the eye and the column's width (shared/config.lua, appearance.scale).
+   Fonts: core "Chakra Petch" (built in, one face), mono "Share Tech Mono" (ui/fonts).
+   1 dp = 1 px of the 1920 x 1080 page; positions set from Lua are in px. */
+
+body { width: 100%; height: 100%; pointer-events: none; font-family: "Chakra Petch"; font-weight: bold; color: #C3C7D1; }
+#stage { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; }
+
+/* the whole screen takes the clicks while the menu is open: a click anywhere picks */
+#hit { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: auto; cursor: default; }
+
+/* ---- TargetEye ---------------------------------------------------------------------------- */
+#eye { position: absolute; left: 50%; top: 50%; width: 40dp; height: 40dp; pointer-events: none; }
+.ec { position: absolute; box-sizing: border-box; width: 10dp; height: 10dp; border-color: #8A8F9C; transition: border-color 0.12s cubic-out; }
+.ec.tl { left: 0; top: 0; border-left-width: 2dp; border-top-width: 2dp; }
+.ec.tr { right: 0; top: 0; border-right-width: 2dp; border-top-width: 2dp; }
+.ec.bl { left: 0; bottom: 0; border-left-width: 2dp; border-bottom-width: 2dp; }
+.ec.br { right: 0; bottom: 0; border-right-width: 2dp; border-bottom-width: 2dp; }
+#core { position: absolute; left: 8dp; top: 8dp; width: 24dp; height: 24dp; filter: drop-shadow(#000000CC 0dp 1dp 2dp); }
+/* the hex only shows while there are actions: an unfilled path is drawn in the text colour */
+#hex { position: absolute; left: 0; top: 0; width: 24dp; height: 24dp; fill: #FFCC001F; stroke: transparent; visibility: hidden; }
+#eye.available #hex { visibility: visible; }
+#eye-glyph
+{
+    position: absolute; left: 4.5dp; top: 4.5dp; width: 15dp; height: 15dp;
+    fill: transparent; stroke: #8A8F9C; stroke-width: 1.25dp; stroke-linecap: round; stroke-linejoin: round;
+    transition: stroke 0.12s cubic-out;
+}
+#eye.available .ec { border-color: #FFCC00; }
+#eye.available #eye-glyph { stroke: #FFCC00; }
+#eye.available #hex { fill: #FFCC001F; }
+#stage #eye.blocked .ec { border-color: #FF2E3C; }
+#stage #eye.blocked #eye-glyph { stroke: #FF2E3C; }
+
+/* ---- ContextMenu column -------------------------------------------------------------------- */
+/* display, not opacity, hides it: a backdrop filter still draws at opacity 0 */
+#menu { display: none; position: absolute; left: 0; top: 0; width: 252dp; flex-direction: column; pointer-events: auto; cursor: default; }
+#menu.shown { display: flex; }
+
+/* notch plate: a box cut at its top-right corner (14 dp), made of two boxes and a triangle */
+.np { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.np-top { position: absolute; left: 0; top: 0; right: 14dp; height: 14dp; }
+/* the body starts 1 dp under the top band: no seam at the notch (the header is opaque) */
+.np-body { position: absolute; left: 0; top: 13dp; right: 0; bottom: 0; }
+.np-cut { position: absolute; right: 0; top: 0; width: 14dp; height: 14dp; stroke: transparent; }
+
+#head { position: relative; display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 6dp 12dp 6dp 12dp; flex-shrink: 0; color: #050506; }
+#head .np-top, #head .np-body { background-color: #FFCC00; }
+#head .np-cut { fill: #FFCC00; }
+/* the title and the tag sit on the plate: positioned, after it in the document */
+#title, #tag
+{
+    position: relative; display: block;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 13dp; letter-spacing: 0.22em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#title { flex: 1 1 auto; min-width: 0dp; }
+#tag { flex: 0 1 auto; min-width: 0dp; margin-left: 8dp; opacity: 0.7; }
+
+#sheet
+{
+    display: flex; flex-direction: column;
+    background-color: #060608B8; backdrop-filter: blur(8dp);
+    border-left-width: 1dp; border-right-width: 1dp; border-bottom-width: 1dp; border-color: #FFCC0047;
+    box-shadow: #000000A6 0dp 2dp 14dp 0dp;
+}
+
+#status
+{
+    display: none; flex-direction: row; align-items: center; padding: 8dp 12dp 8dp 12dp;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 13dp; letter-spacing: 0.14em; color: #8A8F9C;
+}
+#status.on { display: flex; }
+#status.error { color: #FF2E3C; }
+#status-spin { display: none; position: relative; width: 12dp; height: 12dp; margin-right: 6dp; flex-shrink: 0; }
+#status.loading #status-spin { display: block; }
+.spin { position: absolute; left: 0; top: 0; width: 12dp; height: 12dp; fill: transparent; stroke: #FFCC00; stroke-width: 1.5dp; stroke-dasharray: 10 28; }
+
+#rows { display: block; max-height: 860dp; overflow-x: hidden; overflow-y: auto; padding: 4dp 0dp 4dp 0dp; }
+#rows scrollbarvertical { width: 3dp; }
+#rows scrollbarvertical slidertrack { background-color: transparent; }
+#rows scrollbarvertical sliderbar { background-color: #FFCC00; }
+#rows scrollbarvertical sliderarrowdec, #rows scrollbarvertical sliderarrowinc { width: 0dp; height: 0dp; }
+#rows.submenu { animation: 0.12s cubic-out submenu-in; }
+@keyframes submenu-in { from { opacity: 0.4; transform: translateX(5dp); } to { opacity: 1; transform: translateX(0dp); } }
+
+.grp { display: block; padding: 7dp 12dp 3dp 12dp; font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 13dp; letter-spacing: 0.22em; color: #565A66; word-break: break-word; }
+
+.row
+{
+    display: flex; flex-direction: row; align-items: center; padding: 8dp 12dp 8dp 12dp;
+    background-color: transparent; color: #C3C7D1; cursor: pointer;
+    font-size: 13dp; line-height: 1.2; letter-spacing: 0.08em; text-transform: uppercase;
+    transition: background-color 0.06s cubic-out;
+}
+.row .ic { position: relative; width: 16dp; height: 14dp; margin-right: 8dp; flex-shrink: 0; }
+.row .gl, .row .arrow { fill: transparent; stroke: #C3C7D1; stroke-width: 1.17dp; stroke-linecap: round; stroke-linejoin: round; }
+.row .gl { position: absolute; left: 1dp; top: 0; width: 14dp; height: 14dp; }
+.row .spin { display: none; left: 2dp; top: 1dp; }
+.row .lb { display: block; flex: 1 1 auto; min-width: 0dp; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .arrow { display: block; width: 14dp; height: 14dp; margin-left: 8dp; flex-shrink: 0; opacity: 0.65; transform: translateX(0dp); transition: transform opacity 0.12s cubic-out; }
+
+.row.danger { color: #FF2E3C; }
+.row.danger .gl, .row.danger .arrow { stroke: #FF2E3C; }
+.row.back { color: #8A8F9C; border-bottom-width: 1dp; border-color: #FFCC0024; margin-bottom: 3dp; }
+.row.back .gl { stroke: #8A8F9C; }
+
+/* hover and keyboard focus: one highlighted row */
+#rows .row.focus { background-color: #FFCC00; color: #050506; }
+#rows .row.focus .gl, #rows .row.focus .arrow { stroke: #050506; }
+#rows .row.focus .arrow { opacity: 1; transform: translateX(2dp); }
+#rows .row.danger.focus { background-color: #FF2E3C; color: #F2F3F5; }
+#rows .row.danger.focus .gl, #rows .row.danger.focus .arrow { stroke: #F2F3F5; }
+
+/* an action was chosen: the others wait, the chosen one spins */
+#menu.busy .row { cursor: default; opacity: 0.45; }
+#menu.busy #rows .row.pending { opacity: 1; color: #FFCC00; }
+#rows .row.pending .gl { display: none; }
+#rows .row.pending .spin { display: block; }
+
+/* the highlighted row's description */
+#desc
+{
+    display: none; padding: 6dp 12dp 6dp 12dp;
+    border-left-width: 2dp; border-left-color: #FFCC00; border-top-width: 1dp; border-top-color: #FFCC0024;
+    font-size: 12dp; line-height: 1.45; color: #8A8F9C;
+}
+#desc.on { display: block; }
+
+#legend
+{
+    display: flex; flex-direction: row; align-items: center; padding: 5dp 12dp 5dp 12dp; overflow: hidden;
+    background-color: #111114; color: #565A66;
+    font-family: "Share Tech Mono"; font-weight: normal; font-size: 12dp; line-height: 13dp; letter-spacing: 0.14em; white-space: nowrap;
+}
+#legend span { flex-shrink: 0; }
+.lg-dot { margin-left: 6dp; margin-right: 8dp; }
+.lg-arrow { display: block; width: 9dp; height: 10dp; margin-right: 2dp; flex-shrink: 0; fill: transparent; stroke: #565A66; stroke-width: 1.2dp; }

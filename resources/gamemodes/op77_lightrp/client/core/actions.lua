@@ -139,19 +139,22 @@ function Actions.result(id)
     -- Copy: an internal module must not mutate the retained result.
     local copy = {}; for k, v in pairs(entry.value) do copy[k] = v end; return copy
 end
+-- The outcome the input decided (client/native/actions.lua runs the clock on the keys the
+-- page relays; the page's own actionResult goes through the same checks).
+function Actions.report(p)
+    if not active or type(p) ~= "table" or p.id ~= active.definition.id or not active.startedAt then return end
+    if p.status ~= "success" and p.status ~= "failed" and p.status ~= "cancelled" then return end
+    if p.status == "cancelled" and p.reason == "cancelled" and not active.definition.cancellable then return end
+    if p.status == "success" and active.definition.kind ~= "timing" and now() - active.startedAt < active.definition.durationMs then return end
+    local reasons = { completed = true, cancelled = true, released = true, too_early = true, missed = true, timeout = true, focus_lost = true, interrupted = true, dead = true }
+    if not reasons[p.reason] then return end
+    finish(p.status, p.reason, p)
+end
 function Actions.bind(page)
     page:on(E.actionStarted, function(p)
         if active and type(p) == "table" and p.id == active.definition.id and not active.startedAt then active.startedAt = now() end
     end)
-    page:on(E.actionResult, function(p)
-        if not active or type(p) ~= "table" or p.id ~= active.definition.id or not active.startedAt then return end
-        if p.status ~= "success" and p.status ~= "failed" and p.status ~= "cancelled" then return end
-        if p.status == "cancelled" and p.reason == "cancelled" and not active.definition.cancellable then return end
-        if p.status == "success" and active.definition.kind ~= "timing" and now() - active.startedAt < active.definition.durationMs then return end
-        local reasons = { completed = true, cancelled = true, released = true, too_early = true, missed = true, timeout = true, focus_lost = true, interrupted = true, dead = true }
-        if not reasons[p.reason] then return end
-        finish(p.status, p.reason, p)
-    end)
+    page:on(E.actionResult, Actions.report)
 end
 
 CreateThread(function()

@@ -30,6 +30,11 @@ local function setHud(hidden)
     if hidden == hudClaimed then return end
     hudClaimed = hidden
     if Open77.hud and Open77.hud.setVisible then pcall(Open77.hud.setVisible, "all", not hidden) end
+    -- NativeUI HUDs draw above this page (a WebUI surface): they listen and step aside.
+    if type(TriggerEvent) == "function" then
+        TriggerEvent("op77_loadscreen:state", hidden)
+        TriggerEvent("open-voice:setHudBlocked", "op77_loadscreen", hidden)
+    end
 end
 
 local function apply(actions)

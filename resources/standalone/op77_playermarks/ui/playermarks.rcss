@@ -1,0 +1,50 @@
+/* Player nameplates in the Light RP design: a chamfered near-black HUD chip with a yellow
+   accent bar, the name in Chakra Petch capitals, voice bars that light up yellow and move
+   with the level while the player talks, and a hairline pin down to the head.
+   client/view.lua writes, per plate: the transform of .pm (where the anchor is on screen),
+   the scale and opacity of .pm-rig (distance fade x the 160 ms show fade), the opacity of
+   the talking plate (the cross-fade), the chamfered plates' decorators (their cuts are in
+   pixels: scaled with the screen), the scaleY of the voice bars, the tip pulse (motion).
+   1 dp = 1 px of the 1920 x 1080 reference.
+
+   RmlUi does not multiply opacity down the tree: a child that sets its own opacity
+   replaces its parent's. So nothing under .pm-rig sets one in RCSS. */
+
+body { font-family: "Chakra Petch"; font-weight: bold; pointer-events: none; }
+#marks { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; }
+/* another interface holds the cursor: NativeUI would draw over it */
+#marks.is-off { visibility: hidden; }
+
+/* one plate: its origin is the anchor (over the head) */
+.pm { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+/* the rig is the anchor point: scaled from it (the plate's bottom tip), faded */
+.pm-rig { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0% 0%; opacity: 0; }
+/* room for the chip to take its own width (a shrink-to-fit box is no wider than its container) */
+.pm-box { position: absolute; left: -300dp; top: 0; width: 600dp; height: 0; }
+
+/* the chip (a block: absolutely positioned children of a flex box are not sized): it sits
+   above the pin (9) and the tip (5 - 1), centred on the anchor */
+.pm-chip { position: absolute; left: 300dp; bottom: 13dp; transform: translateX(-50%); padding: 4dp 10dp 4dp 9dp; white-space: nowrap; }
+/* the plates: chamfer decorators (inline) cut top-right and bottom-left, mirrored to cut
+   top-left and bottom-right; the talking one fades over the silent one */
+.pm-bg { position: absolute; left: 0; top: 0; right: 0; bottom: 0; transform: scaleX(-1); }
+.pm-bg-talk { opacity: 0; }
+.pm-accent { position: absolute; left: 0; top: 6dp; bottom: 0; width: 2dp; background-color: #ffcc00; }
+/* the name and the bars: positioned, as the plates (in-flow content paints under them) */
+.pm-row { position: relative; display: flex; flex-direction: row; align-items: center; }
+.pm-name { flex-shrink: 0; font-size: 13dp; line-height: 14.3dp; letter-spacing: 0.08em; color: #f2f3f5; white-space: nowrap; font-effect: shadow(0dp 1dp #000000cc); }
+
+/* the voice bars: three ink stubs (4 px of an 11 px bar); live, they turn yellow and the
+   script swings them with the level */
+.pm-voice { flex-shrink: 0; display: flex; flex-direction: row; align-items: flex-end; height: 11dp; margin-right: 7dp; }
+.pm-voice .v { flex-shrink: 0; width: 2dp; height: 11dp; margin-right: 2dp; background-color: #565a66; transform: scaleY(0.364); transform-origin: 50% 100%; transition: background-color 0.12s linear-in-out; }
+.pm-voice .v-last { margin-right: 0; }
+.pm.is-talking .pm-voice .v { background-color: #ffcc00; }
+
+/* the pin: a hairline down to the head, a small diamond at its tip */
+.pm-pin { position: absolute; left: -0.5dp; top: -13dp; width: 1dp; height: 9dp; decorator: linear-gradient(180deg, #ffcc00 0%, #ffcc0040 100%); }
+.pm-tip { position: absolute; left: -2.5dp; top: -5dp; width: 5dp; height: 5dp; background-color: #ffcc00; transform: rotate(45deg); box-shadow: #ffcc008c 0dp 0dp 6dp 0dp; }
+/* talking: the tip pulses (the page's box-shadow growing 7 px and fading, as a diamond); the
+   script runs scale and colour on .pm-pulse-in (motion keyframes) */
+.pm-pulse { position: absolute; left: -2.5dp; top: -5dp; width: 5dp; height: 5dp; transform: rotate(45deg); }
+.pm-pulse-in { position: absolute; left: 0; top: 0; width: 5dp; height: 5dp; background-color: #ffcc0000; }

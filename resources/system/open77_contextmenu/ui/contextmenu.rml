@@ -1,0 +1,48 @@
+<rml>
+<head>
+    <title>Open//77 Target actions</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="contextmenu.rcss"/>
+</head>
+<!-- The Light RP ALT context menu. client/ui.lua owns every decision and every position;
+     the document binds the "cm" model and holds the shapes. Back to front: the click
+     catcher (#hit), the TargetEye (four corner brackets around a hex reticle: scan,
+     available, blocked), the ContextMenu column (accent header "target // distance",
+     status, rows, description, key legend). ui.lua writes #rows and #legend. -->
+<body data-model="cm">
+<div id="stage">
+
+    <div id="hit"></div>
+
+    <div id="eye" data-class-available="available" data-class-blocked="blocked">
+        <div class="ec tl"></div><div class="ec tr"></div>
+        <div class="ec bl"></div><div class="ec br"></div>
+        <div id="core">
+            <path id="hex" view-box="0 0 24 24" d="M12 0L24 6L24 18L12 24L0 18L0 6Z"/>
+            <path id="eye-glyph" view-box="0 0 24 24" data-attr-d="glyph"/>
+        </div>
+    </div>
+
+    <div id="menu" data-class-shown="shown" data-class-keyboard="keyboard" data-class-busy="busy">
+        <!-- the accent header, cut at its top-right corner (the column's notch) -->
+        <div id="head">
+            <div class="np">
+                <div class="np-top"></div><div class="np-body"></div>
+                <path class="np-cut" view-box="0 0 14 14" d="M0 0L14 14L0 14Z"/>
+            </div>
+            <span id="title">{{title}}</span>
+            <span id="tag">{{tag}}</span>
+        </div>
+        <div id="sheet">
+            <div id="status" data-class-on="hasStatus" data-class-error="statusError" data-class-loading="statusLoading">
+                <div id="status-spin"><shape type="circle" class="spin"/></div>
+                <span id="status-text">{{status}}</span>
+            </div>
+            <div id="rows" data-class-submenu="submenu"></div>
+            <div id="desc" data-class-on="hasDesc"><span>{{desc}}</span></div>
+            <div id="legend"></div>
+        </div>
+    </div>
+</div>
+</body>
+</rml>

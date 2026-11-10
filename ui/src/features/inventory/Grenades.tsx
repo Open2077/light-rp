@@ -39,8 +39,3 @@ export function GrenadeEquipment({inventoryBusy}:{inventoryBusy:boolean}) {
     {state?.error&&<p className="is-error" role="status">{state.error}</p>}
   </section>;
 }
-export function GrenadeStatus() {
-  const state=useStore(s=>s.grenades);
-  if(!state?.ready||!state.selected||state.count<=0)return null;
-  return <div className="hud-grenade" data-testid="grenade-hud"><Bomb size={15}/><strong>{state.count}</strong><span>{state.label}</span></div>;
-}

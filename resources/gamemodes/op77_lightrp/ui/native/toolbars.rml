@@ -1,0 +1,111 @@
+<rml>
+<head>
+    <title>Light RP tool bars</title>
+    <link type="text/rcss" href="nui://open77/open77.rcss"/>
+    <link type="text/rcss" href="lightrp.rcss"/>
+    <link type="text/rcss" href="toolbars.rcss"/>
+</head>
+<body>
+<!-- The passive key bars, bottom centre: the free camera's (ui/src/features/freecam/Freecam.tsx)
+     and the Maneki-neko placement tool's (ui/src/features/maneki/ManekiTool.tsx). They never
+     follow the shell: the page kept them above its menus (z 805). -->
+<div id="tb">
+
+    <!-- free camera -->
+    <div data-model="freecam">
+        <div class="bar-pos" data-class-is-in="full"><div class="bar-rise">
+            <div class="bar fc" data-class-is-paused="paused">
+                <div class="bar-glass"></div>
+                <div class="bar-head">
+                    <div class="bar-title"><div class="bar-dot"></div><path class="ic" view-box="0 0 24 24" data-attr-d="icVideo"/><span>FREE CAMERA</span></div>
+                    <span class="bar-status">{{status}}</span>
+                    <div class="fc-range" data-class-is-near="near" data-class-is-limit="limit">
+                        <div class="fc-range-text"><span class="hi">{{distance}}</span> / {{radius}} M</div>
+                        <div class="fc-gauge"><div class="fc-gauge-fill" data-style-width="ratio + '%'"></div></div>
+                        <span class="fc-range-note">{{rangeNote}}</span>
+                    </div>
+                    <div class="bar-readout"><span class="hi">{{speed}}</span> M/S</div>
+                    <div class="bar-readout"><span class="hi">{{fov}}</span>° LENS</div>
+                </div>
+                <div class="bar-keys">
+                    <div class="bar-item">
+                        <div class="fc-cross">
+                            <span class="key" data-class-wide="keys.forward.w">{{keys.forward.t}}</span>
+                            <div class="fc-cross-row">
+                                <span class="key" data-class-wide="keys.left.w">{{keys.left.t}}</span>
+                                <span class="key" data-class-wide="keys.back.w">{{keys.back.t}}</span>
+                                <span class="key" data-class-wide="keys.right.w">{{keys.right.t}}</span>
+                            </div>
+                        </div>
+                        <span class="bar-label">Move</span>
+                    </div>
+                    <div class="bar-item"><div class="mouse is-sway"><div class="mouse-wheel"></div></div><span class="bar-label">Look around</span></div>
+                    <div class="bar-item">
+                        <div class="fc-pair"><span class="key" data-class-wide="keys.up.w">{{keys.up.t}}</span><span class="key" data-class-wide="keys.down.w">{{keys.down.t}}</span></div>
+                        <span class="bar-label">Up / down</span>
+                    </div>
+                    <div class="bar-item"><div class="mouse is-wheel"><div class="mouse-wheel"></div></div><span class="bar-label">Speed</span></div>
+                    <div class="bar-item"><span class="key" data-class-wide="keys.boost.w">{{keys.boost.t}}</span><span class="bar-label">Fast</span></div>
+                    <div class="bar-item">
+                        <div class="fc-pair"><span class="key" data-class-wide="keys.slow.w">{{keys.slow.t}}</span><span class="fc-plus">+</span><div class="mouse is-wheel"><div class="mouse-wheel"></div></div></div>
+                        <span class="bar-label">Precise · zoom</span>
+                    </div>
+                    <div class="bar-item"><span class="key" data-class-wide="keys.reset.w">{{keys.reset.t}}</span><span class="bar-label">Behind me</span></div>
+                    <div class="bar-item"><span class="key" data-class-wide="keys.hints.w">{{keys.hints.t}}</span><span class="bar-label">Hide keys</span></div>
+                    <div class="bar-item is-exit">
+                        <div class="fc-pair"><span class="key" data-class-wide="keys.exit.w">{{keys.exit.t}}</span><span class="key" data-class-wide="keys.toggle.w">{{keys.toggle.t}}</span></div>
+                        <span class="bar-label">Leave</span>
+                    </div>
+                </div>
+            </div></div>
+        </div>
+        <!-- the reminder bar hidden: a small tag that fades back -->
+        <div class="bar-pos" data-class-is-in="quiet"><div class="bar-rise">
+            <div class="bar fc-quiet" data-class-is-faded="faded">
+                <div class="bar-glass"></div>
+                <div class="bar-dot"></div><span class="fc-quiet-text">FREE CAMERA</span>
+                <span class="key" data-class-wide="keys.hints.w">{{keys.hints.t}}</span><span class="fc-quiet-text">KEYS</span>
+            </div></div>
+        </div>
+    </div>
+
+    <!-- Maneki-neko placement tool (staff) -->
+    <div data-model="maneki">
+        <div class="bar-pos" data-class-is-in="active"><div class="bar-rise">
+            <div class="bar mk">
+                <div class="bar-glass"></div>
+                <div class="bar-head">
+                    <div class="bar-title"><div class="bar-dot"></div><path class="ic" view-box="0 0 24 24" data-attr-d="icCoins"/><span>MANEKI-NEKO · PLACEMENT</span></div>
+                    <span class="bar-status">{{status}}</span>
+                    <div class="bar-readout"><span class="hi">{{nearby}}</span> AROUND</div>
+                    <div class="bar-readout"><span class="hi">{{catSize}}</span></div>
+                    <div class="bar-readout"><span class="hi">{{yaw}}°</span> TURN</div>
+                </div>
+                <div class="mk-message" data-if="hasMessage" data-class-is-error="messageError">{{message}}</div>
+                <div class="bar-keys">
+                    <div class="bar-item"><div class="mouse is-sway"><div class="mouse-wheel"></div></div><span class="bar-label">Aim</span></div>
+                    <div class="bar-item"><span class="key wide">LMB</span><span class="bar-label">Hide a cat</span></div>
+                    <div class="bar-item">
+                        <div class="fc-pair">
+                            <div class="key"><path class="key-arrow" view-box="0 0 24 24" d="M19 12H5M12 19l-7-7l7-7"/></div>
+                            <div class="key"><path class="key-arrow" view-box="0 0 24 24" d="M5 12h14M12 5l7 7l-7 7"/></div>
+                        </div>
+                        <span class="bar-label">Turn 15°</span>
+                    </div>
+                    <div class="bar-item">
+                        <div class="fc-pair">
+                            <div class="key"><path class="key-arrow" view-box="0 0 24 24" d="M12 19V5M5 12l7-7l7 7"/></div>
+                            <div class="key"><path class="key-arrow" view-box="0 0 24 24" d="M12 5v14M19 12l-7 7l-7-7"/></div>
+                        </div>
+                        <span class="bar-label">Size</span>
+                    </div>
+                    <div class="bar-item"><span class="key wide">DEL</span><span class="bar-label">Remove aimed</span></div>
+                    <div class="bar-item is-exit"><span class="key wide">BACKSPACE</span><span class="bar-label">Leave</span></div>
+                </div>
+            </div></div>
+        </div>
+    </div>
+
+</div>
+</body>
+</rml>

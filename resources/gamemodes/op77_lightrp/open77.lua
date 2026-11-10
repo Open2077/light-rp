@@ -200,6 +200,9 @@ server_script "server/main.lua"
 
 -- Client: core first, then modules.
 client_script "client/core/state_json.lua"   -- native-first JSON for an oversized state key (ui.lua)
+-- The HUD on NativeUI (docs/native-hud.md): the host first, its modules after the cores they read.
+client_script "client/native/icons.lua"
+client_script "client/native/host.lua"
 client_script "client/core/ui.lua"
 client_script "client/core/control_claims.lua"
 client_script "client/core/freecam_motion.lua" -- the flight step of the free camera and of the tables' free view
@@ -213,7 +216,7 @@ client_script "client/core/table_menu.lua" -- the ALT menu of every table: manag
 client_script "client/core/table_bar.lua" -- the game view's bottom bar, per game (after table_menu)
 client_script "client/core/safezones.lua"
 client_script "client/core/vanilla_safe_areas.lua" -- the game's own safe areas stay off
-client_script "client/core/safezone_tile.lua" -- the green tile by the voice plate (web/safezone/)
+client_script "client/native/safezone_tile.lua" -- the green tile by the voice plate (ui/native/safezone_tile.rml)
 client_script "client/core/support.lua"
 client_script "client/core/creator.lua"
 client_script "client/core/tutorial_voice.lua"
@@ -274,6 +277,24 @@ client_script "client/core/maneki.lua"         -- Maneki-neko collectibles: loca
 client_script "client/core/maneki_editor.lua"  -- the staff placement tool for the cats
 client_script "client/core/parkour.lua"        -- parkour: start orbs, the run's orbs, keys, sounds (the page draws the clock)
 client_script "client/core/parkour_editor.lua" -- the staff parkour editor: relay, captures, 3D preview, build mode
+-- The HUD documents (docs/native-hud.md), after every core they read.
+client_script "client/native/notices.lua"       -- toasts (kept above dialogs)
+client_script "client/native/announce.lua"      -- announcement halo, staff broadcast, arrival tour titles
+client_script "client/native/guide_pointer.lua" -- the tutorial's way to the objective
+client_script "client/native/tutorial.lua"      -- the first day's objective card, step banner and flight to the next stop
+client_script "client/native/hud.lua"           -- vitals, weapon, crew, rental, vehicle, hotbar, walk flash, interact prompt
+client_script "client/native/queue.lua"         -- the activity queue panel
+client_script "client/native/workorder.lua"     -- work order tracker, pump approach
+client_script "client/native/missions.lua"      -- mission chip, fixer gig, world boss, objectives, kit choice
+client_script "client/native/raid.lua"          -- the raid: ready check, boss, announcements, intro
+client_script "client/native/activity.lua"      -- the shared in-match HUD of the activity providers
+client_script "client/native/parkour.lua"       -- parkour run clock, checkpoints, countdown
+client_script "client/native/dogtown.lua"       -- the Dogtown tile
+client_script "client/native/toolbars.lua"      -- free camera and Maneki tool key bars
+client_script "client/native/actions.lua"       -- the action bar: progress / hold / timing (keys relayed by the page, judged here)
+client_script "client/native/weapon_wheel.lua"  -- the weapon wheel (TAB): picks with the pointer the page holds
+client_script "client/native/glue.lua"          -- what the documents owe each other (notice lane beside the crew, work order in a match)
+client_script "client/native/medical.lua"       -- downed screen and flatline cover (give-up buttons hit-tested from Lua)
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the
@@ -284,7 +305,7 @@ web_files { "web/**" }
 
 -- Pause menu branding: the server logo beside the OPEN//77 mark (client/core/branding.lua sets the accent).
 pause_menu_logo "assets/logo.png"
-files { "assets/logo.png", "assets/audio/cloudy-day.mp3", "assets/audio/raid_*.wav", "assets/audio/raid_ost.mp3", "assets/audio/board-games/*.wav" }
+files { "ui/native/*.rml", "ui/native/*.rcss", "ui/native/fonts/*", "assets/logo.png", "assets/audio/cloudy-day.mp3", "assets/audio/raid_*.wav", "assets/audio/raid_ost.mp3", "assets/audio/board-games/*.wav" }
 
 permissions {
     -- both sides
