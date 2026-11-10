@@ -30,7 +30,7 @@
         <div class="dc-roll"></div>
     </div>
     <div class="dc-readout">
-    <div class="dc-readout-in">
+    <div class="dc-readout-in" data-class-is-hidden="downed">
         <div class="dc-top">
             <div class="dc-brand"><span>OPEN</span><span class="dc-yellow">//</span><span>77</span><span class="dc-brand-sub">NEURAL LINK</span></div>
             <div class="dc-status">

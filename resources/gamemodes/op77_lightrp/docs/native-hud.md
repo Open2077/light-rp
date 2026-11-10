@@ -105,6 +105,9 @@ it uses) and reproduce it; do not restyle. Positions are the 1920 x 1080 page's,
 - A percentage width inside an absolutely positioned shrink-to-fit element resolves
   against the screen: size rows by content or give the parent a width.
 - `backdrop-filter` is still drawn at `opacity: 0`: hide with `visibility` or `display`.
+- `opacity: 0` on a container does not reliably hide its children: an animated child
+  (a blinking dot) and children styled before the change kept drawing (the flatline
+  cover's header showed through the downed screen). To hide a subtree, use `visibility`.
 - The document *is* `<body>`: selectors and `ui:class("body", ...)` do not match it. Wrap
   everything in a root `<div>`.
 - SVG: `<path d="..." view-box="0 0 24 24" class="ic"/>` with `fill`, `stroke`,

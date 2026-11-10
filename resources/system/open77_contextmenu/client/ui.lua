@@ -433,6 +433,18 @@ function M.create(config)
                 glyph = M.ICONS.eye, desc = "", hasDesc = false })
             message("")
             ui:show()
+            place()
+            -- A hidden document publishes no state: until it has drawn once, screen() only
+            -- knows the 1920 x 1080 reference, and the eye sat off centre at any other size.
+            -- Place it again once the real screen size is in.
+            local epoch = S.epoch
+            if type(CreateThread) == "function" then CreateThread(function()
+                for _ = 1, 4 do
+                    Wait(0)
+                    if not S.opened or S.epoch ~= epoch or S.shown then return end
+                    place()
+                end
+            end) end
         elseif name == "context:close" then
             S.opened, S.busy, S.shown = false, false, false
             clearRows()

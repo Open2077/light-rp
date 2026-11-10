@@ -20,6 +20,18 @@ if LightRpNativeActivity and LightRpNativeActivity.on then
     end)
 end
 
+-- The minimap (op77_map3d, NativeUI too) draws above every WebUI page: it steps aside with
+-- the rest of the HUD under the F1 menu, a dialog or a cursor interface.
+local minimapShown = nil
+local function syncMinimap(shell)
+    local show = not (shell.ready and shell.hidden)
+    if show == minimapShown then return end
+    local ok = pcall(function() exports.op77_map3d:setMinimapVisible(show) end)
+    if ok then minimapShown = show end
+end
+N.onShell(syncMinimap)
+AddEventHandler("op77_map3d:ready", function() minimapShown = nil; syncMinimap(N.shell) end)
+
 N.onStart(function()
     CreateThread(function()
         while true do

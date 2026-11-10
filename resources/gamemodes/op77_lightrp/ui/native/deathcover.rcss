@@ -37,8 +37,8 @@
 
 /* the reboot animates .dc-readout, the downed screen fades .dc-readout-in: one opacity animation per element */
 .dc-readout { position: absolute; left: 0; top: 0; right: 0; bottom: 0; opacity: 1; }
-.dc-readout-in { position: absolute; left: 0; top: 0; right: 0; bottom: 0; opacity: 1; transition: opacity 0.25s cubic-out; }
-#dc.is-downed .dc-readout-in { opacity: 0; }
+.dc-readout-in { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.dc-readout-in.is-hidden { visibility: hidden; } /* not opacity: RmlUi left animated / earlier-styled children (brand, status dot) drawn through the downed screen */
 .dc-top { position: absolute; top: 26dp; left: 32dp; right: 32dp; display: flex; flex-direction: row; justify-content: space-between; align-items: center; font-family: "Zen Dots"; font-weight: normal; font-size: 14dp; line-height: 18dp; letter-spacing: 0.08em; }
 .dc-brand { display: flex; flex-direction: row; align-items: center; }
 .dc-yellow { color: #FFCC00; }
