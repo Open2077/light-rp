@@ -4,6 +4,8 @@ local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumb
 -- At 0 food or 0 drink the character starves (Config.starve): a share of max health
 -- every few seconds until they eat/drink or die, health regen off meanwhile, and a
 -- floor after a hospital respawn so nobody respawns starving into a death loop.
+-- Since 2026-11-12 (starve.healthFloorPercent) starving never takes health below that
+-- share of the maximum: it hurts and stops regeneration, it does not kill.
 local Config = LightRpConfig.needs
 local Needs = LightRP.module("needs", {})
 
@@ -138,6 +140,7 @@ function Needs.afterRespawn(playerId)
     return Needs.set(playerId, math.max(c.food or 100, floor), math.max(c.drink or 100, floor))
 end
 
+local healthOf -- below (the well-fed tick)
 local function starveTick()
     if not Config.enabled then return end
     local cfg = S()
@@ -159,7 +162,15 @@ local function starveTick()
         -- both sides), so a starving player could never eat their way out (owner, 2026-11-03).
         if kind and not consuming(playerId) then
             local pct = Needs.drainPercent(kind)
-            local amount = maxHealth(playerId) * pct / 100 * tickMs / 60000
+            local max = maxHealth(playerId)
+            local amount = max * pct / 100 * tickMs / 60000
+            -- starve.healthFloorPercent: hunger and thirst hurt, they never kill (owner
+            -- 2026-11-12, the "GTA Online" pass): no damage below that share of max health
+            local floorPct = tonumber(cfg.healthFloorPercent) or 0
+            if floorPct > 0 and amount > 0 then
+                local health = healthOf(playerId)
+                if health then amount = math.min(amount, health - max * floorPct / 100) end
+            end
             if amount > 0 then
                 local ok, applied, why = pcall(Open77.players.damage, playerId, amount, { cause = "script" })
                 if (not ok or applied == false) and not damageWarned then
@@ -183,7 +194,7 @@ local function W() return Config.wellFed or {} end
 function Needs.wellFedRate() return tonumber(W().healthPerMinute) or 5 end
 function Needs.wellFed(playerId) return fedState[tonumber(playerId) or playerId] == true end
 
-local function healthOf(playerId)
+healthOf = function(playerId)
     local ok, p = pcall(Open77.players.get, playerId)
     if ok and type(p) == "table" then return tonumber(p.health), tonumber(p.maxHealth) end
 end

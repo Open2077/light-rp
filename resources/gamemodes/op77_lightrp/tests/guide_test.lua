@@ -489,7 +489,7 @@ assert(answer("health.down"):find("bills €$ 750", 1, true) and not answer("hea
 assert(answer("jobs.pay"):find("last 30 minutes", 1, true) and answer("jobs.pay"):find("adds 15%", 1, true))
 assert(answer("money.earn"):find("while you're active", 1, true) and answer("money.earn"):find("**Activities**", 1, true))
 assert(answer("appearance.wardrobe"):find("costs €$ 50", 1, true))
-assert(answer("missions.rewards"):find("4 full payouts a day per account", 1, true) and answer("missions.rewards"):find("pays 15% of your share", 1, true))
+assert(answer("missions.rewards"):find("once a day per difficulty** per account", 1, true) and answer("missions.rewards"):find("pays 15% of your share", 1, true))
 assert(answer("missions.difficulty"):find("Hard needs tier II (Merc)", 1, true))
 LightRpEconomy.hospital.bill, LightRpEconomy.paychecks.requireActivity = 0, false
 assert(answer("health.down"):find("It costs nothing.", 1, true) and not answer("health.down"):find("bills", 1, true), "a bill of 0 is free")
@@ -515,7 +515,7 @@ assert(not visible("activities.halloffame"), "closed in its config")
 LightRpHallOfFame.enabled, LightRP.hallOfFame = true, nil
 -- The Dogtown answers quote the live rules.
 local stakeLine = Guide.build().byId["dogtown.stake"].a[1]
-assert(stakeLine:find("€$ 1,000 in cash on you", 1, true), stakeLine)
+assert(stakeLine:find("€$ 1,000 in cash + bank", 1, true), stakeLine)
 local deathLine = Guide.build().byId["dogtown.death"].a[1]
 assert(deathLine:find("**10%**", 1, true) and deathLine:find("at least €$ 100 and at most €$ 750", 1, true), deathLine)
 local bountyLines = Guide.build().byId["dogtown.bounty"].a

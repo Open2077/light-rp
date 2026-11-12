@@ -173,7 +173,7 @@ function DifficultyRow({ d, selected, mine, member, money, onSelect, onOpen }: {
     className={`mission-row is-${tone}${selected ? " is-selected" : ""}${d.locked ? " is-locked" : ""}`} onClick={onSelect} onDoubleClick={onOpen}>
     <div className="mission-row__name"><span className="mission-chip">{d.label}</span><strong>{d.label}</strong><p>{d.blurb}</p></div>
     <dl className="mission-row__stats">
-      <div><dt>PAYOUT</dt><dd>{money(d.payout)}</dd></div>
+      <div><dt>PAYOUT</dt><dd>{d.paidToday ? "PAID TODAY" : money(d.payout)}</dd></div>
       <div><dt>TIME</dt><dd>~{d.minutes} MIN</dd></div>
       <div><dt>OPERATORS</dt><dd>{d.min}-{d.max}</dd></div>
       <div><dt>UNLOCK</dt><dd>{unlock}</dd></div>
@@ -200,7 +200,7 @@ function BoardView({ data, diff, board, mine, countdown, money, entry }: { data:
       {board.host && <span className="mission__host"><Icon name="crown" size={13} />HOST · {initials(board.host).toUpperCase()}</span>}
     </div>
     <dl className="mission__stats">
-      <div><dt><Icon name="banknote" size={12} />PAYOUT</dt><dd>{money(diff.payout)}</dd></div>
+      <div><dt><Icon name="banknote" size={12} />PAYOUT</dt><dd>{money(diff.payout)}{diff.paidToday ? " · PAID TODAY" : ""}</dd></div>
       <div><dt><Icon name="timer" size={12} />TIME</dt><dd>~{diff.minutes} MIN</dd></div>
       <div><dt><Icon name="users" size={12} />OPERATORS</dt><dd>{diff.min}-{diff.max}</dd></div>
       <div><dt><Icon name="shield" size={12} />COMPLETED</dt><dd>{diff.cleared ?? 0}×</dd></div>

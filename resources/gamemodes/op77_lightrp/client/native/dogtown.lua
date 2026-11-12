@@ -1,7 +1,7 @@
 -- Dogtown on screen, on NativeUI (was ui/src/features/dogtown/DogtownHud.tsx): the red
 -- banner when the player walks in (or connects inside) and the persistent tile top-left
 -- while inside or combat-tagged. The server decides everything (state key `dogtown`,
--- server/modules/dogtown.lua); the pocket comes from the state key `money`.
+-- server/modules/dogtown.lua); the funds (pocket + bank) come from the state key `money`.
 local N = LightRpNative
 
 local D = {}
@@ -29,7 +29,8 @@ local function normalize(raw)
         protected = raw.protected == true, protectedInMs = num(raw.protectedInMs),
         stake = { missing = num(s.missing), short = s.short == true, evictInMs = num(s.evictInMs) },
         streak = num(raw.streak), bounty = raw.bounty == true,
-        rules = { share = num(r.share), min = num(r.min), max = num(r.max), bonus = num(r.bonus), stake = num(r.stake), graceSeconds = num(r.graceSeconds) },
+        rules = { share = num(r.share), min = num(r.min), max = num(r.max), bonus = num(r.bonus), stake = num(r.stake), graceSeconds = num(r.graceSeconds),
+            stakeBank = r.stakeBank ~= false },
     }
 end
 --- "€$ 1,250": whole eddies, thousands grouped.
@@ -88,7 +89,9 @@ local function render()
     if not inside and not tagged then N.patch(doc, "dt", { on = false, show = false, bannerOn = false }); return false end
 
     local money = type(N.state.money) == "table" and N.state.money or {}
-    local cash = num(money.cash)
+    -- pocket + bank (rules.stakeBank): what the stake and the loss count
+    local bank = type(money.bank) == "table" and num(money.bank.balance) or 0
+    local cash = num(money.cash) + (d.rules.stakeBank and math.max(0, bank) or 0)
     local function fmt(n) return formatMoney(n, money.currency) end
     local risk = cashAtRisk(cash, d.rules)
     -- The server's verdict (short) with the live pocket for the amount.
@@ -122,10 +125,12 @@ local function render()
         if inside then values.tileA, values.tileB = "PVP ZONE", "NO LAW"
         else values.tileA, values.tileB = "LEFT " .. upper, "STILL ATTACKABLE" end
     end
-    values.stakeText = ("The stake is %s in cash: %s missing. Leave within %d s or you are escorted out."):format(
-        fmt(d.rules.stake), fmt(missing), math.floor(d.rules.graceSeconds))
-    values.ruleText = ("A killer takes %s (%s, %s to %s) plus a %s bonus. Your bank is safe."):format(
-        fmt(risk), percent(d.rules.share), fmt(d.rules.min), fmt(d.rules.max), percent(d.rules.bonus))
+    local held = d.rules.stakeBank and "cash + bank" or "cash"
+    values.stakeText = ("The stake is %s (%s): %s missing. Leave within %d s or you are escorted out."):format(
+        fmt(d.rules.stake), held, fmt(missing), math.floor(d.rules.graceSeconds))
+    values.ruleText = ("A killer takes %s (%s, %s to %s) plus a %s bonus.%s"):format(
+        fmt(risk), percent(d.rules.share), fmt(d.rules.min), fmt(d.rules.max), percent(d.rules.bonus),
+        d.rules.stakeBank and " Cash first, then your bank." or " Your bank is safe.")
     N.patch(doc, "dt", values)
     return d.tagged or d.stake.short or d.protected or bannerAt ~= nil
 end

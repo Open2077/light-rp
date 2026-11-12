@@ -1182,3 +1182,25 @@ The source is `scripts/vehicle-kit/stages/STAGES.md`, in the Open77 repository.
   1,500 for all groups, the engine sound at 6,000, the stickers at 1,500 each and
   the tag at 2,000? Should a sticker cost according to its size (its decals) rather than
   per piece? Should the engine sound preview stay free?
+
+## 19. The "GTA Online" pass (owner, 2026-11-12)
+
+Owner's brief: lighter, less roleplay-bound, closer to GTA Online.
+
+- **Missions and gigs.** The 90 min per point and the 4 full payouts a day are gone.
+  Each mission point pays in full **once per UTC day per difficulty**, counted per
+  account (`capScope`): Standard, Hard and Critical of one mission are three full
+  payouts, and nothing caps how many different missions pay in full. The same mission
+  at the same difficulty again that day pays `repeatShare` (15%). The reputation window
+  (25% for 60 min) is now per mission **and difficulty**. The board shows "PAID TODAY".
+  Consequence: a grinder's daily mission income is bounded by the number of missions
+  and difficulties they unlocked, not by 4 runs; watch the ledger (`kind = mission`)
+  after the first week.
+- **Dogtown.** Players earn into the bank and never carried €$ 1,000 in cash. The stake
+  (`stake.bank = true`) counts pocket cash + bank; a death's loss (10 %, 100 to 750) is
+  paid from the pocket first, and what the pocket lacks is withdrawn from the bank into
+  the bag (`dogtown_withdraw` on the victim's ledger). `stake.bank = false` restores the
+  pocket-only rule.
+- **Hunger and thirst.** Starving drains health down to `needs.starve.healthFloorPercent`
+  (25 %) and stops there: it hurts and blocks regeneration, it no longer kills.
+

@@ -162,9 +162,29 @@ starve()
 local s3 = Needs.get(3)
 assert(s3.starving == "both" and s3.drainPerMinute == 12, "starving on the HUD with the drain")
 
+-- the health floor (starve.healthFloorPercent, 2026-11-12): hunger hurts, never kills
+dofile("shared/config.lua")
+local shipped = LightRpConfig.needs.starve.healthFloorPercent
+assert(shipped == 25, "the shipped floor: a quarter of max health")
+LightRpConfig = { needs = { enabled = true, tickMs = 60000, foodPerTick = 0.6, drinkPerTick = 0.9, warnAt = 20, wellFed = { threshold = 80, healthPerMinute = 5 },
+    starve = { tickMs = 5000, percentPerMinute = 6, bothPercentPerMinute = 12, noRegen = true, respawnFloor = 25, healthFloorPercent = 25 } } }
+threads = {}
+dofile("server/modules/needs.lua")
+Needs = LightRP.needs
+life[3] = "alive"; chars[3].food, chars[3].drink = 0, 0
+hp[3] = 200; damaged = {}
+Needs.starveTick()
+assert(#damaged == 1 and close(damaged[1].amount, 200 * 12 / 100 * 5 / 60), "full health: the normal drain")
+hp[3] = 51; damaged = {}
+Needs.starveTick()
+assert(#damaged == 1 and close(damaged[1].amount, 1), "near the floor: only down to it (51 -> 50)")
+hp[3] = 50; damaged = {}
+Needs.starveTick()
+assert(#damaged == 0 and Needs.starving(3) == "both", "at the floor: still starving, no damage")
+
 -- dropped: state forgotten
 _G.source = 2
 handlers.playerDropped()
 assert(Needs.starving(2) == nil, "dropped: forgotten")
 
-print("PASS: needs starving (percent of max health per kind, no weapon string, regen off/on with and without cyberware, one notice, dead/respawn floor, paused while eating, activity freeze, refusal logged once, well fed +5/min point by point, HUD state, drop)")
+print("PASS: needs starving (percent of max health per kind, no weapon string, regen off/on with and without cyberware, one notice, dead/respawn floor, paused while eating, activity freeze, refusal logged once, well fed +5/min point by point, HUD state, health floor, drop)")

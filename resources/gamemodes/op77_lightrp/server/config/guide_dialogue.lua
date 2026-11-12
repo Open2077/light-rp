@@ -222,7 +222,7 @@ LightRpGuideDialogue = {
             requires = "dogtown",
             say = {
                 "Dogtown. No law past the walls. Bring cash, bring friends, bring a plan for leaving.",
-                "You need **{money:dogtown.stake.minCash} in cash on you** to fight in there. Die and you drop **{pct:dogtown.loot.share}** of it, {money:dogtown.loot.min} to {money:dogtown.loot.max}, in a bag for whoever got you. Your bank's safe.",
+                "You need **{money:dogtown.stake.minCash}**, cash plus bank, to fight in there. Die and you drop **{pct:dogtown.loot.share}** of it, {money:dogtown.loot.min} to {money:dogtown.loot.max}, in a bag for your killer.",
             },
             choices = {
                 { "Mark Dogtown.", gps = "dogtown" },

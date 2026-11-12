@@ -10,23 +10,21 @@ LightRpEconomy = {
         -- share = payout * (crew / min) ^ (crewExponent - 1). 1 = everyone keeps
         -- the full payout (the old rule), 0 = a fixed pot split evenly.
         crewExponent = 0.7,
-        -- After a full payout, the same mission point pays in full again to that
-        -- character only after this long (board missions and gigs alike).
-        cooldownMinutes = 90,
-        -- Full payouts per UTC day. capScope "account" counts every character of
-        -- the account together, "character" each character on its own.
-        dailyFullPayouts = 4,
+        -- Full pay (owner 2026-11-12, the "GTA Online" pass): each mission point pays
+        -- in full ONCE per UTC day PER DIFFICULTY, board missions and gigs alike.
+        -- Standard, Hard and Critical of one mission are three full payouts; there is
+        -- no cap on how many missions pay in full in a day (the old 90 min per point
+        -- and 4 full payouts a day are gone). capScope "account" counts every
+        -- character of the account together, "character" each one on its own.
         capScope = "account",
-        -- What a completion pays while on cooldown or past the daily cap, as a
-        -- fraction of the share.
+        -- What the same mission at the same difficulty pays again that day, as a
+        -- fraction of the share (resets at 00:00 UTC).
         repeatShare = 0.15,
-        -- Reputation follows the same repeat rule per mission point (owner decision
-        -- 2026-11-04, docs/economy-balance.md §16): after a completion that granted a
-        -- character the full reputation, the same point grants them
-        -- reputationRepeatShare of it for reputationCooldownMinutes (board missions,
-        -- gigs, Chimera and Sector 04 alike). Its own window, started by every full
-        -- grant: a run past the daily money cap starts it too. The daily cap itself
-        -- does not touch reputation. 1 (or 0 minutes) turns it off.
+        -- Reputation (owner decisions 2026-11-04 and 2026-11-12): after a completion
+        -- that granted a character a difficulty's full reputation, that same mission
+        -- AND difficulty grants them reputationRepeatShare of it for
+        -- reputationCooldownMinutes (board missions, gigs, Chimera and Sector 04
+        -- alike); another difficulty grants in full. 1 (or 0 minutes) turns it off.
         reputationCooldownMinutes = 60,
         reputationRepeatShare = 0.25,
         -- Ceiling of the per-head payout, in eddies per minute of the difficulty's

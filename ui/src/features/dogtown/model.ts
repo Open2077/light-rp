@@ -11,14 +11,14 @@ export interface DogtownTopRow { rank: number; name: string; kills: number; deat
 export interface DogtownRules {
   /** "bag": the loss drops where the victim fell; "transfer": straight to the killer. */
   mode: "bag" | "transfer";
-  /** The loss: `share` of the pocket cash, at least `min`, at most `max`, never more than carried. */
+  /** The loss: `share` of the funds (pocket cash + bank), at least `min`, at most `max`, never more than carried. */
   share: number; min: number; max: number;
   /** The killer's server bonus (a fraction of the loss), capped per account and day. */
   bonus: number; bonusDailyCap: number;
   /** The bag is the killer's crew's this long. */
   reserveSeconds: number;
   tagSeconds: number; pairCooldownMinutes: number;
-  /** Pocket cash needed to fight; the grace before an escort out. */
+  /** Funds (pocket cash + bank) needed to fight; the grace before an escort out. */
   stake: number; graceSeconds: number;
   /** Anti-gank: a crew this big in the zone takes `gankFactor` of the loss; a bigger victim crew adds `underdogBonus`. */
   gankCrew: number; gankFactor: number; underdogBonus: number;
@@ -93,7 +93,7 @@ export function cashAtRisk(cash: number, rules: DogtownRules): number {
   return Math.max(0, Math.min(amount, cash));
 }
 
-/** Pocket cash still needed to fight (0 = carrying the stake). */
+/** Funds (cash + bank) still needed to fight (0 = carrying the stake). */
 export function stakeMissing(cash: number, rules: DogtownRules): number { return Math.max(0, rules.stake - Math.max(0, cash)); }
 
 export function percent(share: number): string { return `${Math.round(share * 100)}%`; }
@@ -106,11 +106,11 @@ export function lootRule(rules: DogtownRules, fmt: Fmt): string {
   const where = rules.mode === "bag"
     ? `drops in a sealed bag where they fell${bonus}. The killer's crew has it for ${rules.reserveSeconds} s, then anyone can pick it up`
     : `goes straight to the killer${bonus}`;
-  return `A killed player loses ${percent(rules.share)} of the cash they carry (at least ${fmt(rules.min)}, at most ${fmt(rules.max)}, never more than they have): it ${where}. The bank is never touched.`;
+  return `A killed player loses ${percent(rules.share)} of their money, cash and bank together (at least ${fmt(rules.min)}, at most ${fmt(rules.max)}, never more than they have): it ${where}. The pocket pays first, then the bank.`;
 }
 
 export function stakeRule(rules: DogtownRules, fmt: Fmt): string {
-  return `You need ${fmt(rules.stake)} in cash on you to fight in Dogtown; the bank doesn't count. Under it you can't shoot or be shot there, and after ${rules.graceSeconds} s inside you are taken to the nearest exit.`;
+  return `You need ${fmt(rules.stake)} (cash + bank) to fight in Dogtown; no need to withdraw. Under it you can't shoot or be shot there, and after ${rules.graceSeconds} s inside you are taken to the nearest exit.`;
 }
 
 /** 120 -> "2:00". */

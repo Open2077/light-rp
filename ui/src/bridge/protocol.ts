@@ -422,6 +422,8 @@ export interface MissionDifficulty {
    *  what they have unlocked a crew member still plays it with their leader, for the reward of the
    *  highest difficulty they have unlocked (`earnsAs`, its label; absent when it is this one). */
   reputation?: number; earns?: number; earnsAs?: string;
+  /** Full pay already earned today at this mission and difficulty (mission_pay.lua): a repeat pays a small share until 00:00 UTC. */
+  paidToday?: boolean;
 }
 export interface MissionLobbyMember { id: number; name: string; citizen: string; tier: number; host: boolean; squad?: string }
 export interface MissionBoard {

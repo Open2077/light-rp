@@ -142,8 +142,8 @@ required.
 - "What if I die?" — FAQ missions.death
 - "The Chimera Protocol?" — FAQ missions.chimera (if the resource is there)
 
-`dogtown` (if enabled): no law behind the walls; a minimum stake in cash; on
-death, part of your cash drops in a bag for the killer; the bank is safe.
+`dogtown` (if enabled): no law behind the walls; a minimum stake (cash + bank);
+on death, part of it drops in a bag for the killer (pocket first, then the bank).
 
 - "Mark Dogtown." — GPS Dogtown
 - "What's in it for me?" — FAQ dogtown.bonus

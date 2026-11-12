@@ -70,7 +70,7 @@ dofile("server/modules/mission_pay.lua")
 dofile("server/config/missions.lua")
 -- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
 do local M = LightRpEconomy.missions
-    M.cooldownMinutes, M.dailyFullPayouts, M.repeatShare, M.maxSharePerMinute = 60, 6, 0.25, 250
+    M.repeatShare, M.maxSharePerMinute = 0.25, 250
     M.authored.maxShare = { standard = 2400, hard = 3000, critical = 4400 }
     for _, p in ipairs(LightRpMissions.points) do if p.id == "sector04_blackout" then p.disabled = nil end end end
 dofile("server/modules/parties.lua")
@@ -339,7 +339,8 @@ assert(solo and #solo.members == 1)
 tick(LightRpMissions.points[1].difficulties[1].minutes * 60000 + 1000)
 assert(not Missions.instanceOf(5) and buckets[5] == 0 and not paid[5], "failed on time")
 
--- ── the same mission again inside the hour: money and reputation at the repeat share,
+-- ── the same mission and difficulty again the same day: money (once a day per
+--    difficulty) and reputation (inside the hour) at the repeat share,
 --    and the notice says both (owner decision 2026-11-04, mission_pay_test covers the rule) ──
 clock = clock + 2000
 local repBefore4, paidBefore4 = Missions.reputation(4), paid[4]
@@ -353,7 +354,7 @@ assert(Missions.reputation(4) == repBefore4 + reduced, "a quarter of the reputat
 assert(paid[4] - paidBefore4 < P.difficulties[1].payout, "and a reduced payout")
 local again = lastNotice(4, "MISSION COMPLETE").body
 assert(again:find("+" .. reduced .. " reputation (" .. math.floor(share * 100 + 0.5) .. "% of " .. LightRpMissions.reputationGain.standard
-    .. ": this job gave you its full reputation less than 60 min ago", 1, true), again)
+    .. ": this difficulty gave you its full reputation less than 60 min ago", 1, true), again)
 
 -- ── disconnect while tagged and while in a crew ──
 clock = clock + 2000
