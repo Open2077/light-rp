@@ -12,6 +12,10 @@ local C = LightRpDogtown
 -- Sections 1-15 test the zone without the entry protection; section 16 turns it back on.
 local PROTECTION = C.entryProtection
 C.entryProtection = { ms = 0 }
+-- Sections 1-17 and 18 test the pocket-only stake (stake.bank = false, the rule before
+-- 2026-11-12); section 17b tests the bank rule, the shipped default.
+assert(C.stake.bank == true, "the bank counts by default")
+C.stake.bank = false
 local encoded, serial = {}, 0
 json = { encode = function(v) serial = serial + 1; local k = "j" .. serial; encoded[k] = clone(v); return k end,
     decode = function(k) if k == "{}" then return {} end assert(encoded[k], "invalid JSON"); return clone(encoded[k]) end }
@@ -865,6 +869,43 @@ exports.open77_doors = nil
 assert(D.holdDoors() == 0 and logged("open77_doors unavailable"))
 
 -- ---------------------------------------------------------------------------
+-- 17b. The bank rule (stake.bank, default since 2026-11-12): the stake counts pocket
+-- cash + bank; a death's loss is paid from the pocket first, the bank tops it up.
+C.stake.bank = true
+online = { 5, 6 }; at(5, INSIDE); at(6, INSIDE); revive(5); revive(6)
+clock = clock + C.loot.pairCooldownMs + C.combatTagMs + 1
+D.sweep()
+local w5 = M.get(5)
+local pocket5, bank5 = w5.cash, w5.bank
+local loss5 = D.lossAmount(pocket5 + bank5)
+assert(pocket5 < C.stake.minCash and pocket5 < loss5 and bank5 > loss5, "Eli: a short pocket (" .. pocket5 .. "), a bank (" .. bank5 .. ")")
+assert(D.fundsOf(5) == pocket5 + bank5 and D.staked(5), "the bank counts in the stake")
+assert(not D.short(5) and D.roster()[5], "a short pocket is no longer left out")
+local view5b = providers.dogtown(5)
+assert(view5b.stake.cash == pocket5 + bank5 and view5b.stake.bank == true and view5b.rules.stakeBank == true, "the page counts the bank")
+assert(hit(6, 5)); kill(5, 6, INSIDE)
+local bankBag = onlyPile()
+assert(I.cashOf(bankBag) >= loss5, "the bag holds the whole loss in cash: " .. I.cashOf(bankBag) .. " for " .. loss5)
+assert(M.get(5).cash == 0 and M.get(5).bank == bank5 - (loss5 - pocket5), "the pocket paid first, the bank the rest")
+local wd = ledgerKind(M.get(5).number, "dogtown_withdraw")
+assert(wd, "the top-up is on the victim's ledger")
+assert(lastNotice(5).body:find("cash first, then your bank", 1, true), lastNotice(5).body)
+assert(take(6, bankBag))
+-- a refused withdrawal (the database): the pocket pays alone
+revive(5); clock = clock + C.loot.pairCooldownMs + 1; D.sweep()
+assert(M.addCash(5, 300, "test", "Pocket"))
+local bankBefore = M.get(5).bank
+local withdraw = M.withdraw
+M.withdraw = function() return false, "database_error" end
+local covered = D.cover(5, 500)
+M.withdraw = withdraw
+assert(covered == 300 and M.get(5).bank == bankBefore and logged("bank top-up of 200 for Eli Broke refused"), "a refused top-up: the pocket alone")
+assert(D.cover(5, 200) == 200 and M.get(5).bank == bankBefore, "a pocket that covers it: the bank is not touched")
+C.stake.bank = false
+assert(not D.staked(5) and D.fundsOf(5) == 300, "bank = false: the pocket only")
+online = {}; D.sweep()
+
+-- ---------------------------------------------------------------------------
 -- 18. Stopping the resource takes everything with it: scopes, teams, pins, bags.
 online = { 1, 2, 4 }; at(1, INSIDE); at(2, MARKET); at(4, OWNER); revive(2)
 crew("crew:3", { 1, 4 }); D.sweep()
@@ -877,4 +918,4 @@ assert(next(hostScopes) == nil and hostTeams[1] == 0 and hostTeams[4] == 0, "sco
 assert(next(blips) == nil and not I.get(left.id), "bounty pins and cash bags removed")
 C.bounty.streak = 5
 
-print("PASS: Dogtown polygon + exits; PvP scopes inside/outside/tagged/stale/activity buckets/dead/foreign scope/switch; groups of 32; crew teams; stake warning/top-up/escort/retry/solo car; loss min/max/carried; bonus bag + reserve + sealed; strict pair cooldown/revenge/own bag; hospital waiver; revive under stake; same account/crewmate/outside; transfer + bonus line; daily cap (db read, new day); anti-gank halving + underdog; bounty pin/follow/claim/left/death/disconnect/cap; combat log; stats + best streak + migration; leaderboard; page rules; Hall of Fame boards; survey + exits + map outline; entry protection (2 min, step-out, tag, re-arm, death, off); doors held open (areas, ids, lifts, foreign owner, re-open); cleanup on stop")
+print("PASS: Dogtown polygon + exits; PvP scopes inside/outside/tagged/stale/activity buckets/dead/foreign scope/switch; groups of 32; crew teams; stake warning/top-up/escort/retry/solo car; loss min/max/carried; bonus bag + reserve + sealed; strict pair cooldown/revenge/own bag; bank stake + pocket-first loss with bank top-up; hospital waiver; revive under stake; same account/crewmate/outside; transfer + bonus line; daily cap (db read, new day); anti-gank halving + underdog; bounty pin/follow/claim/left/death/disconnect/cap; combat log; stats + best streak + migration; leaderboard; page rules; Hall of Fame boards; survey + exits + map outline; entry protection (2 min, step-out, tag, re-arm, death, off); doors held open (areas, ids, lifts, foreign owner, re-open); cleanup on stop")

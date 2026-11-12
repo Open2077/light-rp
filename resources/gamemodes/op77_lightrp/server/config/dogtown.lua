@@ -2,14 +2,15 @@
 -- nothing here is downloaded. The rules below are the owner's (2026-11-03); the
 -- guide NPC quotes them from this file (server/config/guide.lua, Dogtown topic).
 --
--- Inside Dogtown, in the shared city (routing bucket 0), anyone carrying the stake
--- (`stake.minCash` in pocket cash) can kill anyone else carrying it; crewmates never
+-- Inside Dogtown, in the shared city (routing bucket 0), anyone holding the stake
+-- (`stake.minCash` in pocket cash + bank) can kill anyone else holding it; crewmates never
 -- hurt each other. Outside, nothing changes: Light RP's global PvP stays off (the
 -- platform default), safe zones stay safe, activities and missions keep their own
 -- buckets and rules. A player who deals or takes PvP damage here is combat-tagged:
 -- stepping out does not end the fight until the tag runs out. A kill drops part of
--- the victim's cash (never the bank) plus a server bonus as a bag, reserved to the
--- killer's crew for a few seconds. PvP gives stats only: no reputation.
+-- the victim's money (pocket first, the bank tops it up) plus a server bonus as a
+-- bag, reserved to the killer's crew for a few seconds. PvP gives stats only: no
+-- reputation. (2026-11-12: the bank counts, players earn into it and never had cash.)
 LightRpDogtown = {
     -- The zone's switch at start. Staff toggle it with /lightrp.dogtown on|off (not
     -- persisted: a restart comes back to this value).
@@ -65,7 +66,7 @@ LightRpDogtown = {
     blip = {
         position = { x = -1754.6, y = -2490.6, z = 40.0 }, -- survey in game
         title = "Dogtown · PvP zone",
-        description = "No law past the walls: anyone can kill you there, and take part of the cash you carry. Your bank is safe.",
+        description = "No law past the walls: anyone can kill you there, and take part of your money (cash first, then your bank).",
         sprite = "Zzz13_DogtownGateVariant", fallbackSprite = "HazardWarningVariant",
         color = "#FF2E3C",
     },
@@ -125,13 +126,15 @@ LightRpDogtown = {
     -- stays attackable outside the walls until it runs out (each hit renews it).
     combatTagMs = 20000,
 
-    -- The stake: a player must carry at least `minCash` in POCKET cash (the bank never
-    -- counts) to fight here. Below it they are left out of the PvP grant (they can
-    -- neither deal nor take PvP damage in the zone), warned with the amount missing,
-    -- and after `graceMs` still inside and still short, sent to the nearest exit below.
-    -- A player who drops under it by dying is handled the same way once revived.
+    -- The stake: a player must hold at least `minCash` in pocket cash PLUS the bank
+    -- (`bank = true`; false = the pocket only, the pre-2026-11-12 rule) to fight here.
+    -- Below it they are left out of the PvP grant (they can neither deal nor take PvP
+    -- damage in the zone), warned with the amount missing, and after `graceMs` still
+    -- inside and still short, sent to the nearest exit below. A player who drops under
+    -- it by dying is handled the same way once revived.
     stake = {
         minCash = 1000,
+        bank = true,
         graceMs = 10000,
     },
     -- Where a player under the stake is sent: the nearest of these (planar distance),
@@ -148,8 +151,10 @@ LightRpDogtown = {
         { id = "stadium_east",   label = "East of the stadium",          x = -960.0,  y = -2150.0, z = 30.0, heading = 270.0 }, -- survey in game
     },
 
-    -- Cash lost on a death: `share` of the victim's pocket cash, at least `min`, at
-    -- most `max`, never more than they carry. The bank is never touched.
+    -- Money lost on a death: `share` of the victim's funds (pocket cash + bank with
+    -- stake.bank), at least `min`, at most `max`, never more than they hold. The
+    -- pocket pays first; what it lacks is withdrawn from the bank into it (ledger
+    -- kind dogtown_withdraw) just before the bag is made.
     --   mode "bag":      the cash drops in a sealed bag where the victim fell (the
     --                    inventory's ground pile: session-only, gone after the drop
     --                    TTL, LightRpConfig.inventory.drop.ttlMinutes).
@@ -215,8 +220,8 @@ LightRpDogtown = {
     combatLog = true,
 
     -- The hospital bill (LightRpEconomy.hospital, economy_sinks.lua) is waived after a
-    -- death in a Dogtown fight: the zone already took its cut in cash, and the bank
-    -- stays out of Dogtown. false = the bill applies as after any death.
+    -- death in a Dogtown fight: the zone already took its cut. false = the bill
+    -- applies as after any death.
     waiveHospitalBill = true,
 
     -- PvP stats (credited kills and deaths, best streak, eddies picked up from Dogtown

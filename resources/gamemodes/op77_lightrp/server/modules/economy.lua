@@ -534,7 +534,8 @@ local function move(playerId, from, to, amount, kindOut, kindIn)
 end
 
 function Money.deposit(playerId, amount) return move(playerId, "cash", "bank", amount, "deposit", "deposit") end
-function Money.withdraw(playerId, amount) return move(playerId, "bank", "cash", amount, "withdraw", "withdraw") end
+-- kind: the ledger kind of both lines (default "withdraw"; Dogtown: "dogtown_withdraw").
+function Money.withdraw(playerId, amount, kind) return move(playerId, "bank", "cash", amount, kind or "withdraw", kind or "withdraw") end
 
 function Money.findAccount(number)
     number = Money.normalizeNumber(number)

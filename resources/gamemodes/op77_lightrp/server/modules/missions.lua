@@ -411,10 +411,10 @@ Missions.reputationGainOf = gain
 -- The repeat rule on a finished run's reputation (owner decision 2026-11-04,
 -- mission_pay.lua Pay.reputation): the reputation granted and the words the
 -- notice adds when it is reduced ("" in full). A full grant starts the point's window.
-local function repeatReputation(id, point, rep)
+local function repeatReputation(id, point, rep, d)
     local Pay = LightRP.missionPay
     if rep > 0 and Pay and type(Pay.reputation) == "function" then
-        local amount, _, words = Pay.reputation(id, point.id, rep)
+        local amount, _, words = Pay.reputation(id, point.id, rep, d and d.id)
         return amount, words or ""
     end
     return rep, ""
@@ -804,7 +804,7 @@ local function finish(inst, success, why)
         if success and inst.gig then
             -- a gig counts the tier only (no clear ladder); the money is mission_pay's
             local basis = Missions.rewardBasis(id, d, point, false)
-            local rep, repWords = repeatReputation(id, point, basis and gain(basis.id, d) or 0)
+            local rep, repWords = repeatReputation(id, point, basis and gain(basis.id, d) or 0, d)
             Missions.addReputation(id, rep); gained = rep
             LightRP.notice(id, { kind = "success", title = "GIG COMPLETE", durationMs = 10000,
                 body = string.format("%s · %s. %s wired by %s%s, +%d reputation%s%s.", point.title, d.label,
@@ -820,7 +820,7 @@ local function finish(inst, success, why)
             reputation[id].completed = reputation[id].completed + 1
             -- a crew member carried above what they have unlocked: the reward of their best
             local basis = Missions.rewardBasis(id, d, point, true)
-            local rep, repWords = repeatReputation(id, point, basis and gain(basis.id, d) or 0)
+            local rep, repWords = repeatReputation(id, point, basis and gain(basis.id, d) or 0, d)
             Missions.addReputation(id, rep); gained = rep
             local opens = Missions.cleared(id, point.id, d.id) == 0 and point.difficulties[(function()
                 for i, other in ipairs(point.difficulties) do if other.id == d.id then return i + 1 end end
@@ -1041,6 +1041,8 @@ local function snapshot(id, pointId)
             requires = before and before.label or nil, cleared = Missions.cleared(id, point.id, d.id),
             openLobbies = openLobbies(id, point, d),
             reputation = gain(d.id, d), earns = basis and gain(basis.id, d) or 0,
+            -- full pay once a day per mission and difficulty (mission_pay.lua): the tag
+            paidToday = LightRP.missionPay and LightRP.missionPay.paidToday and LightRP.missionPay.paidToday(id, point.id, d.id) or false,
             earnsAs = basis and basis ~= d and basis.label or nil }
         boards[d.id] = lobbyView(lobby, point, d)
     end

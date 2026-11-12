@@ -19,7 +19,7 @@
             <div class="dt-banner-bar"><path class="ic" view-box="0 0 24 24" data-attr-d="icSkull"/><span>DANGER ZONE</span></div>
             <div class="dt-banner-title">{{labelUpper}}</div>
             <div class="dt-banner-law" data-class-is-safe="lawSafe"><span>{{lawA}}</span><span class="dt-dot">·</span><span>{{lawB}}</span></div>
-            <div class="dt-banner-cash">You carry <span class="dt-em">{{cashText}}</span> in cash</div>
+            <div class="dt-banner-cash">At stake: <span class="dt-em">{{cashText}}</span> (cash + bank)</div>
             <div class="dt-banner-stake" data-if="short">{{stakeText}}</div>
             <div class="dt-banner-rule" data-if="!short">{{ruleText}}</div>
         </div>

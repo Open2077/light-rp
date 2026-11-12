@@ -345,12 +345,15 @@ LightRpConfig = {
         drinkPerTick = 0.225, -- ~7h25 from 100 to 0
         warnAt = 20,
         -- At 0 food or 0 drink the character starves: a share of max health lost every
-        -- tickMs until eating/drinking or death, health regen off meanwhile. From full
-        -- health: ~17 min to die with one need at 0, ~8 min with both.
+        -- tickMs until eating/drinking, health regen off meanwhile, down to
+        -- healthFloorPercent of max health (owner 2026-11-12, the "GTA Online" pass:
+        -- hunger hurts, it never kills; 0 = the old rule, starving to death in ~17 min
+        -- with one need at 0, ~8 min with both).
         starve = {
             tickMs = 5000,
             percentPerMinute = 6,       -- food OR drink at 0
             bothPercentPerMinute = 12,  -- food AND drink at 0
+            healthFloorPercent = 25,    -- never below a quarter of max health
             noRegen = true,             -- health regen off while starving
             -- after a death (hospital respawn) both needs come back to at least this,
             -- or the character would respawn starving and die again

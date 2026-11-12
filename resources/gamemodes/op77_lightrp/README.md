@@ -407,11 +407,16 @@ features; `server/config/economy.lua` holds the cross-cutting rules:
 
 - **Missions and gigs** (`server/modules/mission_pay.lua`): the pay for a difficulty is
   the share of **each** operator at the minimum crew size. Above that, the pot grows as
-  crew^0.7 and is split. A full payout at the same mission point is only paid again
-  to the same character after 60 min, and an account gets 6 full payouts per UTC day;
-  beyond that, 25%. Cap of 250 €$ per minute of duration. Operators see the expected
+  crew^0.7 and is split. Since 2026-11-12 each mission pays an account in full **once
+  per UTC day per difficulty** (Standard, Hard and Critical are three full payouts) and
+  there is **no daily cap** on the number of missions; the same mission at the same
+  difficulty again that day pays `repeatShare` (15%). The mission board tags a difficulty
+  already paid today. Cap of 150 €$ per minute of duration. Operators see the expected
   pay at launch and the reason for any reduction at the end. Tables
-  `lightrp_mission_payout_cooldowns` and `lightrp_mission_payout_daily`.
+  `lightrp_mission_full_pays` (the day's full payouts) and `lightrp_mission_rep_windows`
+  (the reputation window, per character, mission and difficulty); the old
+  `lightrp_mission_payout_cooldowns` / `_daily` / `lightrp_mission_rep_cooldowns` are no
+  longer read.
 - **Hospital**: 300 €$ after *Give up and go to hospital*, bank first, then cash, never
   going below zero (the rest is written off). Free after a rescue with the kit, in a mission, in an
   activity, during the first day and during the character's first 120 minutes of play.
@@ -913,7 +918,8 @@ and their rules. The rules are the owner's (2026-11-03); all the numbers are in
 
 ### The stake
 
-- You need `stake.minCash` (€$ 1,000) **in your pocket** to fight; the bank doesn't count. Below
+- You need `stake.minCash` (€$ 1,000) **in cash + bank** to fight (`stake.bank = true`; `false`
+  = the pocket only, the rule before 2026-11-12). Below
   that, inside the zone: no PvP (you can't shoot or be hit), a notice with **the missing
   amount**, and the tile turns yellow with a countdown.
 - After `stake.graceMs` (10 s), if you are still inside and still below the stake: you are teleported to the
@@ -922,7 +928,7 @@ and their rules. The rules are the owner's (2026-11-03); all the numbers are in
   car is placed 4 m next to them (`Open77.vehicles.setTransform`). A passenger leaves the
   vehicle to the others. A refused teleport is retried 3 s later.
 - Same thing after a death: picked up inside below the stake → notice, delay, escort. Getting back
-  above the stake (ATM, transfer) stops the countdown.
+  above the stake (a payout, a transfer) stops the countdown.
 - The four exits shipped are **to be surveyed in game** (`-- survey in game`, estimated `z`):
   `/lightrp.dogtown survey exit [name]` prints the line (refused inside the polygon). An exit
   inside the polygon is ignored and reported at startup.
@@ -931,13 +937,14 @@ and their rules. The rules are the owner's (2026-11-03); all the numbers are in
 
 - Death follows the **normal medical flow** (unconsciousness, trauma kit, transfer to the hospital,
   outside Dogtown). **No hospital bill** after a death in a Dogtown fight
-  (`waiveHospitalBill`, the `dogtown` exemption in `economy_sinks.lua`): the zone has already taken its share
-  and the bank stays out of the game. The waiver lasts until 15 s after getting back on your feet (at most
+  (`waiveHospitalBill`, the `dogtown` exemption in `economy_sinks.lua`): the zone has already taken its share. The waiver lasts until 15 s after getting back on your feet (at most
   30 min after the death).
 - A kill counts when both players share a scope, or when the killer hit the victim
   in the last 20 seconds; the victim must be in bucket 0, and neither of them in an activity.
-- **Loss**: `loot.share` (10%) of the cash carried, at least `loot.min` (€$ 100), at most
-  `loot.max` (€$ 750), never more than what is carried.
+- **Loss**: `loot.share` (10%) of the funds (cash + bank), at least `loot.min` (€$ 100), at most
+  `loot.max` (€$ 750), never more than what is held. The pocket pays first; what it lacks is
+  withdrawn from the bank into it (ledger `dogtown_withdraw`) just before the bag is made, so
+  the bag always holds real cash. A refused withdrawal: the pocket pays alone.
 - **Bag** (`loot.mode = "bag"`): a sealed bag (nothing can be put in it) drops where the victim
   fell, with the loss **plus a server bonus** of `loot.bonus` (25% of the loss): newly minted
   money (`Inv.dropCash`, `mint` option), paid by nobody. The bag is **reserved for the killer

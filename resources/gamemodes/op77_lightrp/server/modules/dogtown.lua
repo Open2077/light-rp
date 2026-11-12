@@ -8,8 +8,9 @@ local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.e
 -- qualify get a combat scope (Open77.combat.createScope) in the city bucket:
 --
 --   qualifies = character active, in the city bucket, not owned by an activity or a
---               mission, alive or recovering, zone switched on, carrying the stake
---               (stake.minCash in pocket cash), AND (inside the polygon OR tagged)
+--               mission, alive or recovering, zone switched on, holding the stake
+--               (stake.minCash in pocket cash + bank, stake.bank), AND (inside the
+--               polygon OR tagged)
 --
 -- Crewmates share a combat team (Open77.combat.setTeam): they never hurt each other.
 -- A hit between two scoped players tags both for `combatTagMs`; a tagged player who
@@ -29,8 +30,9 @@ local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.e
 -- `stake.graceMs` still inside and short, sent to the nearest exit outside.
 --
 -- A credited kill (not the same account, not crewmates, not the same pair within
--- `pairCooldownMs`) drops the victim's loss (share, min, max of their pocket cash,
--- halved under anti-gank) plus a server bonus (minted, capped per killer account
+-- `pairCooldownMs`) drops the victim's loss (share, min, max of their pocket cash +
+-- bank, halved under anti-gank; what the pocket lacks is withdrawn from the bank
+-- first) plus a server bonus (minted, capped per killer account
 -- and UTC day) as a sealed bag reserved to the killer's crew (inventory.lua,
 -- Inv.dropCash), through the money ledger. Five credited kills without dying put a
 -- bounty on the killer: a pin following them on everyone's 3D map (op77_map3d) and a
@@ -238,6 +240,25 @@ local function cashOf(player)
 end
 D.cashOf = cashOf
 
+-- What a player stakes in Dogtown: pocket cash plus the bank (stake.bank, default
+-- true; false = the pocket only), or nil before the inventory is loaded. Players
+-- earn into the bank (missions, jobs): they never have to withdraw before going in.
+local function bankOf(player)
+    local Money = LightRP.money
+    local w = Money and Money.get and Money.get(player)
+    return w and math.max(0, math.floor(tonumber(w.bank) or 0)) or 0
+end
+local function fundsOf(player)
+    local cash = cashOf(player)
+    if cash == nil then return nil end
+    if S().bank == false then return cash end
+    return cash + bankOf(player)
+end
+D.fundsOf = fundsOf
+-- How the texts name the stake: "(cash + bank)", or the pocket-only rule's words.
+local function banked() return S().bank ~= false end
+local function stakeWords(pocketWords) return banked() and "(cash + bank)" or pocketWords end
+
 -- Inside the polygon from a fresh server read; a stale or missing read keeps the
 -- last answer (no flicker on a late snapshot).
 function D.locate(player)
@@ -275,10 +296,31 @@ function D.inside(player) return D.eligible(player) and presence[player] == true
 -- In the fight: inside, or tagged outside (the anti-gank count, the streak).
 function D.inZone(player) return D.eligible(player) and (presence[player] == true or D.tagged(player)) end
 
--- Carrying the stake in pocket cash (the bank never counts).
+-- Holding the stake: pocket cash plus the bank (stake.bank).
 function D.staked(player)
-    local cash = cashOf(player)
-    return cash ~= nil and cash >= int(S().minCash, 0)
+    local funds = fundsOf(player)
+    return funds ~= nil and funds >= int(S().minCash, 0)
+end
+
+-- What `retry` needs below is defined later; the top-up waits on busy wallets itself.
+local coverRetries = function(fn) return fn() end
+
+-- A loss is paid from the pocket first: what the pocket lacks for `amount` is
+-- withdrawn from the bank into it (ledger kind dogtown_withdraw), so the bag (or the
+-- transfer) carries real cash. Returns the amount the pocket now covers (<= amount).
+function D.cover(player, amount)
+    amount = math.max(0, math.floor(tonumber(amount) or 0))
+    local cash = cashOf(player) or 0
+    if cash >= amount or S().bank == false then return math.min(amount, cash) end
+    local need = math.min(amount - cash, bankOf(player))
+    if need <= 0 then return cash end
+    local Money = LightRP.money
+    local moved, reason = coverRetries(function() return Money.withdraw(player, need, "dogtown_withdraw") end)
+    if moved ~= true then
+        LightRP.log("dogtown: bank top-up of %d for %s refused (%s), the pocket pays alone", need, name(player), tostring(reason))
+        return math.min(amount, cashOf(player) or cash)
+    end
+    return math.min(amount, cashOf(player) or (cash + need))
 end
 
 function D.qualifies(player)
@@ -547,7 +589,7 @@ function D.rules()
     return { mode = loot.mode or "bag", share = loot.share or 0, min = loot.min or 0, max = loot.max or 0,
         bonus = loot.bonus or 0, bonusDailyCap = loot.bonusDailyCap or 0, reserveSeconds = math.floor((loot.reserveMs or 0) / 1000),
         tagSeconds = math.floor((Config.combatTagMs or 20000) / 1000), pairCooldownMinutes = math.floor((loot.pairCooldownMs or 0) / 60000),
-        stake = s.minCash or 0, graceSeconds = math.floor((s.graceMs or 0) / 1000),
+        stake = s.minCash or 0, stakeBank = s.bank ~= false, graceSeconds = math.floor((s.graceMs or 0) / 1000),
         gankCrew = g.crewSize or 0, gankFactor = g.lossFactor or 1, underdogBonus = g.underdogBonus or 0,
         bountyStreak = b.streak or 0, bountyPerKill = b.perKill or 0, bountyMax = b.max or 0,
         protectionSeconds = math.floor(int(P().ms, 0) / 1000) }
@@ -557,7 +599,7 @@ LightRP.stateProvider("dogtown", function(player)
     local s = statsOf(player)
     local tag = D.tagRemainingMs(player)
     local c = LightRP.characters.get(player)
-    local cash = cashOf(player) or 0
+    local cash = fundsOf(player) or 0
     local required = int(S().minCash, 0)
     local sh = short[player]
     local count = 0
@@ -567,7 +609,7 @@ LightRP.stateProvider("dogtown", function(player)
         inside = D.inside(player), tagged = enabled and tag > 0, tagEndsInMs = enabled and tag or 0,
         armed = roster[player] ~= nil,
         protected = D.protected(player), protectedInMs = D.protectedMs(player),
-        stake = { required = required, cash = cash, missing = math.max(0, required - cash), short = sh ~= nil,
+        stake = { required = required, cash = cash, bank = S().bank ~= false, missing = math.max(0, required - cash), short = sh ~= nil,
             evictInMs = sh and math.max(0, sh.evictAt - now()) or 0 },
         streak = streaks[player] or 0, bounty = bounties[player] ~= nil, bountyReward = D.bountyReward(player), bounties = count,
         bonusToday = mintedToday(c and c.identifier),
@@ -709,7 +751,7 @@ function D.evict(player)
     end
     presence[player] = false -- outside now; the next fresh read confirms
     LightRP.notice(player, { kind = "warning", title = "Escorted out of Dogtown", durationMs = 9000,
-        body = string.format("You need %s in cash on you to be in Dogtown. You are at %s%s.", money(int(S().minCash, 0)), exit.label,
+        body = string.format("You need %s %s to be in Dogtown. You are at %s%s.", money(int(S().minCash, 0)), stakeWords("in cash on you"), exit.label,
             car and ", with your car" or "") })
     LightRP.log("dogtown: %s escorted out to %s (under the %s stake)%s", name(player), exit.id, money(int(S().minCash, 0)), car and " with their car" or "")
     return true
@@ -717,7 +759,7 @@ end
 
 function D.checkStake(player, t)
     local s = short[player]
-    local cash = cashOf(player)
+    local cash = fundsOf(player)
     local under = enabled and cash ~= nil and D.inside(player) and capable(player) and not downed(player) and cash < int(S().minCash, 0)
     if not under then
         if s and not s.evicting then short[player] = nil; D.push(player, true) end
@@ -729,8 +771,8 @@ function D.checkStake(player, t)
         short[player] = s
         local required = int(S().minCash, 0)
         LightRP.notice(player, { kind = "warning", title = "DOGTOWN · NO STAKE", durationMs = math.max(4000, grace),
-            body = string.format("You need %s in cash to fight in Dogtown: %s missing. You can't shoot or be shot here. Leave within %d s or you will be escorted out.",
-                money(required), money(required - cash), math.ceil(grace / 1000)) })
+            body = string.format("You need %s %s to fight in Dogtown: %s missing. You can't shoot or be shot here. Leave within %d s or you will be escorted out.",
+                money(required), stakeWords("in cash"), money(required - cash), math.ceil(grace / 1000)) })
         D.push(player, true)
     elseif not s.evicting and t >= s.evictAt then
         s.evicting = true
@@ -839,9 +881,9 @@ function D.entered(player)
     local t = now()
     if entryChatAt[player] and t - entryChatAt[player] < (Config.entryChatMs or 120000) then return end
     entryChatAt[player] = t
-    local cash = cashOf(player)
-    local line = string.format("DOGTOWN: no law past the walls, anyone can kill you. The stake is %s in cash.", money(int(S().minCash, 0)))
-    if cash then line = line .. " You carry " .. money(cash) .. "." end
+    local cash = fundsOf(player)
+    local line = string.format("DOGTOWN: no law past the walls, anyone can kill you. The stake is %s %s.", money(int(S().minCash, 0)), stakeWords("in cash"))
+    if cash then line = line .. (banked() and " You have " or " You carry ") .. money(cash) .. "." end
     if D.protected(player) then line = line .. string.format(" Entry protection: %d s.", math.ceil(D.protectedMs(player) / 1000)) end
     if LightRP.chat and LightRP.chat.system then pcall(LightRP.chat.system, player, line) end
 end
@@ -1138,8 +1180,8 @@ function D.verdict(killer, victim)
     return nil, pair
 end
 
--- The loss of a death: `share` of the pocket cash, at least `min`, at most `max`,
--- never more than carried.
+-- The loss of a death: `share` of the funds (pocket cash + bank), at least `min`, at
+-- most `max`, never more than held.
 function D.lossAmount(cash)
     local loot = L()
     cash = math.floor(tonumber(cash) or 0)
@@ -1186,6 +1228,7 @@ local function retry(fn, attempts)
     end
     return okay, result, extra
 end
+coverRetries = retry
 
 -- A death in a Dogtown fight (credited or not): the streak ends, the hospital bill
 -- is waived, a combat log right after does not drop a second bag.
@@ -1270,12 +1313,19 @@ function D.onKill(victim, killer, context)
 
     local Inv = LightRP.inventory
     local inv = Inv and Inv.player(victim)
-    local cash = inv and Inv.cashOf(inv) or 0
-    local terms = D.killTerms(killer, victim, cash)
+    local terms = D.killTerms(killer, victim, inv and fundsOf(victim) or 0)
     local amount = terms.loss
+    -- the pocket pays first, the bank tops it up (a refused top-up: the pocket alone)
+    if amount > 0 then
+        local covered = D.cover(victim, amount)
+        if covered < amount then
+            terms = D.killTerms(killer, victim, covered)
+            amount = math.min(terms.loss, covered)
+        end
+    end
     if amount <= 0 then
-        LightRP.notice(killer, { kind = "info", title = "Dogtown kill", body = victimName .. " carried no cash: nothing to take.", durationMs = 7000 })
-        LightRP.notice(victim, { kind = "warning", title = "Killed in Dogtown", body = "Killed by " .. killerName .. ". You had no cash on you.", durationMs = 8000 })
+        LightRP.notice(killer, { kind = "info", title = "Dogtown kill", body = victimName .. (banked() and " had no money" or " carried no cash") .. ": nothing to take.", durationMs = 7000 })
+        LightRP.notice(victim, { kind = "warning", title = "Killed in Dogtown", body = "Killed by " .. killerName .. (banked() and ". You had no money to lose." or ". You had no cash on you."), durationMs = 8000 })
         return "nothing", 0
     end
     local bonus, commit = reserveBonus(kc.identifier, terms.bonus)
@@ -1314,7 +1364,7 @@ function D.onKill(victim, killer, context)
                 LightRP.notice(killer, { kind = "money", title = "Dogtown kill", durationMs = 9000,
                     body = string.format("%s dropped %s%s where they fell.%s%s", victimName, money(amount), bonus > 0 and (" + " .. money(bonus) .. " bonus") or "", reserveText, extra) })
                 LightRP.notice(victim, { kind = "warning", title = "Killed in Dogtown", durationMs = 9000,
-                    body = "Killed by " .. killerName .. ". You dropped " .. money(amount) .. " in cash where you fell. Your bank is safe." .. victimExtra })
+                    body = "Killed by " .. killerName .. ". You dropped " .. money(amount) .. (banked() and " where you fell (cash first, then your bank)." or " in cash where you fell. Your bank is safe.") .. victimExtra })
                 LightRP.log("dogtown: %s killed %s, cash bag %d + bonus %d at (%.1f, %.1f, %.1f)%s", killerName, victimName, amount, bonus, position.x, position.y, position.z, extra)
                 return "bag", amount, bonus
             end
@@ -1341,7 +1391,7 @@ function D.onKill(victim, killer, context)
         LightRP.notice(killer, { kind = "money", title = "Dogtown kill", durationMs = 9000,
             body = string.format("You took %s from %s%s.%s", money(amount), victimName, paidBonus > 0 and (" + " .. money(paidBonus) .. " bonus") or "", extra) })
         LightRP.notice(victim, { kind = "warning", title = "Killed in Dogtown", durationMs = 9000,
-            body = killerName .. " took " .. money(amount) .. " from your pocket. Your bank is safe." .. victimExtra })
+            body = killerName .. " took " .. money(amount) .. (banked() and " from you (cash first, then your bank)." or " from your pocket. Your bank is safe.") .. victimExtra })
         LightRP.log("dogtown: %s killed %s, took %d + bonus %d", killerName, victimName, amount, paidBonus)
         return "transfer", amount, paidBonus
     end
@@ -1377,9 +1427,10 @@ function D.combatLog(player)
     local who, left = name(player), math.ceil(D.tagRemainingMs(player) / 1000)
     local Inv = LightRP.inventory
     local inv = Inv and Inv.player(player)
-    local amount = D.lossAmount(inv and Inv.cashOf(inv) or 0)
+    local amount = D.lossAmount(inv and fundsOf(player) or 0)
+    if amount > 0 then amount = D.cover(player, amount) end
     if amount <= 0 then
-        LightRP.log("dogtown: combat log by %s (tag %d s left): no cash on them", who, left)
+        LightRP.log("dogtown: combat log by %s (tag %d s left): no money on them", who, left)
         return "nothing"
     end
     local p = positions[player] or Open77.players.position(player)
@@ -1442,7 +1493,7 @@ function D.onInteract(player, id)
         return
     end
     if p.entering and not D.staked(player) then
-        LightRP.notice(player, { kind = "warning", title = "Dogtown", body = string.format("The stake is %s in cash on you: come back with it.", money(int(S().minCash, 0))) })
+        LightRP.notice(player, { kind = "warning", title = "Dogtown", body = string.format("The stake is %s %s: come back with it.", money(int(S().minCash, 0)), stakeWords("in cash on you")) })
         return
     end
     if bucketOf(player) ~= (Config.bucket or 0) then return end
