@@ -1,0 +1,79 @@
+<rml>
+  <head>
+    <title>Whitelist application</title>
+    <style>
+      body { display: flex; flex-direction: column; gap: 14px; padding: 22px; color: var(--text); font-size: 14px; line-height: 1.45em; }
+      h1 { font-size: 22px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+      .server { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+      .muted { color: var(--muted); font-size: 12px; }
+      .panel { display: flex; flex-direction: column; gap: 10px; background-color: var(--panel); border-width: 1px; border-color: var(--line); border-radius: 6px; padding: 14px; }
+      .pending { border-color: var(--accent); }
+      .denied { border-color: #ff5a5a; }
+      .label { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+      .value { font-weight: bold; }
+      .accent { color: var(--accent); font-weight: bold; }
+      .error { color: #ff5a5a; font-weight: bold; }
+      .field { display: flex; flex-direction: column; gap: 6px; }
+      .id { font-family: monospace; font-size: 13px; }
+      .actions { display: flex; flex-direction: row; justify-content: flex-end; align-items: center; gap: 10px; }
+      input { padding: 9px; border-width: 1px; border-color: var(--line); border-radius: 4px; background-color: #0b0d10; color: var(--text); }
+      button { padding: 10px 18px; border-radius: 4px; border-width: 1px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+      .primary { background-color: var(--accent); border-color: var(--accent); color: #0b0d10; }
+      .primary:hover { opacity: 0.85; }
+      .secondary { background-color: var(--panel); border-color: var(--line); color: var(--muted); }
+      .secondary:hover { color: var(--text); }
+      a { color: var(--accent); font-weight: bold; }
+      a:hover { opacity: 0.8; }
+    </style>
+  </head>
+  <body>
+    <span class="server">{{ server }}</span>
+    <h1>Whitelisted server</h1>
+
+    <div class="panel pending" data-if="pending">
+      <span class="accent">Your application is with the staff.</span>
+      <p>Keep this window open: you are let in as soon as it is approved. You can also close it and press Join later; your application stays on file.</p>
+      <div class="field">
+        <span class="label">What you wrote</span>
+        <span class="value">{{ sent }}</span>
+      </div>
+      <div class="actions">
+        <button class="secondary" data-event-click="withdraw">Withdraw my application</button>
+      </div>
+    </div>
+
+    <div class="panel denied" data-if="denied">
+      <span class="error">Your last application was not accepted.</span>
+      <div class="field" data-if="hasNote">
+        <span class="label">Answer from the staff</span>
+        <span class="value">{{ note }}</span>
+      </div>
+    </div>
+
+    <div class="panel" data-if="!pending" data-event-submit="apply">
+      <p>Hello {{ name }}. This server only admits players on its whitelist.</p>
+      <div class="field">
+        <span class="label">{{ prompt }}</span>
+        <input id="application" type="text" maxlength="300" placeholder="Your application"/>
+      </div>
+      <div class="field" data-if="askCode">
+        <span class="label">Invite code (optional)</span>
+        <input id="code" type="text" maxlength="64" placeholder="If the staff gave you one"/>
+      </div>
+      <p class="error" data-if="error">{{ error }}</p>
+      <div class="actions">
+        <button class="primary" data-event-click="apply">Send my application</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <a data-if="hasDiscord" href="{{ discord }}">Discord</a>
+      <a data-if="hasWebsite" href="{{ website }}">Website</a>
+    </div>
+    <hr/>
+    <div class="field">
+      <span class="label">Your player id</span>
+      <span class="id">{{ userId }}</span>
+    </div>
+  </body>
+</rml>

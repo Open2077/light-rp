@@ -1,0 +1,38 @@
+<rml>
+  <!-- Light RP: the server is full (open77_preflight's "full", full.mode = "wait"). Data: server,
+       name, message, players, maxPlayers (live), discord; provider: returning, character.
+       Event: try_anyway. -->
+  <head>
+    <title>City at capacity</title>
+    <style>
+      body { display: flex; flex-direction: column; color: #C3C7D1; font-size: 14px; line-height: 1.5em; background-color: #0A0A0C; }
+      .strip { width: 1600px; height: 200px; }
+      .hazard { width: 1600px; height: 8px; }
+      .content { display: flex; flex-direction: column; gap: 14px; padding: 20px 24px 22px 24px; }
+      .tag { font-family: mono; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #FFCC00; }
+      .tag-dim { font-family: mono; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #8A8F9C; }
+      .count { display: flex; flex-direction: row; align-items: center; gap: 14px; padding: 14px 16px; background-color: #111114; border-left-width: 3px; border-color: #FF2E3C; }
+      .count-value { font-family: mono; font-size: 30px; color: #F2F3F5; }
+      .lead { margin: 0px; color: #C3C7D1; }
+      .hi { color: #F2F3F5; font-weight: bold; }
+      .actions { display: flex; flex-direction: row; justify-content: flex-end; gap: 10px; }
+      button { min-height: 42px; padding: 0px 22px; margin: 0px; font-family: label; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #8A8F9C; background-color: #111114; border-width: 1px; border-color: #2B2D34; }
+      button:hover { color: #F2F3F5; border-color: #565A66; }
+    </style>
+  </head>
+  <body>
+    <img class="strip" src="asset:ui/custom/lightrp-strip.jpg"/>
+    <img class="hazard" src="asset:ui/custom/lightrp-hazard.png"/>
+    <div class="content">
+      <span class="tag">// Queue</span>
+      <div class="count">
+        <span class="count-value">{{ players }} / {{ maxPlayers }}</span>
+        <span class="tag-dim">Citizens in the city</span>
+      </div>
+      <p class="lead" data-if="returning"><span class="hi">{{ character }}</span>, the city is at capacity. {{ message }}</p>
+      <p class="lead" data-if="!returning">{{ message }}</p>
+      <p class="lead">Keep this window open: closing it gives up your place.</p>
+      <div class="actions"><button data-event-click="try_anyway">Try anyway</button></div>
+    </div>
+  </body>
+</rml>

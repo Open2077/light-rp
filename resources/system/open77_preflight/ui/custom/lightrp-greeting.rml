@@ -1,0 +1,80 @@
+<rml>
+  <!-- Light RP: the last screen before the game starts (open77_preflight's "greeting", shown
+       greeting.seconds or until "enter"). Data: server, name, message, left, counting; from
+       op77_lightrp's provider: returning, character, characterJob, characterPlaytime, lastSeen,
+       characters [{ name, job, seen, playtime, active }], hasOthers, firstVisit. -->
+  <head>
+    <title>Entering Night City</title>
+    <style>
+      body { display: flex; flex-direction: column; color: #C3C7D1; font-size: 14px; line-height: 1.5em; background-color: #0A0A0C; }
+      .strip { width: 1600px; height: 200px; }
+      .hazard { width: 1600px; height: 8px; }
+      .content { display: flex; flex-direction: column; gap: 14px; padding: 20px 24px 22px 24px; }
+      .tag { font-family: mono; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #FFCC00; }
+      .tag-dim { font-family: mono; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #8A8F9C; }
+      .name { font-family: label; font-weight: bold; font-size: 28px; line-height: 1.15em; letter-spacing: 3px; text-transform: uppercase; color: #F2F3F5; }
+      .lead { margin: 0px; color: #C3C7D1; }
+      .card { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; }
+      .stat { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 150px; padding: 10px 14px; background-color: #111114; border-left-width: 2px; border-color: #FFCC00; }
+      .stat-label { font-family: mono; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #8A8F9C; }
+      .stat-value { font-family: mono; font-size: 14px; color: #F2F3F5; }
+      .list { display: flex; flex-direction: column; gap: 4px; }
+      .other { display: flex; flex-direction: row; align-items: center; gap: 12px; padding: 7px 12px; background-color: #111114; border-width: 1px; border-color: #FFCC0024; }
+      .other-active { border-color: #FFCC0047; background-color: #17181C; }
+      .other-name { color: #F2F3F5; font-weight: bold; min-width: 160px; }
+      .other-job { color: #8A8F9C; flex: 1 1 auto; }
+      .other-seen { font-family: mono; font-size: 11px; letter-spacing: 1px; color: #565A66; text-transform: uppercase; }
+      .steps { display: flex; flex-direction: column; gap: 6px; }
+      .step { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 8px 12px; background-color: #111114; border-width: 1px; border-color: #FFCC0024; }
+      .step-index { font-family: mono; font-size: 11px; color: #050506; background-color: #FFCC00; padding: 0px 5px; }
+      .step-text { font-size: 13px; color: #F2F3F5; }
+      .go { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 14px; padding-top: 4px; }
+      .count { font-family: mono; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #8A8F9C; }
+      .count-hi { color: #FFCC00; }
+      button { min-height: 44px; padding: 0px 26px; margin: 0px; font-family: label; font-size: 13px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #050506; background-color: #FFCC00; border-width: 1px; border-color: #FFCC00; }
+      button:hover { background-color: #FFDD40; border-color: #FFDD40; }
+    </style>
+  </head>
+  <body>
+    <img class="strip" src="asset:ui/custom/lightrp-strip.jpg"/>
+    <img class="hazard" src="asset:ui/custom/lightrp-hazard.png"/>
+    <div class="content">
+
+      <div class="col gap-4" data-if="returning">
+        <span class="tag">// Welcome back</span>
+        <span class="name">{{ character }}</span>
+      </div>
+      <div class="card" data-if="returning">
+        <div class="stat"><span class="stat-label">Occupation</span><span class="stat-value">{{ characterJob }}</span></div>
+        <div class="stat"><span class="stat-label">Last seen</span><span class="stat-value">{{ lastSeen }}</span></div>
+        <div class="stat"><span class="stat-label">Time in the city</span><span class="stat-value">{{ characterPlaytime }}</span></div>
+      </div>
+      <div class="col gap-8" data-if="hasOthers">
+        <span class="tag-dim">// Your characters</span>
+        <div class="list">
+          <div class="other" data-for="c : characters" data-class-other-active="c.active">
+            <span class="other-name">{{ c.name }}</span>
+            <span class="other-job">{{ c.job }}</span>
+            <span class="other-seen">{{ c.seen }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col gap-4" data-if="!returning">
+        <span class="tag">// Welcome to Night City</span>
+        <span class="name">{{ name }}</span>
+      </div>
+      <p class="lead" data-if="!returning">{{ message }}</p>
+      <div class="steps" data-if="!returning">
+        <div class="step"><span class="step-index">01</span><span class="step-text">Create your character</span></div>
+        <div class="step"><span class="step-index">02</span><span class="step-text">Follow the guide out of the lobby</span></div>
+        <div class="step"><span class="step-index">03</span><span class="step-text">Find a job, earn your eddies</span></div>
+      </div>
+
+      <div class="go">
+        <span class="count" data-if="counting">Entering the city in <span class="count-hi">{{ left }} s</span></span>
+        <button data-event-click="enter">Enter Night City</button>
+      </div>
+    </div>
+  </body>
+</rml>

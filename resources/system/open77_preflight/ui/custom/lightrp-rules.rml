@@ -1,0 +1,64 @@
+<rml>
+  <!-- Light RP: the house rules, asked once per account and again when rules.version changes
+       (open77_preflight's "rules"). Data: server, name, title, rules, version, checkbox, error;
+       op77_lightrp's provider: returning, character. (The news lines stay on the welcome.) Events: accept_rules
+       (input agree), decline_rules. -->
+  <head>
+    <title>House rules</title>
+    <style>
+      body { display: flex; flex-direction: column; color: #C3C7D1; font-size: 14px; line-height: 1.5em; background-color: #0A0A0C; }
+      .strip { width: 1600px; height: 200px; }
+      .hazard { width: 1600px; height: 8px; }
+      .content { display: flex; flex-direction: column; gap: 14px; padding: 20px 24px 22px 24px; }
+      .tag { font-family: mono; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #FFCC00; }
+      .title { font-family: label; font-style: normal; font-weight: bold; font-size: 24px; line-height: 1.2em; letter-spacing: 3px; text-transform: uppercase; color: #F2F3F5; margin: 0px; }
+      .lead { margin: 0px; color: #C3C7D1; }
+      .hi { color: #F2F3F5; font-weight: bold; }
+      .rules { display: flex; flex-direction: column; gap: 6px; }
+      .rule { display: flex; flex-direction: row; align-items: center; gap: 12px; padding: 8px 14px; background-color: #111114; border-left-width: 2px; border-color: #FFCC00; }
+      .mark { width: 6px; min-width: 6px; height: 6px; background-color: #FFCC00; flex-shrink: 0; }
+      .rule-text { flex: 1 1 auto; color: #F2F3F5; font-size: 14px; }
+      .check { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 4px 0px; }
+      .check-text { color: #C3C7D1; }
+      input.checkbox { width: 18px; height: 18px; background-color: #050506; border-width: 1px; border-color: #FFCC00; }
+      .error { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 8px 12px; background-color: #1A0C0E; border-left-width: 3px; border-color: #FF2E3C; color: #FF6B75; font-weight: bold; }
+      .actions { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; }
+      button { min-height: 42px; padding: 0px 22px; margin: 0px; font-family: label; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; border-width: 1px; }
+      .primary { color: #050506; background-color: #FFCC00; border-color: #FFCC00; }
+      .primary:hover { background-color: #FFDD40; border-color: #FFDD40; }
+      .ghost { color: #8A8F9C; background-color: #111114; border-color: #2B2D34; }
+      .ghost:hover { color: #F2F3F5; border-color: #565A66; background-color: #17181C; }
+      .foot { font-family: mono; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #565A66; }
+    </style>
+  </head>
+  <body>
+    <img class="strip" src="asset:ui/custom/lightrp-strip.jpg"/>
+    <img class="hazard" src="asset:ui/custom/lightrp-hazard.png"/>
+    <div class="content">
+      <span class="tag" data-if="!returning">// First time in Night City</span>
+      <span class="tag" data-if="returning">// Before you head in</span>
+      <p class="lead" data-if="!returning">Hello <span class="hi">{{ name }}</span>. Light RP is relaxed roleplay, not a free-for-all: a few rules keep the city livable. You accept them once.</p>
+      <p class="lead" data-if="returning">Welcome back, <span class="hi">{{ character }}</span>. Light RP asks for the house rules once, and again whenever they change.</p>
+
+
+      <div class="rules">
+        <div class="rule" data-for="rule : rules">
+          <div class="mark"></div>
+          <span class="rule-text">{{ rule }}</span>
+        </div>
+      </div>
+
+      <div class="check" data-if="checkbox">
+        <input id="agree" type="checkbox"/>
+        <span class="check-text">I have read the house rules and I accept them.</span>
+      </div>
+      <div class="error" data-if="error"><span>{{ error }}</span></div>
+
+      <div class="actions">
+        <button class="ghost" data-event-click="decline_rules">Decline</button>
+        <button class="primary" data-event-click="accept_rules">I accept</button>
+      </div>
+      <span class="foot">Rules v{{ version }}  ·  asked once, and again when they change</span>
+    </div>
+  </body>
+</rml>

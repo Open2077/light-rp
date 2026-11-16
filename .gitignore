@@ -158,6 +158,8 @@ ripperdoc-ui/public/media/
 !resources/system/open77_admin/server/
 !resources/system/open77_admin/server/main.lua
 !tools/
+!tools/build-preflight-art.py
+!tools/test-preflight.py
 !tools/test-board-games.py
 !tools/test-board-games-server.py
 !tools/test-board-games-client.py
@@ -210,6 +212,12 @@ ripperdoc-ui/public/media/
 !resources/system/open77_actions/**
 !resources/system/open77_uikit/
 !resources/system/open77_uikit/**
+# The launcher's server check in the Light RP design: open77-base's open77_preflight with our
+# config.lua and ui/custom/ (screens + art from tools/build-preflight-art.py). data/ is the
+# host's rules-acceptance store: never versioned, never deployed.
+!resources/system/open77_preflight/
+!resources/system/open77_preflight/**
+resources/system/open77_preflight/data/
 !ui/
 !ui/**
 

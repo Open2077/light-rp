@@ -1,0 +1,102 @@
+<rml>
+  <!-- Light RP: every refusal page of open77_preflight ("refused"): Warden bans, whitelist,
+       maintenance, kick, Discord required, rules declined, server full. The launcher shows the
+       verdict line above it. Data: kind, title, message, server, name, userId, appeal/hasAppeal,
+       discord/hasDiscord, website/hasWebsite; banned: reason/hasReason, expires/hasExpiry,
+       permanent, staff/hasStaff; whitelist: note/hasNote; discord: noTicket. -->
+  <head>
+    <title>Light RP</title>
+    <style>
+      body { display: flex; flex-direction: column; color: #C3C7D1; font-size: 14px; line-height: 1.5em; background-color: #0A0A0C; }
+      .strip { width: 1600px; height: 200px; }
+      .hazard { width: 1600px; height: 8px; }
+      .content { display: flex; flex-direction: column; gap: 14px; padding: 20px 24px 22px 24px; }
+      .tag { font-family: mono; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #FFCC00; }
+      .tag-red { font-family: mono; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #FF2E3C; }
+      .tag-dim { font-family: mono; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #8A8F9C; }
+      .title { font-family: label; font-weight: bold; font-size: 26px; line-height: 1.15em; letter-spacing: 3px; text-transform: uppercase; color: #F2F3F5; }
+      .title-red { color: #FF2E3C; }
+      .lead { margin: 0px; color: #C3C7D1; }
+      .facts { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; }
+      .fact { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 180px; padding: 10px 14px; background-color: #111114; border-left-width: 2px; border-color: #FF2E3C; }
+      .fact-yellow { border-color: #FFCC00; }
+      .fact-label { font-family: mono; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #8A8F9C; }
+      .fact-value { color: #F2F3F5; font-weight: bold; }
+      .fact-red { color: #FF2E3C; font-weight: bold; }
+      .plate { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background-color: #111114; border-left-width: 3px; border-color: #FFCC00; }
+      .plate-text { color: #F2F3F5; }
+      .id { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; background-color: #050506; border-width: 1px; border-color: #2B2D34; }
+      .id-value { font-family: mono; font-size: 14px; letter-spacing: 1px; color: #FFCC00; }
+      .links { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; }
+      .cta { display: flex; flex-direction: row; align-items: center; padding: 10px 18px; font-family: label; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #050506; background-color: #FFCC00; text-decoration: none; }
+      .cta:hover { background-color: #FFDD40; color: #050506; }
+      .ghost { display: flex; flex-direction: row; align-items: center; padding: 9px 16px; font-family: label; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #F2F3F5; background-color: #111114; border-width: 1px; border-color: #FFCC0047; text-decoration: none; }
+      .ghost:hover { border-color: #FFCC00; color: #FFCC00; }
+    </style>
+  </head>
+  <body>
+    <img class="strip" data-if="kind == 'banned' || kind == 'kicked'" src="asset:ui/custom/lightrp-strip-red.jpg"/>
+    <img class="strip" data-if="kind != 'banned' &amp;&amp; kind != 'kicked'" src="asset:ui/custom/lightrp-strip.jpg"/>
+    <img class="hazard" src="asset:ui/custom/lightrp-hazard.png"/>
+    <div class="content">
+      <div class="col gap-4">
+        <span class="tag-red" data-if="kind == 'banned' || kind == 'kicked'">// Access denied</span>
+        <span class="tag" data-if="kind != 'banned' &amp;&amp; kind != 'kicked'">// Not tonight, choom</span>
+        <span class="title" data-class-title-red="kind == 'banned' || kind == 'kicked'">{{ title }}</span>
+      </div>
+
+      <div class="col gap-12" data-if="kind == 'banned'">
+        <p class="lead">The staff closed the doors of the city to this account.</p>
+        <div class="facts">
+          <div class="fact" data-if="hasReason"><span class="fact-label">Reason</span><span class="fact-value">{{ reason }}</span></div>
+          <div class="fact" data-if="hasExpiry"><span class="fact-label">Banned until</span><span class="fact-value">{{ expires }}</span></div>
+          <div class="fact" data-if="permanent"><span class="fact-label">Duration</span><span class="fact-red">Permanent</span></div>
+          <div class="fact" data-if="hasStaff"><span class="fact-label">Banned by</span><span class="fact-value">{{ staff }}</span></div>
+        </div>
+        <p class="lead">Think it is a mistake? Open a ticket on the Discord with your player id below: the staff reads every appeal.</p>
+      </div>
+
+      <div class="col gap-12" data-if="kind == 'kicked'">
+        <div class="plate"><span class="tag-dim">Message from the staff</span><span class="plate-text">{{ message }}</span></div>
+        <p class="lead">You can join again in a moment.</p>
+      </div>
+
+      <div class="col gap-12" data-if="kind == 'maintenance'">
+        <div class="plate"><span class="tag-dim">Maintenance</span><span class="plate-text">{{ message }}</span></div>
+        <p class="lead">The city is being patched. Follow the Discord to know when the doors open again.</p>
+      </div>
+
+      <div class="col gap-12" data-if="kind == 'whitelist'">
+        <p class="lead">Light RP only admits players on its whitelist right now.</p>
+        <div class="plate" data-if="hasNote"><span class="tag-dim">Answer from the staff</span><span class="plate-text">{{ note }}</span></div>
+        <p class="lead">Ask the staff on the Discord, and give them your player id.</p>
+      </div>
+
+      <div class="col gap-12" data-if="kind == 'discord'">
+        <p class="lead" data-if="noTicket">Your launcher did not send a proof of your account. Update the OPEN//77 launcher and sign in again, then press Join.</p>
+        <p class="lead" data-if="!noTicket">Light RP needs a Discord account linked to your OPEN//77 account. Link it once in the launcher (Settings, Account), then press Join again.</p>
+      </div>
+
+      <div class="col gap-12" data-if="kind == 'rules'">
+        <p class="lead">The house rules are what keeps the city livable. Press Join again whenever you change your mind.</p>
+      </div>
+
+      <div class="col gap-12" data-if="kind == 'full'">
+        <div class="plate"><span class="plate-text">{{ message }}</span></div>
+      </div>
+
+      <div class="col gap-12" data-if="kind == 'refused'">
+        <div class="plate"><span class="plate-text">{{ message }}</span></div>
+      </div>
+
+      <div class="id">
+        <span class="tag-dim">Your player id (give it to the staff)</span>
+        <span class="id-value">{{ userId }}</span>
+      </div>
+      <div class="links">
+        <a class="cta" data-if="hasAppeal" href="{{ appeal }}">Contact the staff</a>
+        <a class="ghost" data-if="hasWebsite" href="{{ website }}">Website</a>
+      </div>
+    </div>
+  </body>
+</rml>
