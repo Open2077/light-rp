@@ -72,6 +72,7 @@ server_script "server/modules/safezones_admin.lua"
 server_script "server/core/interact.lua"
 server_script "server/modules/characters.lua"
 server_script "server/modules/neuralink_bridge.lua"
+server_script "server/modules/preflight.lua"        -- the launcher's server check: ui.provider of open77_preflight
 server_script "server/modules/creator.lua"
 server_script "server/modules/creator_placement.lua"
 server_script "server/modules/needs.lua"

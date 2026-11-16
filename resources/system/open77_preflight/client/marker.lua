@@ -1,0 +1,4 @@
+-- Nothing runs on the client: the server check happens in the launcher, before the game
+-- starts. This file exists so that a resource with client scripts may declare
+-- `dependency "open77_preflight"` (to call its exports from its server side): a dependency
+-- that ships nothing to clients would fail their resource activation.

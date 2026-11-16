@@ -1,0 +1,76 @@
+<rml>
+  <!-- Light RP: the whitelist application (open77_preflight's "apply"), used only while the
+       whitelist is on. Data: server, name, userId, prompt, pending, denied, note/hasNote, sent,
+       askCode, error, discord/hasDiscord. Events: apply (inputs application, code), withdraw. -->
+  <head>
+    <title>Whitelist</title>
+    <style>
+      body { display: flex; flex-direction: column; color: #C3C7D1; font-size: 14px; line-height: 1.5em; background-color: #0A0A0C; }
+      .strip { width: 1600px; height: 200px; }
+      .hazard { width: 1600px; height: 8px; }
+      .content { display: flex; flex-direction: column; gap: 14px; padding: 20px 24px 22px 24px; }
+      .tag { font-family: mono; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #FFCC00; }
+      .tag-dim { font-family: mono; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #8A8F9C; }
+      .lead { margin: 0px; color: #C3C7D1; }
+      .hi { color: #F2F3F5; font-weight: bold; }
+      .plate { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background-color: #111114; border-left-width: 3px; border-color: #FFCC00; }
+      .plate-red { border-color: #FF2E3C; background-color: #1A0C0E; }
+      .plate-text { color: #F2F3F5; }
+      .form { display: flex; flex-direction: column; gap: 10px; }
+      .field { display: flex; flex-direction: column; gap: 4px; }
+      input.text { width: 100%; min-height: 42px; padding: 0px 12px; margin: 0px; color: #F2F3F5; background-color: #050506; border-width: 1px; border-color: #FFCC0047; }
+      .error { padding: 8px 12px; background-color: #1A0C0E; border-left-width: 3px; border-color: #FF2E3C; color: #FF6B75; font-weight: bold; }
+      .actions { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; }
+      button { min-height: 42px; padding: 0px 22px; margin: 0px; font-family: label; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; border-width: 1px; }
+      .primary { color: #050506; background-color: #FFCC00; border-color: #FFCC00; }
+      .primary:hover { background-color: #FFDD40; border-color: #FFDD40; }
+      .ghost { color: #8A8F9C; background-color: #111114; border-color: #2B2D34; }
+      .ghost:hover { color: #F2F3F5; border-color: #565A66; }
+      .id { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; background-color: #050506; border-width: 1px; border-color: #2B2D34; }
+      .id-value { font-family: mono; font-size: 14px; letter-spacing: 1px; color: #FFCC00; }
+      .cta { display: flex; flex-direction: row; align-items: center; padding: 9px 16px; font-family: label; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #F2F3F5; background-color: #111114; border-width: 1px; border-color: #FFCC0047; text-decoration: none; }
+      .cta:hover { border-color: #FFCC00; color: #FFCC00; }
+    </style>
+  </head>
+  <body>
+    <img class="strip" src="asset:ui/custom/lightrp-strip.jpg"/>
+    <img class="hazard" src="asset:ui/custom/lightrp-hazard.png"/>
+    <div class="content">
+      <span class="tag">// Whitelist</span>
+      <p class="lead">Hello <span class="hi">{{ name }}</span>. Light RP only admits players on its whitelist right now: tell the staff who you are.</p>
+
+      <div class="plate" data-if="pending">
+        <span class="tag">Your application is with the staff</span>
+        <span class="plate-text">{{ sent }}</span>
+        <p class="lead">Keep this window open: you are let in the moment it is approved. You can also close it and press Join later; it stays on file.</p>
+        <div class="actions"><button class="ghost" data-event-click="withdraw">Withdraw</button></div>
+      </div>
+
+      <div class="plate plate-red" data-if="denied">
+        <span class="tag-dim">Your last application was not accepted</span>
+        <span class="plate-text" data-if="hasNote">{{ note }}</span>
+      </div>
+
+      <div class="form" data-if="!pending" data-event-submit="apply">
+        <div class="field">
+          <span class="tag-dim">{{ prompt }}</span>
+          <input id="application" type="text" maxlength="300" placeholder="Who you are, how you found Light RP"/>
+        </div>
+        <div class="field" data-if="askCode">
+          <span class="tag-dim">Invite code (optional)</span>
+          <input id="code" type="text" maxlength="64" placeholder="If the staff gave you one"/>
+        </div>
+        <div class="error" data-if="error">{{ error }}</div>
+        <div class="actions"><button class="primary" data-event-click="apply">Send my application</button></div>
+      </div>
+
+      <div class="id">
+        <span class="tag-dim">Your player id</span>
+        <span class="id-value">{{ userId }}</span>
+      </div>
+      <div class="actions">
+        <a class="cta" data-if="hasDiscord" href="{{ discord }}">Discord</a>
+      </div>
+    </div>
+  </body>
+</rml>

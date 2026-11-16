@@ -1,0 +1,54 @@
+<rml>
+  <head>
+    <title>Welcome</title>
+    <style>
+      body { display: flex; flex-direction: column; gap: 14px; padding: 22px; color: var(--text); font-size: 14px; line-height: 1.45em; }
+      h1 { font-size: 22px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+      h2 { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+      .muted { color: var(--muted); font-size: 12px; }
+      .row { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+      .chip { padding: 3px 10px; border-width: 1px; border-color: var(--line); border-radius: 10px; font-size: 12px; color: var(--muted); }
+      .chip-accent { border-color: var(--accent); color: var(--accent); }
+      .chip-warn { border-color: #f0b040; color: #f0b040; }
+      .panel { display: flex; flex-direction: column; gap: 8px; background-color: var(--panel); border-width: 1px; border-color: var(--line); border-radius: 6px; padding: 14px; }
+      .notice { border-color: var(--accent); }
+      .alert { border-color: #f0b040; }
+      .alert-title { color: #f0b040; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; font-size: 12px; }
+      ul { display: flex; flex-direction: column; gap: 4px; padding-left: 16px; }
+      a { color: var(--accent); font-weight: bold; }
+      a:hover { opacity: 0.8; }
+    </style>
+  </head>
+  <body>
+    <h1>{{ title }}</h1>
+    <div class="row">
+      <span class="chip chip-accent" data-if="showPlayers">{{ players }} / {{ maxPlayers }} players</span>
+      <span class="chip chip-warn" data-if="full">Full</span>
+      <span class="chip chip-warn" data-if="whitelist">Whitelist</span>
+      <span class="chip" data-if="!whitelist">Open to everyone</span>
+      <span class="chip" data-if="needDiscord">Discord account required</span>
+    </div>
+    <div class="panel alert" data-if="maintenance">
+      <span class="alert-title">Maintenance</span>
+      <p>{{ maintenanceMessage }}</p>
+    </div>
+    <p data-if="hasText">{{ text }}</p>
+    <div class="panel notice" data-if="hasAnnouncements">
+      <h2>News</h2>
+      <ul>
+        <li data-for="line : announcements">{{ line }}</li>
+      </ul>
+    </div>
+    <div class="panel" data-if="hasRules">
+      <h2>{{ rulesTitle }}</h2>
+      <ul>
+        <li data-for="rule : rules">{{ rule }}</li>
+      </ul>
+    </div>
+    <p class="muted" data-if="applications">This server is whitelisted. Press Join to send your application to the staff.</p>
+    <div class="row">
+      <a data-if="hasDiscord" href="{{ discord }}">Discord</a>
+      <a data-if="hasWebsite" href="{{ website }}">Website</a>
+    </div>
+  </body>
+</rml>

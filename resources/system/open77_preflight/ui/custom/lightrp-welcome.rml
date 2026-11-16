@@ -1,0 +1,137 @@
+<rml>
+  <!-- Light RP: the server page in the launcher, before Join (open77_preflight's "welcome").
+       Data: open77_preflight (title, players, maxPlayers, whitelist, maintenance, announcements,
+       rules, discord, website...), config.lua ui.data (tagline) and op77_lightrp's provider
+       (residents). The Open//77 RP design system: near-black plates, one yellow accent,
+       tracked mono labels, hazard stripe. -->
+  <head>
+    <title>Light RP</title>
+    <style>
+      body { display: flex; flex-direction: column; gap: 0px; color: #C3C7D1; font-size: 14px; line-height: 1.5em; background-color: #0A0A0C; }
+      .hero { width: 1600px; height: 440px; }
+      .hazard { width: 1600px; height: 8px; }
+      .content { display: flex; flex-direction: column; gap: 18px; padding: 22px 26px 26px 26px; }
+
+      .tag { font-family: mono; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #FFCC00; }
+      .tag-dim { font-family: mono; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #8A8F9C; }
+
+      .chips { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+      .chip { display: flex; flex-direction: row; align-items: center; gap: 8px; padding: 6px 12px 6px 10px; background-color: #111114; border-left-width: 2px; border-color: #FFCC00; }
+      .chip-red { border-color: #FF2E3C; }
+      .chip-green { border-color: #8FE04A; }
+      .chip-label { font-family: mono; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #8A8F9C; }
+      .chip-value { font-family: mono; font-size: 13px; letter-spacing: 1px; color: #F2F3F5; }
+      .dot { width: 7px; height: 7px; background-color: #8FE04A; }
+      .dot-red { width: 7px; height: 7px; background-color: #FF2E3C; }
+
+      .lead { font-size: 15px; line-height: 1.6em; color: #C3C7D1; margin: 0px; }
+      .lead-hi { color: #F2F3F5; font-weight: bold; }
+
+      .pillars { display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px; }
+      .pillar { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-width: 230px; width: 300px; padding: 14px 16px 16px 16px; background-color: #111114; border-width: 1px; border-color: #FFCC0024; }
+      .pillar-head { display: flex; flex-direction: row; align-items: center; gap: 10px; }
+      .pillar-index { font-family: mono; font-size: 12px; letter-spacing: 1px; color: #050506; background-color: #FFCC00; padding: 1px 6px; }
+      .pillar-title { font-family: label; font-size: 13px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #F2F3F5; }
+      .pillar-text { font-size: 13px; line-height: 1.55em; color: #8A8F9C; margin: 0px; }
+
+      .plate { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; background-color: #111114; border-left-width: 3px; border-color: #FFCC00; }
+      .plate-red { border-color: #FF2E3C; background-color: #1A0C0E; }
+      .plate-title { font-family: label; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #FF2E3C; }
+      .line { display: flex; flex-direction: row; align-items: center; gap: 10px; }
+      .mark { width: 6px; height: 6px; background-color: #FFCC00; }
+      .line-text { color: #F2F3F5; font-size: 14px; }
+
+      .rules { display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px; }
+      .rule { padding: 5px 10px; font-size: 12px; color: #C3C7D1; background-color: #17181C; border-width: 1px; border-color: #2B2D34; }
+
+      .footer { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 4px; }
+      .cta { display: flex; flex-direction: row; align-items: center; padding: 10px 18px; font-family: label; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #050506; background-color: #FFCC00; text-decoration: none; }
+      .cta:hover { background-color: #FFDD40; color: #050506; }
+      .ghost { display: flex; flex-direction: row; align-items: center; padding: 9px 16px; font-family: label; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #F2F3F5; background-color: #111114; border-width: 1px; border-color: #FFCC0047; text-decoration: none; }
+      .ghost:hover { border-color: #FFCC00; color: #FFCC00; }
+      .keys { font-family: mono; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #565A66; }
+    </style>
+  </head>
+  <body>
+    <img class="hero" src="asset:ui/custom/lightrp-hero.jpg"/>
+    <img class="hazard" src="asset:ui/custom/lightrp-hazard.png"/>
+
+    <div class="content">
+      <div class="chips">
+        <div class="chip chip-green" data-if="showPlayers">
+          <div class="dot"></div>
+          <span class="chip-label">Online</span>
+          <span class="chip-value">{{ players }} / {{ maxPlayers }}</span>
+        </div>
+        <div class="chip" data-if="hasResidents">
+          <span class="chip-label">Residents</span>
+          <span class="chip-value">{{ residents }}</span>
+        </div>
+        <div class="chip">
+          <span class="chip-label">Mode</span>
+          <span class="chip-value">Light roleplay</span>
+        </div>
+        <div class="chip" data-if="!whitelist">
+          <span class="chip-label">Access</span>
+          <span class="chip-value">Open to everyone</span>
+        </div>
+        <div class="chip chip-red" data-if="whitelist">
+          <span class="chip-label">Access</span>
+          <span class="chip-value">Whitelist</span>
+        </div>
+        <div class="chip chip-red" data-if="full">
+          <div class="dot-red"></div>
+          <span class="chip-value">Server full</span>
+        </div>
+      </div>
+
+      <div class="plate plate-red" data-if="maintenance">
+        <span class="plate-title">// Maintenance</span>
+        <span class="line-text">{{ maintenanceMessage }}</span>
+      </div>
+
+      <p class="lead">{{ tagline }} <span class="lead-hi">You play a citizen of Night City, not a legend.</span> Earn a living, find a place to sleep, get around, meet people: the story is whatever you and the others make of it.</p>
+
+      <div class="pillars">
+        <div class="pillar">
+          <div class="pillar-head"><span class="pillar-index">01</span><span class="pillar-title">Live your life</span></div>
+          <p class="pillar-text">Your character has a name, a past and a place in the city. Plain chat is in character; /ooc steps out of it.</p>
+        </div>
+        <div class="pillar">
+          <div class="pillar-head"><span class="pillar-index">02</span><span class="pillar-title">Earn your eddies</span></div>
+          <p class="pillar-text">Start small: deliveries, garbage runs, odd gigs. Rent a studio, save up for your first car, build from there.</p>
+        </div>
+        <div class="pillar">
+          <div class="pillar-head"><span class="pillar-index">03</span><span class="pillar-title">No pressure</span></div>
+          <p class="pillar-text">Not serious roleplay: discover RP on Cyberpunk 2077 without the hassle. Have fun, respect the others.</p>
+        </div>
+      </div>
+
+      <div class="plate" data-if="hasAnnouncements">
+        <span class="tag">// What's new in the city</span>
+        <div class="line" data-for="line : announcements">
+          <div class="mark"></div>
+          <span class="line-text">{{ line }}</span>
+        </div>
+      </div>
+
+      <div class="plate" data-if="applications">
+        <span class="tag">// Whitelisted</span>
+        <span class="line-text">Press Join to send your application to the staff.</span>
+      </div>
+
+      <div class="col gap-8" data-if="hasRules">
+        <span class="tag-dim">// {{ rulesTitle }}</span>
+        <div class="rules">
+          <span class="rule" data-for="rule : rules">{{ rule }}</span>
+        </div>
+      </div>
+
+      <div class="footer">
+        <a class="cta" data-if="hasDiscord" href="{{ discord }}">Join the Discord</a>
+        <a class="ghost" data-if="hasWebsite" href="{{ website }}">Website</a>
+        <span class="keys">In game: F1 menu  ·  E interact  ·  /help</span>
+      </div>
+    </div>
+  </body>
+</rml>

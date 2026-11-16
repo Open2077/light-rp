@@ -1,0 +1,79 @@
+<rml>
+  <head>
+    <title>Access refused</title>
+    <style>
+      body { display: flex; flex-direction: column; gap: 14px; padding: 22px; color: var(--text); font-size: 14px; line-height: 1.45em; }
+      h1 { font-size: 22px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #ff5a5a; }
+      .server { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+      .muted { color: var(--muted); font-size: 12px; }
+      .panel { display: flex; flex-direction: column; gap: 10px; background-color: var(--panel); border-width: 1px; border-color: var(--line); border-radius: 6px; padding: 14px; }
+      .field { display: flex; flex-direction: column; gap: 2px; }
+      .label { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+      .value { font-weight: bold; }
+      .danger { color: #ff5a5a; }
+      .id { font-family: monospace; font-size: 13px; }
+      .row { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 14px; }
+      a { color: var(--accent); font-weight: bold; }
+      a:hover { opacity: 0.8; }
+    </style>
+  </head>
+  <body>
+    <span class="server">{{ server }}</span>
+    <h1>{{ title }}</h1>
+
+    <div class="panel" data-if="kind == 'banned'">
+      <div class="field" data-if="hasReason">
+        <span class="label">Reason</span>
+        <span class="value">{{ reason }}</span>
+      </div>
+      <div class="field" data-if="hasExpiry">
+        <span class="label">Banned until</span>
+        <span class="value">{{ expires }}</span>
+      </div>
+      <div class="field" data-if="permanent">
+        <span class="label">Duration</span>
+        <span class="value danger">Permanent</span>
+      </div>
+      <div class="field" data-if="hasStaff">
+        <span class="label">Banned by</span>
+        <span class="value">{{ staff }}</span>
+      </div>
+    </div>
+
+    <div class="panel" data-if="kind == 'whitelist'">
+      <p>This server only admits players on its whitelist.</p>
+      <div class="field" data-if="hasNote">
+        <span class="label">Answer from the staff</span>
+        <span class="value">{{ note }}</span>
+      </div>
+      <p class="muted">Ask the staff to add you, and give them the player id below.</p>
+    </div>
+
+    <div class="panel" data-if="kind == 'discord'">
+      <p class="muted" data-if="noTicket">Your launcher did not send a proof of your account. Update the OPEN//77 launcher and sign in again, then press Join.</p>
+      <p class="muted" data-if="!noTicket">Link Discord once in the launcher, under Settings, Account. Then press Join again.</p>
+    </div>
+
+    <div class="panel" data-if="kind == 'rules'">
+      <p class="muted">Press Join again whenever you change your mind.</p>
+    </div>
+
+    <div class="panel" data-if="kind == 'kicked'">
+      <div class="field">
+        <span class="label">Message from the staff</span>
+        <span class="value">{{ message }}</span>
+      </div>
+      <p class="muted">You can join again in a moment.</p>
+    </div>
+
+    <div class="row">
+      <a data-if="hasAppeal" href="{{ appeal }}">Contact the staff</a>
+      <a data-if="hasWebsite" href="{{ website }}">Website</a>
+    </div>
+    <hr/>
+    <div class="field">
+      <span class="label">Your player id (give it to the staff)</span>
+      <span class="id">{{ userId }}</span>
+    </div>
+  </body>
+</rml>
